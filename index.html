@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>다다리 가계부</title>
+<style>
+  :root {
+    --bg: #f5f6f8;
+    --card-bg: #ffffff;
+    --text: #1c1e21;
+    --text-muted: #6b7280;
+    --border: #e5e7eb;
+    --accent: #4f46e5;
+    --accent-soft: #eef2ff;
+    --income: #16a34a;
+    --income-soft: #ecfdf3;
+    --expense: #dc2626;
+    --expense-soft: #fef2f2;
+    --shadow: 0 1px 2px rgba(0,0,0,0.04), 0 1px 8px rgba(0,0,0,0.04);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14151a;
+      --card-bg: #1e2027;
+      --text: #eef0f3;
+      --text-muted: #9aa0ab;
+      --border: #2c2f38;
+      --accent: #818cf8;
+      --accent-soft: #23253a;
+      --income: #4ade80;
+      --income-soft: #1b2b20;
+      --expense: #f87171;
+      --expense-soft: #2c1c1c;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 1px 8px rgba(0,0,0,0.3);
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", Roboto, sans-serif;
+    padding-bottom: 40px;
+  }
+  header {
+    padding: 24px 20px 12px;
+    max-width: 720px;
+    margin: 0 auto;
+  }
+  header h1 {
+    font-size: 22px;
+    margin: 0 0 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  header p {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+  main {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 0 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 18px;
+    box-shadow: var(--shadow);
+  }
+  .month-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .month-nav button {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    width: 32px;
+    height: 32px;
+    color: var(--text);
+    font-size: 16px;
+    cursor: pointer;
+  }
+  .month-nav .label {
+    font-size: 16px;
+    font-weight: 600;
+  }
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+  }
+  .summary-item {
+    border-radius: 10px;
+    padding: 12px 10px;
+    text-align: center;
+  }
+  .summary-item .lbl {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+  }
+  .summary-item .val {
+    font-size: 15px;
+    font-weight: 700;
+  }
+  .summary-item.income { background: var(--income-soft); }
+  .summary-item.expense { background: var(--expense-soft); }
+  .summary-item.balance { background: var(--accent-soft); }
+  .summary-item.income .val { color: var(--income); }
+  .summary-item.expense .val { color: var(--expense); }
+  .summary-item.balance .val { color: var(--accent); }
+
+  h2.section-title {
+    font-size: 14px;
+    margin: 0 0 12px;
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+
+  form#entry-form {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  form#entry-form .full { grid-column: 1 / -1; }
+  .type-toggle {
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .type-toggle button {
+    flex: 1;
+    padding: 10px;
+    border: none;
+    background: var(--card-bg);
+    color: var(--text-muted);
+    font-size: 14px;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  .type-toggle button.active[data-type="expense"] {
+    background: var(--expense-soft);
+    color: var(--expense);
+  }
+  .type-toggle button.active[data-type="income"] {
+    background: var(--income-soft);
+    color: var(--income);
+  }
+  input, select {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+  }
+  label {
+    display: block;
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+  }
+  button.submit-btn {
+    grid-column: 1 / -1;
+    padding: 12px;
+    border: none;
+    border-radius: 10px;
+    background: var(--accent);
+    color: white;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 4px;
+  }
+  button.submit-btn:active { opacity: 0.85; }
+
+  .bar-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    font-size: 13px;
+  }
+  .bar-row .cat-name {
+    width: 64px;
+    flex-shrink: 0;
+    color: var(--text-muted);
+  }
+  .bar-row .bar-track {
+    flex: 1;
+    height: 10px;
+    background: var(--bg);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .bar-row .bar-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 6px;
+  }
+  .bar-row .cat-amt {
+    width: 74px;
+    text-align: right;
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .tx-list { display: flex; flex-direction: column; gap: 8px; }
+  .tx-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 4px;
+    border-bottom: 1px solid var(--border);
+  }
+  .tx-item:last-child { border-bottom: none; }
+  .tx-main { display: flex; flex-direction: column; gap: 2px; }
+  .tx-cat { font-size: 14px; font-weight: 600; }
+  .tx-meta { font-size: 12px; color: var(--text-muted); }
+  .tx-amt { font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .tx-amt.income { color: var(--income); }
+  .tx-amt.expense { color: var(--expense); }
+  .tx-actions { display: flex; gap: 6px; margin-left: 10px; }
+  .tx-actions button {
+    border: none;
+    background: none;
+    color: var(--text-muted);
+    font-size: 15px;
+    cursor: pointer;
+    padding: 4px;
+  }
+  .empty-msg {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 13px;
+    padding: 20px 0;
+  }
+  .backup-row {
+    display: flex;
+    gap: 10px;
+  }
+  .backup-row button, .backup-row label {
+    flex: 1;
+    text-align: center;
+    padding: 10px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .backup-row input[type="file"] { display: none; }
+  .toast {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--text);
+    color: var(--bg);
+    padding: 10px 18px;
+    border-radius: 20px;
+    font-size: 13px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+    z-index: 10;
+  }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🪜 다다리 가계부</h1>
+  <p>매일의 수입과 지출을 가볍게 기록해요</p>
+</header>
+
+<main>
+
+  <section class="card">
+    <div class="month-nav">
+      <button id="prev-month" aria-label="이전 달">◀</button>
+      <div class="label" id="month-label"></div>
+      <button id="next-month" aria-label="다음 달">▶</button>
+    </div>
+    <div class="summary-grid">
+      <div class="summary-item income">
+        <div class="lbl">수입</div>
+        <div class="val" id="sum-income">0원</div>
+      </div>
+      <div class="summary-item expense">
+        <div class="lbl">지출</div>
+        <div class="val" id="sum-expense">0원</div>
+      </div>
+      <div class="summary-item balance">
+        <div class="lbl">잔액</div>
+        <div class="val" id="sum-balance">0원</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2 class="section-title">새 기록 추가</h2>
+    <form id="entry-form">
+      <div class="full type-toggle" id="type-toggle">
+        <button type="button" data-type="expense" class="active">지출</button>
+        <button type="button" data-type="income">수입</button>
+      </div>
+      <div>
+        <label for="f-date">날짜</label>
+        <input type="date" id="f-date" required>
+      </div>
+      <div>
+        <label for="f-category">카테고리</label>
+        <select id="f-category"></select>
+      </div>
+      <div class="full">
+        <label for="f-amount">금액</label>
+        <input type="number" id="f-amount" placeholder="0" min="0" inputmode="numeric" required>
+      </div>
+      <div class="full">
+        <label for="f-memo">메모 (선택)</label>
+        <input type="text" id="f-memo" placeholder="예: 점심 식사">
+      </div>
+      <button type="submit" class="submit-btn">기록하기</button>
+    </form>
+  </section>
+
+  <section class="card" id="breakdown-card">
+    <h2 class="section-title">이번 달 지출 카테고리</h2>
+    <div id="breakdown-list"></div>
+  </section>
+
+  <section class="card">
+    <h2 class="section-title">내역</h2>
+    <div class="tx-list" id="tx-list"></div>
+  </section>
+
+  <section class="card">
+    <h2 class="section-title">백업 &amp; 복원</h2>
+    <div class="backup-row">
+      <button id="export-btn" type="button">내보내기 (JSON)</button>
+      <label for="import-input">가져오기</label>
+      <input type="file" id="import-input" accept="application/json">
+    </div>
+  </section>
+
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  const STORAGE_KEY = 'dadari_transactions_v1';
+
+  const CATEGORIES = {
+    expense: ['식비', '교통', '주거/공과금', '통신', '의료/건강', '쇼핑', '여가/문화', '경조사', '기타'],
+    income: ['급여', '부수입', '용돈', '환급/이자', '기타']
+  };
+
+  let transactions = load();
+  let currentType = 'expense';
+  let viewDate = new Date();
+  viewDate.setDate(1);
+
+  const el = (id) => document.getElementById(id);
+  const dateInput = el('f-date');
+  const categorySelect = el('f-category');
+  const form = el('entry-form');
+  const typeToggle = el('type-toggle');
+
+  dateInput.value = todayStr();
+  renderCategoryOptions();
+
+  function load() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      return raw ? JSON.parse(raw) : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function save() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(transactions));
+    } catch (e) {
+      showToast('저장 공간이 부족해 저장하지 못했어요');
+    }
+  }
+
+  function todayStr() {
+    const d = new Date();
+    return d.toISOString().slice(0, 10);
+  }
+
+  function formatWon(n) {
+    return Math.round(n).toLocaleString('ko-KR') + '원';
+  }
+
+  function renderCategoryOptions() {
+    categorySelect.innerHTML = CATEGORIES[currentType]
+      .map((c) => `<option value="${c}">${c}</option>`)
+      .join('');
+  }
+
+  typeToggle.addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-type]');
+    if (!btn) return;
+    currentType = btn.dataset.type;
+    [...typeToggle.children].forEach((b) => b.classList.toggle('active', b === btn));
+    renderCategoryOptions();
+  });
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const amount = parseFloat(el('f-amount').value);
+    if (!amount || amount <= 0) {
+      showToast('금액을 확인해주세요');
+      return;
+    }
+    const entry = {
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      type: currentType,
+      date: dateInput.value || todayStr(),
+      category: categorySelect.value,
+      amount: amount,
+      memo: el('f-memo').value.trim()
+    };
+    transactions.push(entry);
+    save();
+    el('f-amount').value = '';
+    el('f-memo').value = '';
+    viewDate = new Date(entry.date);
+    viewDate.setDate(1);
+    renderAll();
+    showToast('기록되었어요');
+  });
+
+  el('prev-month').addEventListener('click', () => {
+    viewDate.setMonth(viewDate.getMonth() - 1);
+    renderAll();
+  });
+  el('next-month').addEventListener('click', () => {
+    viewDate.setMonth(viewDate.getMonth() + 1);
+    renderAll();
+  });
+
+  function monthKey(d) {
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+  }
+
+  function txMonthKey(tx) {
+    return tx.date.slice(0, 7);
+  }
+
+  function renderAll() {
+    const key = monthKey(viewDate);
+    el('month-label').textContent = viewDate.getFullYear() + '년 ' + (viewDate.getMonth() + 1) + '월';
+
+    const monthTx = transactions.filter((t) => txMonthKey(t) === key);
+    const income = monthTx.filter((t) => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+    const expense = monthTx.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+
+    el('sum-income').textContent = formatWon(income);
+    el('sum-expense').textContent = formatWon(expense);
+    el('sum-balance').textContent = formatWon(income - expense);
+
+    renderBreakdown(monthTx.filter((t) => t.type === 'expense'));
+    renderList(monthTx);
+  }
+
+  function renderBreakdown(expenseTx) {
+    const wrap = el('breakdown-list');
+    if (expenseTx.length === 0) {
+      wrap.innerHTML = '<div class="empty-msg">이번 달 지출 내역이 없어요</div>';
+      return;
+    }
+    const totals = {};
+    expenseTx.forEach((t) => {
+      totals[t.category] = (totals[t.category] || 0) + t.amount;
+    });
+    const max = Math.max(...Object.values(totals));
+    const rows = Object.entries(totals)
+      .sort((a, b) => b[1] - a[1])
+      .map(([cat, amt]) => {
+        const pct = Math.max(4, Math.round((amt / max) * 100));
+        return `<div class="bar-row">
+          <div class="cat-name">${cat}</div>
+          <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
+          <div class="cat-amt">${formatWon(amt)}</div>
+        </div>`;
+      })
+      .join('');
+    wrap.innerHTML = rows;
+  }
+
+  function renderList(monthTx) {
+    const wrap = el('tx-list');
+    if (monthTx.length === 0) {
+      wrap.innerHTML = '<div class="empty-msg">이번 달 기록이 없어요</div>';
+      return;
+    }
+    const sorted = [...monthTx].sort((a, b) => (a.date < b.date ? 1 : -1));
+    wrap.innerHTML = sorted
+      .map((t) => {
+        const sign = t.type === 'income' ? '+' : '-';
+        const day = t.date.slice(5).replace('-', '/');
+        return `<div class="tx-item" data-id="${t.id}">
+          <div class="tx-main">
+            <div class="tx-cat">${t.category}${t.memo ? ' · ' + escapeHtml(t.memo) : ''}</div>
+            <div class="tx-meta">${day}</div>
+          </div>
+          <div class="tx-amt ${t.type}">${sign}${formatWon(t.amount)}</div>
+          <div class="tx-actions">
+            <button class="del-btn" title="삭제" aria-label="삭제">🗑</button>
+          </div>
+        </div>`;
+      })
+      .join('');
+
+    wrap.querySelectorAll('.del-btn').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        const item = e.target.closest('.tx-item');
+        const id = item.dataset.id;
+        transactions = transactions.filter((t) => t.id !== id);
+        save();
+        renderAll();
+        showToast('삭제되었어요');
+      });
+    });
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  let toastTimer;
+  function showToast(msg) {
+    const t = el('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), 1800);
+  }
+
+  el('export-btn').addEventListener('click', () => {
+    const blob = new Blob([JSON.stringify(transactions, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const stamp = todayStr();
+    a.href = url;
+    a.download = `다다리가계부_백업_${stamp}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    showToast('백업 파일을 내려받았어요');
+  });
+
+  el('import-input').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const data = JSON.parse(reader.result);
+        if (!Array.isArray(data)) throw new Error('invalid format');
+        const valid = data.filter(
+          (t) => t && t.id && t.date && t.category && typeof t.amount === 'number' && (t.type === 'income' || t.type === 'expense')
+        );
+        const existingIds = new Set(transactions.map((t) => t.id));
+        const merged = transactions.concat(valid.filter((t) => !existingIds.has(t.id)));
+        transactions = merged;
+        save();
+        renderAll();
+        showToast(`${valid.length}건을 불러왔어요`);
+      } catch (err) {
+        showToast('올바른 백업 파일이 아니에요');
+      }
+      e.target.value = '';
+    };
+    reader.readAsText(file);
+  });
+
+  renderAll();
+})();
+</script>
+
+</body>
+</html>
