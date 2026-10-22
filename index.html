@@ -432,9 +432,18 @@
   .fx-row:first-child { border-top: none; }
   .fx-row span { color: var(--text-muted); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .fx-row span em { font-style: normal; color: var(--text); }
-  /* 탭이 5개라 아이콘을 위, 이름을 아래에 두어 폰 너비에서도 한 줄에 들어가게 한다 */
-  .viewtabs { gap: 5px; padding: 0 12px; }
-  .viewtabs button { padding: 8px 0; font-size: 11px; line-height: 1.3; display: flex; flex-direction: column; align-items: center; gap: 1px; white-space: nowrap; min-width: 0; }
+  /* 탭이 많아서 아이콘을 위, 이름을 아래에 두고, 폰에서는 줄을 좌우로 밀어 넘긴다(넓은 화면에서는 꽉 채운다) */
+  .viewtabs { gap: 5px; padding: 0 12px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .viewtabs::-webkit-scrollbar { display: none; }
+  .viewtabs button { flex: 1 0 64px; padding: 8px 0; font-size: 11px; line-height: 1.3; display: flex; flex-direction: column; align-items: center; gap: 1px; white-space: nowrap; }
+  .vcheck.on { background: var(--accent); color: #fff; }
+  .biz-trend { display: flex; align-items: flex-end; gap: 8px; height: 120px; margin-top: 8px; }
+  .biz-trend .col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 3px; font-size: 10px; color: var(--text-muted); }
+  .biz-trend .pair { display: flex; align-items: flex-end; gap: 2px; flex: 1; width: 100%; justify-content: center; }
+  .biz-trend .pair i { display: block; width: 42%; max-width: 14px; border-radius: 3px 3px 0 0; min-height: 2px; }
+  .biz-trend .pair i.s { background: var(--income); }
+  .biz-trend .pair i.c { background: var(--expense); }
+  .bar-row .cat-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .viewtabs button .ic { font-size: 16px; }
   .ins-sum { background: var(--accent-soft); border-radius: 12px; padding: 12px 14px; font-size: 13px; line-height: 1.7; }
   .ins-sum b { font-size: 16px; }
@@ -506,6 +515,10 @@
   .cyc-legend { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; font-size: 11px; color: var(--text-muted); margin-top: 8px; }
   .cyc-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
   .rec-amt.inc { color: var(--income); }
+  @media (max-width: 440px) { .summary-item .val { font-size: 13px; letter-spacing: -0.3px; } .summary-item { padding: 10px 4px; } }
+  .rec-total { font-weight: 700; border-top: 2px solid var(--border); }
+  .rec-total + .rec-total { border-top: 1px solid var(--border); margin-top: 0; }
+  .ins-sum b.inc { color: var(--income); }
   .fx-row b.income { color: var(--income); }
   .fx-row b.expense { color: var(--expense); }
   .fx-group { display: flex; justify-content: space-between; gap: 8px; margin-top: 12px; padding-top: 8px; border-top: 1px solid var(--border); font-size: 12px; font-weight: 600; color: var(--text-muted); }
@@ -608,6 +621,8 @@
   <button type="button" data-view="health"><span class="ic">🩺</span>건강</button>
   <button type="button" data-view="insurance"><span class="ic">🛡</span>보험</button>
   <button type="button" data-view="rental"><span class="ic">🧰</span>렌탈</button>
+  <button type="button" data-view="academy"><span class="ic">📚</span>학원비</button>
+  <button type="button" data-view="biz"><span class="ic">📈</span>사업매출</button>
 </nav>
 
 <main id="view-insurance" hidden>
@@ -617,6 +632,38 @@
     <div class="cards-actions">
       <button type="button" class="mini-btn" id="add-ins-btn">＋ 보험 추가</button>
       <button type="button" class="mini-btn" id="ins-member-btn">👥 구성원 관리</button>
+    </div>
+  </section>
+</main>
+
+<main id="view-academy" hidden>
+  <section class="card">
+    <div class="month-nav">
+      <button id="aca-prev" aria-label="이전 달">◀</button>
+      <div class="label" id="aca-label"></div>
+      <button id="aca-next" aria-label="다음 달">▶</button>
+    </div>
+    <div class="member-chips" id="aca-who" hidden></div>
+    <div id="aca-body"></div>
+    <div class="cards-actions">
+      <button type="button" class="mini-btn" id="add-aca-btn">＋ 학원 추가</button>
+      <button type="button" class="mini-btn" id="aca-member-btn">👥 구성원 관리</button>
+    </div>
+  </section>
+</main>
+
+<main id="view-biz" hidden>
+  <section class="card">
+    <div class="month-nav">
+      <button id="biz-prev" aria-label="이전 달">◀</button>
+      <div class="label" id="biz-label"></div>
+      <button id="biz-next" aria-label="다음 달">▶</button>
+    </div>
+    <div id="biz-body"></div>
+    <div class="cards-actions" style="flex-wrap:wrap">
+      <button type="button" class="mini-btn" id="add-sale-btn">＋ 매출 입력</button>
+      <button type="button" class="mini-btn" id="add-cost-btn">＋ 비용 입력</button>
+      <button type="button" class="mini-btn" id="biz-target-btn">🎯 월 목표</button>
     </div>
   </section>
 </main>
@@ -1175,7 +1222,7 @@
 
   el('export-btn').addEventListener('click', () => {
     // 예전 백업은 내역 배열만 있었다. 지금은 카드·자동이체·월 목표까지 한 파일에 담고, 불러올 때 두 형식을 모두 받는다.
-    const backup = { app: 'dadari', version: 2, transactions, categories, cards, recurs, recurDone: [...recurDone], goal, schedule, health, insurance, rentals };
+    const backup = { app: 'dadari', version: 2, transactions, categories, cards, recurs, recurDone: [...recurDone], goal, schedule, health, insurance, rentals, academies, biz };
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -1249,6 +1296,17 @@
             mergeById(rentals, data.rentals, (r) => typeof r.name === 'string' && r.fee > 0);
             saveRentals();
             renderRental();
+          }
+          if (Array.isArray(data.academies)) {
+            mergeById(academies, data.academies, (a) => typeof a.name === 'string' && a.fee > 0);
+            saveAcademies();
+            renderAcademy();
+          }
+          if (data.biz && Array.isArray(data.biz.entries)) {
+            mergeById(biz.entries, data.biz.entries, (e) => validDate(e.date) && (e.kind === 'sale' || e.kind === 'cost') && e.amount > 0);
+            if (!biz.target && data.biz.target > 0) biz.target = Math.round(data.biz.target);
+            saveBiz();
+            renderBiz();
           }
           if (data.schedule && typeof data.schedule === 'object') {
             mergeById(schedule.members, data.schedule.members, (m) => typeof m.name === 'string');
@@ -1361,13 +1419,36 @@
     renderAll();
   });
 
+  // 항목 목록 맨 아래에 합계 줄을 붙인다(항목이 2개 이상일 때). 지출과 수입은 따로 합산한다.
   function recRows(list) {
-    return list.map((r) => `<div class="rec">
+    const rows = list.map((r) => `<div class="rec">
         <div><div class="rec-name">${escapeHtml(r.name)}</div>
         <div class="rec-sub">매월 ${r.day}일 · ${escapeHtml(r.category)}${r.auto ? ' · 자동 기록' : ' · 기록 안 함'}</div></div>
         <div class="rec-amt${r.type === 'income' ? ' inc' : ''}">${r.type === 'income' ? '+' : ''}${formatWon(r.amount)}</div>
         <button type="button" class="icon-btn" data-del-recur="${r.id}" aria-label="자동이체 삭제">✕</button>
       </div>`).join('');
+    if (list.length < 2) return rows;
+    const exp = list.filter((r) => r.type !== 'income').reduce((s, r) => s + r.amount, 0);
+    const inc = list.filter((r) => r.type === 'income').reduce((s, r) => s + r.amount, 0);
+    const line = (label, amt, cls) => `<div class="rec rec-total"><div><div class="rec-name">${label}</div></div><div class="rec-amt${cls}">${amt}</div><span style="width:26px"></span></div>`;
+    return rows + (exp ? line(`합계 (지출 ${list.filter((r) => r.type !== 'income').length}건)`, formatWon(exp), '') : '')
+      + (inc ? line(`합계 (수입 ${list.filter((r) => r.type === 'income').length}건)`, '+' + formatWon(inc), ' inc') : '');
+  }
+
+  // 자동이체·정기결제 전체 합계: 카드/계좌별, 분류별(렌탈·보험·학원비 등)
+  function autoTotalsHtml() {
+    const exp = recurs.filter((r) => r.type !== 'income');
+    const inc = recurs.filter((r) => r.type === 'income');
+    if (!exp.length && !inc.length) return '';
+    const sum = (l) => l.reduce((s, r) => s + r.amount, 0);
+    const byCard = exp.filter((r) => r.cardId && cardById(r.cardId));
+    const byAcct = exp.filter((r) => !r.cardId || !cardById(r.cardId));
+    const cat = {};
+    exp.forEach((r) => { cat[r.category] = (cat[r.category] || 0) + r.amount; });
+    const cats = Object.entries(cat).sort((a, b) => b[1] - a[1]).map(([n, v]) => `${escapeHtml(n)} ${formatWon(v)}`).join(' · ');
+    return `<div class="ins-sum" style="margin-bottom:12px">매달 나가는 자동이체·정기결제 <b>${formatWon(sum(exp))}</b> (${exp.length}건)
+      <br>카드 ${formatWon(sum(byCard))} · 계좌 ${formatWon(sum(byAcct))}${inc.length ? `<br>고정수입 <b class="inc">+${formatWon(sum(inc))}</b>` : ''}
+      ${cats ? `<br><span style="font-size:12px;color:var(--text-muted)">${cats}</span>` : ''}</div>`;
   }
 
   // 카드 혜택: 한 줄에 하나. "혜택이름 / 40-4천원 / 70-7천원"처럼 "전월 실적(만원)-혜택"으로 쓰면 구간별 혜택으로 읽는다.
@@ -1485,7 +1566,7 @@
     const slots = Math.max(CARD_SLOTS, Math.ceil(cards.length / 3) * 3);
     const tiles = cards.map(cardTile).concat(Array.from({ length: slots - cards.length }, () =>
       '<button type="button" class="ctile empty" data-card-new aria-label="카드 등록">＋<small>카드 등록</small></button>'));
-    let html = `<div class="cards-grid">${tiles.join('')}</div>`;
+    let html = autoTotalsHtml() + `<div class="cards-grid">${tiles.join('')}</div>`;
     if (!cards.length) html += '<p class="goal-hint" style="margin:10px 0 0">카드 이름만 등록하면 돼요(카드번호는 입력하지 않아요). 카드를 누르면 혜택·실적을 볼 수 있어요.</p>';
     const acct = recurs.filter((r) => !r.cardId || !cardById(r.cardId));
     if (acct.length) {
@@ -1721,7 +1802,7 @@
         name,
         amount,
         day,
-        category: String(fd.get('category')),
+        category: String(fd.get('category') || '기타'),
         auto: fd.get('auto') === 'on',
         start
       });
@@ -1808,12 +1889,18 @@
     el('view-health').hidden = v !== 'health';
     el('view-insurance').hidden = v !== 'insurance';
     el('view-rental').hidden = v !== 'rental';
+    el('view-academy').hidden = v !== 'academy';
+    el('view-biz').hidden = v !== 'biz';
     document.querySelectorAll('#viewtabs button').forEach((b) => b.classList.toggle('active', b.dataset.view === v));
     saveJson(VIEW_KEY, v);
     if (v === 'schedule') renderSchedule();
     if (v === 'health') renderHealth();
     if (v === 'insurance') renderInsurance();
     if (v === 'rental') renderRental();
+    if (v === 'academy') renderAcademy();
+    if (v === 'biz') renderBiz();
+    const activeTab = document.querySelector('#viewtabs button.active');
+    if (activeTab && activeTab.scrollIntoView) activeTab.scrollIntoView({ inline: 'center', block: 'nearest' });   // 탭 줄이 넘칠 때 선택한 탭이 보이게
   }
   el('viewtabs').addEventListener('click', (e) => {
     const b = e.target.closest('button[data-view]');
@@ -1922,12 +2009,17 @@
     if (meds.length) parts.push(`복약 ${meds.length}개`);
     if (policies.length) parts.push(`보험 ${policies.length}건`);
     if (rents.length) parts.push(`렌탈 ${rents.length}건`);
+    const acas = academies.filter((a) => a.who === id);
+    if (acas.length) parts.push(`학원 ${acas.length}건`);
     if (!confirm(`“${m.name}”을(를) 삭제할까요?` + (parts.length ? `\n${parts.join(', ')}도 함께 지워져요.` : ''))) return false;
-    // 보험·렌탈에 연결된 가계부 자동 기록 항목도 함께 지운다(이미 기록된 내역은 남는다).
+    // 보험·렌탈·학원에 연결된 가계부 자동 기록 항목도 함께 지운다(이미 기록된 내역은 남는다).
     policies.forEach((p) => syncRecur(p, false, null));
     rents.forEach((r) => syncRecur(r, false, null));
+    acas.forEach((a) => syncRecur(a, false, null));
     tomb(id, ...items.map((i) => i.id), ...visits.map((v) => v.id), ...vaccines.map((v) => v.id), ...meds.map((v) => v.id),
-      ...policies.map((p) => p.id), ...rents.map((r) => r.id));
+      ...policies.map((p) => p.id), ...rents.map((r) => r.id), ...acas.map((a) => a.id));
+    academies = academies.filter((a) => a.who !== id);
+    saveAcademies();
     schedule.members = schedule.members.filter((x) => x.id !== id);
     schedule.items = schedule.items.filter((i) => i.memberId !== id);
     health.visits = health.visits.filter((v) => v.who !== id);
@@ -1945,6 +2037,7 @@
     renderHealth();
     renderInsurance();
     renderRental();
+    renderAcademy();
     renderAll();
     showToast('삭제했어요');
     return true;
@@ -3105,6 +3198,298 @@
     if (rent) openRentSheet(rentals.find((x) => x.id === rent.dataset.rent));
   });
 
+  /* ---------- 학원비 ---------- */
+  // 자녀별 학원과 월 수강료, 달별 납부 확인을 관리한다. 월 수강료는 선택하면 가계부에 고정비로 자동 기록한다.
+  const ACA_KEY = 'dadari_academies_v1';
+  let academies = loadJson(ACA_KEY, []);   // {id, who, name, subject, fee, payDay, cardId, start, end, status 'active'|'paused'|'ended', paid {'YYYY-MM': true}, auto, recurId, note}
+  if (!Array.isArray(academies)) academies = [];
+  let acaView = { y: new Date().getFullYear(), m: new Date().getMonth() };
+  const saveAcademies = () => saveJson(ACA_KEY, academies);
+  const ymKey = (v) => v.y + '-' + pad2(v.m + 1);
+
+  // 그 달에 수강 기간이 걸쳐 있는지(시작일·종료일 기준)
+  function acaInMonth(a, ym) {
+    const [y, m] = ym.split('-').map(Number);
+    const first = ym + '-01', last = ym + '-' + pad2(new Date(y, m, 0).getDate());
+    return (!validDate(a.start) || a.start <= last) && (!validDate(a.end) || a.end >= first);
+  }
+  // 직접 "납부 확인"을 눌렀거나, 가계부에 그 달 자동 기록이 생겼으면 납부한 것으로 본다.
+  const acaAuto = (a, ym) => !!a.recurId && transactions.some((t) => t.recurId === a.recurId && t.date.startsWith(ym));
+  const acaPaid = (a, ym) => !!(a.paid && a.paid[ym]) || acaAuto(a, ym);
+
+  function renderAcademy() {
+    drawContractWho(el('aca-who'));
+    el('aca-label').textContent = acaView.y + '년 ' + (acaView.m + 1) + '월';
+    const ym = ymKey(acaView), today = todayStr(), thisMonth = ym === today.slice(0, 7);
+    const ppl = people();
+    const list = academies.filter((a) => conWho === 'all' || a.who === conWho);
+    if (!list.length) { el('aca-body').innerHTML = '<div class="empty-msg">등록한 학원이 없어요<br>아래 “＋ 학원 추가”로 학원과 월 수강료를 기록하세요</div>'; return; }
+    const tag = (a) => (conWho === 'all' && ppl.length > 1 ? `<span class="who-tag">${esc(whoName(a.who))}</span>` : '');
+    const live = list.filter((a) => a.status === 'active' && acaInMonth(a, ym));
+    const idle = list.filter((a) => a.status === 'active' && !acaInMonth(a, ym));
+    const paused = list.filter((a) => a.status === 'paused');
+    const ended = list.filter((a) => a.status === 'ended');
+    const total = live.reduce((s, a) => s + (+a.fee || 0), 0);
+    const paidList = live.filter((a) => acaPaid(a, ym));
+    const paidSum = paidList.reduce((s, a) => s + (+a.fee || 0), 0);
+    const per = conWho === 'all' && ppl.length > 1
+      ? ppl.map((p) => { const s = live.filter((a) => a.who === p.id).reduce((x, a) => x + (+a.fee || 0), 0); return s ? `${esc(p.name)} ${formatWon(s)}` : ''; }).filter(Boolean).join(' · ') : '';
+    // 올해 납부 확인한 누적(1월~이번 달, 그 달에 수강 중이던 학원 기준)
+    let yearPaid = 0;
+    list.filter((a) => a.status !== 'ended' || true).forEach((a) => {
+      for (let m = 0; m <= (acaView.y === new Date().getFullYear() ? new Date().getMonth() : 11); m++) {
+        const k = acaView.y + '-' + pad2(m + 1);
+        if (acaInMonth(a, k) && acaPaid(a, k)) yearPaid += +a.fee || 0;
+      }
+    });
+    let html = `<div class="ins-sum">이번 달 학원비 <b>${formatWon(total)}</b> · 납부 ${paidList.length}/${live.length}건<br>
+      ${total ? `미납 ${formatWon(total - paidSum)}` : '수강 중인 학원이 없어요'}${per ? '<br>' + per : ''}
+      <div class="bar" style="margin-top:6px"><i style="width:${total ? Math.round((paidSum / total) * 100) : 0}%"></i></div>
+      <span style="font-size:11px;color:var(--text-muted)">${acaView.y}년 납부 완료 누적 ${formatWon(yearPaid)}</span></div>`;
+
+    const due = (a) => (a.payDay ? ymdOf(acaView.y, acaView.m, a.payDay) : '');
+    if (thisMonth) {
+      const soon = live.filter((a) => !acaPaid(a, ym) && due(a) && diffDays(due(a), today) <= 7);
+      if (soon.length) html += '<div class="h-sec">곧 납부할 학원비</div>' + soon.sort((a, b) => due(a).localeCompare(due(b))).map((a) =>
+        `<div class="fx-row"><span>${mdOf(due(a))} <em>${esc(whoName(a.who))} ${esc(a.name)}</em></span><b class="${diffDays(due(a), today) < 0 ? 'expense' : ''}">${ddText(diffDays(due(a), today))}</b></div>`).join('');
+    }
+    const row = (a, canPay) => {
+      const paid = acaPaid(a, ym), auto = acaAuto(a, ym);
+      const dd = due(a) && thisMonth ? diffDays(due(a), today) : null;
+      const parts = [a.subject, a.payDay ? `매월 ${a.payDay}일${dd !== null && !paid ? ' (' + ddText(dd) + ')' : ''}` : '', payInfo(a.cardId),
+        validDate(a.end) ? `~${a.end.slice(2).replace(/-/g, '.')}` : '', a.note];
+      const btn = canPay ? `<button type="button" class="vcheck${paid ? ' on' : ''}" data-acapay="${a.id}" aria-label="납부 확인">${paid ? (auto ? '✓ 자동' : '✓ 납부') : '납부 확인'}</button>` : '';
+      return `<div class="vrow"><button type="button" class="visit" data-aca="${a.id}"><div class="v1"><span>${esc(a.name)}${tag(a)}</span><span>월 ${formatWon(+a.fee || 0)}</span></div>
+        <div class="v2">${parts.filter(Boolean).map(esc).join(' · ')}</div></button>${btn}</div>`;
+    };
+    if (live.length) html += `<div class="h-sec">${acaView.m + 1}월 수강 중 · ${live.length}건</div>` + live.map((a) => row(a, true)).join('');
+    if (idle.length) html += `<div class="h-sec">이 달은 수강 기간 밖 · ${idle.length}건</div>` + idle.map((a) => row(a, false)).join('');
+    if (paused.length) html += `<div class="h-sec">휴원 · ${paused.length}건</div>` + paused.map((a) => row(a, false)).join('');
+    if (ended.length) html += `<div class="h-sec">종료 · ${ended.length}건</div>` + ended.map((a) => row(a, false)).join('');
+    el('aca-body').innerHTML = html;
+  }
+
+  function openAcaSheet(a) {
+    const val = (x) => attr(x == null ? '' : String(x));
+    const who = a ? a.who : conWho === 'all' ? 'me' : conWho;
+    const whoOpts = people().map((x) => `<option value="${attr(x.id)}"${x.id === who ? ' selected' : ''}>${esc(x.name)}</option>`).join('');
+    openSheet(`<form>
+      <h3>${a ? '학원 수정' : '학원 추가'}</h3>
+      <label>누구</label><select name="who">${whoOpts}</select>
+      <label>학원 이름</label><input name="name" required maxlength="30" placeholder="예: OO영어, OO수학학원" value="${val(a && a.name)}">
+      <label>과목 · 내용 (선택)</label><input name="subject" maxlength="30" placeholder="예: 영어, 수영, 미술" value="${val(a && a.subject)}">
+      <label>월 수강료 (원)</label><input name="fee" type="number" min="1" inputmode="numeric" required value="${val(a && a.fee)}">
+      <label>납부일 (매월 며칠)</label><input name="payDay" type="number" min="1" max="31" inputmode="numeric" value="${val(a && a.payDay ? a.payDay : '')}">
+      <label>결제수단</label><select name="card">${cardSelectOptions(a && a.cardId)}</select>
+      <label>수강 시작일 (선택)</label><input name="start" type="date" value="${val(a && a.start)}">
+      <label>수강 종료일 (선택)</label><input name="end" type="date" value="${val(a && a.end)}">
+      <label>상태</label>
+      <select name="status"><option value="active"${!a || a.status === 'active' ? ' selected' : ''}>수강 중</option><option value="paused"${a && a.status === 'paused' ? ' selected' : ''}>휴원</option><option value="ended"${a && a.status === 'ended' ? ' selected' : ''}>종료</option></select>
+      <label>메모 (선택)</label><input name="note" maxlength="80" placeholder="예: 화·목 4시, 교재비 별도" value="${val(a && a.note)}">
+      <label class="check"><input type="checkbox" name="auto"${a && !a.auto ? '' : ' checked'}> 가계부에 수강료를 고정비로 자동 기록 (납부일마다)</label>
+      <p class="goal-hint">자동 기록은 등록한 뒤의 납부일부터 만들어지고, 그 달 기록이 생기면 “납부”로 처리돼요. 지난 달은 “납부 확인”을 직접 눌러 표시하세요.</p>
+      <div class="sheet-actions"><button type="button" data-cancel>취소</button>${a ? '<button type="button" data-delete>삭제</button>' : ''}<button type="submit">저장</button></div>
+    </form>`, (fd) => {
+      const name = String(fd.get('name')).trim();
+      const fee = parseInt(fd.get('fee'), 10);
+      if (!name || !(fee > 0)) { showToast('학원 이름과 월 수강료를 확인해 주세요'); return false; }
+      const date = (k) => (validDate(String(fd.get(k))) ? String(fd.get(k)) : '');
+      const rec = {
+        who: String(fd.get('who')), name, subject: String(fd.get('subject')).trim(), fee,
+        payDay: Math.min(31, Math.max(0, parseInt(fd.get('payDay'), 10) || 0)), cardId: String(fd.get('card')) || '',
+        start: date('start'), end: date('end'), status: ['paused', 'ended'].includes(String(fd.get('status'))) ? String(fd.get('status')) : 'active',
+        auto: fd.get('auto') === 'on', note: String(fd.get('note')).trim()
+      };
+      if (rec.start && rec.end && rec.end < rec.start) { showToast('종료일이 시작일보다 빨라요'); return false; }
+      let item = a;
+      if (a) Object.assign(a, rec); else { item = { id: newId(), recurId: '', paid: {}, ...rec }; academies.push(item); }
+      syncRecur(item, rec.auto && rec.status === 'active', {
+        cardId: rec.cardId || null, name: rec.name + ' 수강료', amount: fee, day: rec.payDay || 1, category: '학원비', auto: true
+      });
+      saveAcademies();
+      applyRecurs();
+      renderAll();
+      renderAcademy();
+      showToast(a ? '수정했어요' : '추가했어요');
+    });
+    const del = sheetBody.querySelector('[data-delete]');
+    if (del) del.addEventListener('click', () => {
+      syncRecur(a, false, null);
+      tomb(a.id);
+      academies = academies.filter((x) => x.id !== a.id);
+      saveAcademies();
+      closeSheet();
+      renderAll();
+      renderAcademy();
+      showToast('삭제했어요 (이미 기록된 가계부 내역은 남아요)');
+    });
+  }
+
+  el('aca-prev').addEventListener('click', () => { const d = new Date(acaView.y, acaView.m - 1, 1); acaView = { y: d.getFullYear(), m: d.getMonth() }; renderAcademy(); });
+  el('aca-next').addEventListener('click', () => { const d = new Date(acaView.y, acaView.m + 1, 1); acaView = { y: d.getFullYear(), m: d.getMonth() }; renderAcademy(); });
+  el('aca-who').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-cw]');
+    if (!b) return;
+    conWho = b.dataset.cw;
+    renderInsurance();
+    renderRental();
+    renderAcademy();
+  });
+  el('add-aca-btn').addEventListener('click', () => openAcaSheet(null));
+  el('aca-member-btn').addEventListener('click', () => openMemberManager());
+  el('aca-body').addEventListener('click', (e) => {
+    const pay = e.target.closest('[data-acapay]');
+    if (pay) {
+      const a = academies.find((x) => x.id === pay.dataset.acapay);
+      if (!a) return;
+      const ym = ymKey(acaView);
+      if (acaAuto(a, ym)) { showToast('가계부에 자동 기록돼 납부로 처리돼요'); return; }
+      a.paid = a.paid || {};
+      if (a.paid[ym]) delete a.paid[ym]; else a.paid[ym] = true;
+      saveAcademies();
+      renderAcademy();
+      return;
+    }
+    const row = e.target.closest('[data-aca]');
+    if (row) openAcaSheet(academies.find((x) => x.id === row.dataset.aca));
+  });
+
+  /* ---------- 사업매출 ---------- */
+  // 사업의 매출과 비용을 달별로 입력해 순이익·마진·목표 달성을 본다. 개인 가계부와는 따로 계산한다.
+  const BIZ_KEY = 'dadari_biz_v1';
+  let biz = loadJson(BIZ_KEY, { entries: [], target: 0 });   // entries: {id, date, kind 'sale'|'cost', name(채널·항목), amount, memo}, target: 월 목표 매출
+  if (!biz || !Array.isArray(biz.entries)) biz = { entries: [], target: 0 };
+  biz.target = Math.max(0, +biz.target || 0);
+  let bizView = { y: new Date().getFullYear(), m: new Date().getMonth() };
+  const saveBiz = () => saveJson(BIZ_KEY, biz);
+  const BIZ_SALE_NAMES = ['자사몰', '스마트스토어', '쿠팡', '오픈마켓', '도매', '오프라인', '기타'];
+  const BIZ_COST_NAMES = ['매입·원가', '광고비', '수수료', '배송비', '포장재', '인건비', '임대료', '세금·공과', '기타'];
+
+  const bizSum = (list, kind) => list.filter((e) => e.kind === kind).reduce((s, e) => s + e.amount, 0);
+  function bizGroups(list, kind) {
+    const m = {};
+    list.filter((e) => e.kind === kind).forEach((e) => { m[e.name || '기타'] = (m[e.name || '기타'] || 0) + e.amount; });
+    return Object.entries(m).sort((a, b) => b[1] - a[1]);
+  }
+  const pct = (a, b) => (b ? Math.round((a / b) * 1000) / 10 : 0);
+
+  function renderBiz() {
+    el('biz-label').textContent = bizView.y + '년 ' + (bizView.m + 1) + '월';
+    const ym = ymKey(bizView);
+    const list = biz.entries.filter((e) => e.date.startsWith(ym));
+    const sales = bizSum(list, 'sale'), costs = bizSum(list, 'cost'), profit = sales - costs;
+    const prevD = new Date(bizView.y, bizView.m - 1, 1), prevYm = ymKey({ y: prevD.getFullYear(), m: prevD.getMonth() });
+    const prevList = biz.entries.filter((e) => e.date.startsWith(prevYm));
+    const prevSales = bizSum(prevList, 'sale');
+    const diff = prevSales ? Math.round(((sales - prevSales) / prevSales) * 100) : null;
+
+    let html = `<div class="summary-grid">
+      <div class="summary-item income"><div class="lbl">매출</div><div class="val">${formatWon(sales)}</div></div>
+      <div class="summary-item expense"><div class="lbl">비용</div><div class="val">${formatWon(costs)}</div></div>
+      <div class="summary-item balance"><div class="lbl">순이익</div><div class="val" style="${profit < 0 ? 'color:var(--expense)' : ''}">${profit < 0 ? '-' : ''}${formatWon(Math.abs(profit))}</div></div></div>
+      <p class="goal-hint" style="margin:8px 0 0">${sales ? `마진 ${pct(profit, sales)}% · 비용률 ${pct(costs, sales)}%` : '아직 이 달 매출이 없어요'}${diff !== null ? ` · 전월 매출 대비 ${diff >= 0 ? '+' : ''}${diff}%` : ''}</p>`;
+
+    if (biz.target > 0) {
+      const p = Math.round((sales / biz.target) * 100);
+      html += `<div style="margin-top:12px"><div class="line" style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-muted);margin-bottom:5px"><span>월 목표 ${formatWon(biz.target)}</span><span>${p}% 달성${sales < biz.target ? ' · ' + formatWon(biz.target - sales) + ' 남음' : ' ✓'}</span></div>
+        <div class="bar"><i class="${p >= 100 ? '' : p < 50 ? 'near' : ''}" style="width:${Math.min(100, p)}%"></i></div></div>`;
+    }
+
+    const group = (title, rows, base, color) => (rows.length ? `<h2 class="section-title" style="margin:16px 0 8px">${title}</h2>` + rows.map(([n, v]) =>
+      `<div class="bar-row"><div class="cat-name" style="width:84px">${esc(n)}</div><div class="bar-track"><div class="bar-fill" style="width:${Math.max(4, Math.round((v / base) * 100))}%;background:${color}"></div></div><div class="cat-amt" style="width:96px">${formatWon(v)}</div></div>`).join('') : '');
+    const saleG = bizGroups(list, 'sale'), costG = bizGroups(list, 'cost');
+    html += group('채널별 매출', saleG, saleG.length ? saleG[0][1] : 1, 'var(--income)');
+    html += group('비용 항목', costG, costG.length ? costG[0][1] : 1, 'var(--expense)');
+
+    // 최근 6개월 매출·비용 추이
+    const months = [];
+    for (let i = 5; i >= 0; i--) { const d = new Date(bizView.y, bizView.m - i, 1); months.push({ ym: ymKey({ y: d.getFullYear(), m: d.getMonth() }), m: d.getMonth() + 1 }); }
+    const trend = months.map((mo) => { const l = biz.entries.filter((e) => e.date.startsWith(mo.ym)); return { m: mo.m, s: bizSum(l, 'sale'), c: bizSum(l, 'cost') }; });
+    const max = Math.max(1, ...trend.map((t) => Math.max(t.s, t.c)));
+    if (trend.some((t) => t.s || t.c)) {
+      html += `<h2 class="section-title" style="margin:16px 0 0">최근 6개월</h2><div class="biz-trend">${trend.map((t) =>
+        `<div class="col"><div class="pair"><i class="s" style="height:${(t.s / max) * 100}%"></i><i class="c" style="height:${(t.c / max) * 100}%"></i></div>${t.m}월</div>`).join('')}</div>
+        <div class="legend" style="display:flex;gap:12px;font-size:12px;color:var(--text-muted);margin-top:8px;justify-content:center"><span><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--income);margin-right:4px"></i>매출</span><span><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--expense);margin-right:4px"></i>비용</span></div>`;
+    }
+
+    html += `<h2 class="section-title" style="margin:16px 0 4px">${bizView.m + 1}월 내역${list.length ? ' · ' + list.length + '건' : ''}</h2>`;
+    html += list.length ? [...list].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : b.id.localeCompare(a.id))).map((e) =>
+      `<button type="button" class="visit" data-biz="${e.id}"><div class="v1"><span>${e.date.slice(5).replace('-', '/')} · ${esc(e.name || (e.kind === 'sale' ? '매출' : '비용'))}</span>
+        <b style="color:var(--${e.kind === 'sale' ? 'income' : 'expense'})">${e.kind === 'sale' ? '+' : '-'}${formatWon(e.amount)}</b></div>${e.memo ? `<div class="v2">${esc(e.memo)}</div>` : ''}</button>`).join('')
+      : '<div class="empty-msg">이 달 내역이 없어요<br>아래 “＋ 매출 입력” “＋ 비용 입력”으로 기록하세요</div>';
+    el('biz-body').innerHTML = html;
+  }
+
+  function openBizSheet(entry, kind) {
+    const val = (x) => attr(x == null ? '' : String(x));
+    const k = entry ? entry.kind : kind || 'sale';
+    const used = (kk) => [...new Set(biz.entries.filter((e) => e.kind === kk).map((e) => e.name).filter(Boolean))];
+    const names = (kk) => [...new Set([...used(kk), ...(kk === 'sale' ? BIZ_SALE_NAMES : BIZ_COST_NAMES)])];
+    const dl = (kk) => names(kk).map((n) => `<option value="${attr(n)}">`).join('');
+    const defDate = entry ? entry.date : (ymKey(bizView) === todayStr().slice(0, 7) ? todayStr() : ymKey(bizView) + '-01');
+    openSheet(`<form>
+      <h3>${entry ? '내역 수정' : k === 'sale' ? '매출 입력' : '비용 입력'}</h3>
+      <label>구분</label>
+      <select name="kind"><option value="sale"${k === 'sale' ? ' selected' : ''}>매출</option><option value="cost"${k === 'cost' ? ' selected' : ''}>비용</option></select>
+      <label>날짜</label><input name="date" type="date" required value="${val(defDate)}">
+      <label id="biz-name-label">${k === 'sale' ? '판매 채널' : '비용 항목'}</label>
+      <input name="name" maxlength="30" list="biz-names" placeholder="${k === 'sale' ? '예: 스마트스토어, 쿠팡' : '예: 광고비, 매입·원가'}" value="${val(entry && entry.name)}" autocomplete="off">
+      <datalist id="biz-names">${dl(k)}</datalist>
+      <label>금액 (원)</label><input name="amount" type="number" min="1" inputmode="numeric" required value="${val(entry && entry.amount)}">
+      <label>메모 (선택)</label><input name="memo" maxlength="80" placeholder="예: 10월 1주차 정산" value="${val(entry && entry.memo)}">
+      <p class="goal-hint">하루 매출을 채널별로 합계만 넣어도 돼요. 비용은 매입·광고비·수수료처럼 항목별로 넣으면 순이익이 계산돼요.</p>
+      <div class="sheet-actions"><button type="button" data-cancel>취소</button>${entry ? '<button type="button" data-delete>삭제</button>' : ''}<button type="submit">저장</button></div>
+    </form>`, (fd) => {
+      const amount = parseInt(fd.get('amount'), 10);
+      const date = String(fd.get('date'));
+      if (!(amount > 0) || !validDate(date)) { showToast('날짜와 금액을 확인해 주세요'); return false; }
+      const rec = { date, kind: fd.get('kind') === 'cost' ? 'cost' : 'sale', name: String(fd.get('name')).trim(), amount, memo: String(fd.get('memo')).trim() };
+      if (entry) Object.assign(entry, rec); else biz.entries.push({ id: newId(), ...rec });
+      saveBiz();
+      bizView = { y: +date.slice(0, 4), m: +date.slice(5, 7) - 1 };
+      renderBiz();
+      showToast(entry ? '수정했어요' : '추가했어요');
+    });
+    // 구분을 바꾸면 이름 후보와 안내 문구도 바꾼다
+    const kindSel = sheetBody.querySelector('[name=kind]');
+    kindSel.addEventListener('change', () => {
+      const kk = kindSel.value;
+      sheetBody.querySelector('#biz-names').innerHTML = dl(kk);
+      sheetBody.querySelector('#biz-name-label').textContent = kk === 'sale' ? '판매 채널' : '비용 항목';
+    });
+    const del = sheetBody.querySelector('[data-delete]');
+    if (del) del.addEventListener('click', () => {
+      tomb(entry.id);
+      biz.entries = biz.entries.filter((x) => x.id !== entry.id);
+      saveBiz();
+      closeSheet();
+      renderBiz();
+      showToast('삭제했어요');
+    });
+  }
+
+  el('biz-prev').addEventListener('click', () => { const d = new Date(bizView.y, bizView.m - 1, 1); bizView = { y: d.getFullYear(), m: d.getMonth() }; renderBiz(); });
+  el('biz-next').addEventListener('click', () => { const d = new Date(bizView.y, bizView.m + 1, 1); bizView = { y: d.getFullYear(), m: d.getMonth() }; renderBiz(); });
+  el('add-sale-btn').addEventListener('click', () => openBizSheet(null, 'sale'));
+  el('add-cost-btn').addEventListener('click', () => openBizSheet(null, 'cost'));
+  el('biz-target-btn').addEventListener('click', () => {
+    openSheet(`<form>
+      <h3>월 목표 매출</h3>
+      <label>한 달 목표 매출 (원)</label>
+      <input name="target" type="number" min="0" inputmode="numeric" value="${biz.target || ''}" placeholder="0이면 목표 해제">
+      <div class="sheet-actions"><button type="button" data-cancel>취소</button><button type="submit">저장</button></div>
+    </form>`, (fd) => {
+      biz.target = Math.max(0, parseInt(fd.get('target'), 10) || 0);
+      saveBiz();
+      renderBiz();
+      showToast(biz.target ? '목표를 저장했어요' : '목표를 해제했어요');
+    });
+  });
+  el('biz-body').addEventListener('click', (e) => {
+    const row = e.target.closest('[data-biz]');
+    if (row) openBizSheet(biz.entries.find((x) => x.id === row.dataset.biz));
+  });
+
   /* ---------- 동기화 (GitHub 비공개 저장소) ---------- */
   // 모든 데이터를 비공개 저장소의 파일 하나(dadari-data.json)에 모은다. 토큰은 이 기기에만 저장하고 백업에는 넣지 않는다.
   const GH_API = 'https://api.github.com';
@@ -3119,7 +3504,7 @@
   const defaultCats = () => ({ expense: [...CATEGORIES.expense], income: [...CATEGORIES.income] });
   const sameCats = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   const hasData = () => transactions.length || cards.length || recurs.length || schedule.members.length
-    || health.visits.length || health.periods.length || health.vaccines.length || health.meds.length || insurance.length || rentals.length || goal > 0 || !sameCats(categories, defaultCats());
+    || health.visits.length || health.periods.length || health.vaccines.length || health.meds.length || insurance.length || rentals.length || academies.length || biz.entries.length || biz.target > 0 || goal > 0 || !sameCats(categories, defaultCats());
 
   function markDirty() {
     if (applying) return;
@@ -3135,7 +3520,7 @@
 
   const snapshot = () => ({
     app: 'dadari', version: 3, updatedAt: new Date().toISOString(),
-    transactions, categories, cards, recurs, recurDone: [...recurDone], goal, schedule, health, insurance, rentals, tombs: [...tombs]
+    transactions, categories, cards, recurs, recurDone: [...recurDone], goal, schedule, health, insurance, rentals, academies, biz, tombs: [...tombs]
   });
 
   // 두 기기가 따로 고친 내용을 합친다. 같은 id가 양쪽에 있으면 이 기기 것을 쓰고, 지운 항목(tombs)은 되살리지 않는다.
@@ -3160,6 +3545,11 @@
       health: { visits: union(lh.visits, rh.visits), periods: union(lh.periods, rh.periods), vaccines: union(lh.vaccines, rh.vaccines), meds: union(lh.meds, rh.meds) },
       insurance: union(local.insurance, remote.insurance),
       rentals: union(local.rentals, remote.rentals),
+      academies: union(local.academies, remote.academies),
+      biz: {
+        entries: union(local.biz && local.biz.entries, remote.biz && remote.biz.entries),
+        target: (local.biz && local.biz.target) || (remote.biz && remote.biz.target) || 0
+      },
       categories: remote.categories && sameCats(local.categories, defaultCats()) ? remote.categories : local.categories,
       goal: local.goal || remote.goal || 0,
       tombs: [...dead]
@@ -3178,6 +3568,8 @@
       if (s.health) health = normalizeHealth(s.health);
       if (Array.isArray(s.insurance)) insurance = s.insurance;
       if (Array.isArray(s.rentals)) rentals = s.rentals;
+      if (Array.isArray(s.academies)) academies = s.academies;
+      if (s.biz && Array.isArray(s.biz.entries)) biz = { entries: s.biz.entries, target: Math.max(0, +s.biz.target || 0) };
       if (s.categories) { saveJson(CAT_KEY, s.categories); categories = loadCategories(); }
       if (Array.isArray(s.tombs)) tombs = new Set([...tombs, ...s.tombs]);
       save();
@@ -3190,6 +3582,8 @@
       saveHealth();
       saveInsurance();
       saveRentals();
+      saveAcademies();
+      saveBiz();
     } finally {
       applying = false;
     }
@@ -3200,6 +3594,8 @@
     renderHealth();
     renderInsurance();
     renderRental();
+    renderAcademy();
+    renderBiz();
     if (applyRecurs()) renderAll();
   }
 
@@ -3524,7 +3920,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v20'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v21'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').textContent = '다다리 가계부 ' + APP_VERSION;
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
@@ -3571,7 +3967,7 @@
   updatePayVisibility();
   renderAll();
   const savedView = loadJson(VIEW_KEY, 'ledger');
-  setView(['schedule', 'health', 'insurance', 'rental'].includes(savedView) ? savedView : 'ledger');
+  setView(['schedule', 'health', 'insurance', 'rental', 'academy', 'biz'].includes(savedView) ? savedView : 'ledger');
   showSync();
   syncNow();
 })();
