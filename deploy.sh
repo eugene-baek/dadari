@@ -6,6 +6,7 @@ cd "$(dirname "$0")"
 [ -n "$1" ] || { echo "커밋 메시지를 넣어 주세요"; exit 1; }
 n=$(grep -o "dadari-v[0-9]*" sw.js | head -1 | sed 's/dadari-v//')
 sed -i "s/dadari-v$n/dadari-v$((n + 1))/" sw.js
+sed -i "s/APP_VERSION = 'v$n'/APP_VERSION = 'v$((n + 1))'/" index.html
 git add -A
 git commit -q -m "$1" -m "Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
 git push origin main

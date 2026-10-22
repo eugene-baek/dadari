@@ -54,7 +54,21 @@
     padding: 24px 20px 12px;
     max-width: 720px;
     margin: 0 auto;
+    position: relative;
   }
+  .refresh-btn {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    padding: 8px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--card-bg);
+    color: var(--text);
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .ver { text-align: center; color: var(--text-muted); font-size: 11px; margin: 20px 0 0; }
   header h1 {
     font-size: 22px;
     margin: 0 0 4px;
@@ -371,6 +385,7 @@
 <body>
 
 <header>
+  <button class="refresh-btn" id="refresh-btn" type="button" aria-label="새로고침">🔄 새로고침</button>
   <h1>🪜 다다리 가계부</h1>
   <p>매일의 수입과 지출을 가볍게 기록해요</p>
 </header>
@@ -472,6 +487,8 @@
   </section>
 
 </main>
+
+<p class="ver" id="ver"></p>
 
 <div class="viewer" id="viewer" hidden>
   <img id="viewer-img" alt="영수증">
@@ -960,6 +977,16 @@
   }
 
   /* ---------- PWA ---------- */
+  const APP_VERSION = 'v4'; // deploy.sh가 sw.js 버전과 함께 올린다
+  el('ver').textContent = '다다리 가계부 ' + APP_VERSION;
+  // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
+  el('refresh-btn').addEventListener('click', async () => {
+    try {
+      const reg = await navigator.serviceWorker.getRegistration();
+      if (reg) await reg.update();
+    } catch (err) {}
+    location.reload();
+  });
   let installEvt = null;
   const installCard = el('install-card');
   const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
