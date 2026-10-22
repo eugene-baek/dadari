@@ -179,7 +179,8 @@
     background: var(--income-soft);
     color: var(--income);
   }
-  input, select {
+  input, select, textarea {
+    font-family: inherit;
     width: 100%;
     padding: 10px 12px;
     border-radius: 10px;
@@ -445,6 +446,13 @@
   .med-slots { display: flex; gap: 6px; flex-wrap: wrap; }
   .slot { padding: 7px 12px; border-radius: 99px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 13px; cursor: pointer; }
   .slot.on { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .card-edit { background: none; border: 0; color: inherit; text-align: left; padding: 0; font: inherit; cursor: pointer; }
+  .perf { margin-top: 10px; padding: 10px 12px; border-radius: 10px; background: var(--accent-soft); font-size: 12px; line-height: 1.6; }
+  .perf .bar { margin: 6px 0; }
+  .benefit { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; margin-top: 8px; }
+  .benefit b { color: var(--accent); }
+  .benefit-sub { font-size: 11px; color: var(--text-muted); }
+  textarea { resize: vertical; min-height: 96px; }
   .vx { padding: 8px 0; border-top: 1px solid var(--border); }
   .vx:first-of-type { border-top: none; }
   .vx-name { font-size: 13px; font-weight: 600; margin-bottom: 5px; }
@@ -1231,9 +1239,9 @@
 
   el('f-card').addEventListener('change', (e) => {
     if (e.target.value !== '__new') return;
-    selectNewCard = true;
     renderCardOptions();   // 선택을 되돌려 두고 카드 등록 화면을 연다
     openCardSheet();
+    selectNewCard = true;  // openSheet 안에서 초기화되므로 연 뒤에 켠다
   });
 
   function updatePayVisibility() {
@@ -1286,6 +1294,58 @@
       </div>`).join('');
   }
 
+  // 카드 혜택: 한 줄에 하나. "혜택이름 / 40-4천원 / 70-7천원"처럼 "전월 실적(만원)-혜택"으로 쓰면 구간별 혜택으로 읽는다.
+  // 구간 형식이 아닌 줄은 설명 그대로 보여 준다. 실적은 이 가계부에서 그 카드로 기록한 지출 합계다.
+  function parseBenefits(text) {
+    const re = /^(.*?)(\d+(?:\.\d+)?)\s*[-:]\s*(.+)$/;
+    return String(text || '').split('\n').map((s) => s.trim()).filter(Boolean).map((line) => {
+      const parts = line.split('/').map((s) => s.trim()).filter(Boolean);
+      const name = parts[0] || line;
+      const rest = parts.slice(1);
+      const ms = rest.map((p) => re.exec(p));
+      if (rest.length && ms.every(Boolean)) {
+        const prefix = ms[0][1].trim();
+        const tiers = ms.map((m) => {
+          const n = parseFloat(m[2]);
+          const pre = m[1].trim() || prefix;
+          return { min: Math.round(n < 1000 ? n * 10000 : n), value: (pre ? pre + ' ' : '') + m[3].trim() };
+        }).sort((a, b) => a.min - b.min);
+        return { name, tiers };
+      }
+      return { name, tiers: null, note: rest.join(' / ') };
+    });
+  }
+  const cardUse = (cardId, key) => transactions
+    .filter((t) => t.type === 'expense' && t.cardId === cardId && t.date.startsWith(key))
+    .reduce((s, t) => s + t.amount, 0);
+  const manwon = (n) => (n % 10000 === 0 ? n / 10000 + '만원' : formatWon(n));
+
+  function perfHtml(c) {
+    const bens = parseBenefits(c.benefits);
+    if (!bens.length) return '';
+    const cur = cardUse(c.id, monthKey(viewDate));
+    const prev = cardUse(c.id, monthKey(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1)));
+    const mins = [...new Set(bens.flatMap((b) => (b.tiers || []).map((t) => t.min)))].sort((a, b) => a - b);
+    let head = '';
+    if (mins.length) {
+      const reached = mins.filter((m) => m <= prev).pop();
+      const nowReached = mins.filter((m) => m <= cur).pop();
+      const nextMin = mins.find((m) => m > cur);
+      head = `<div class="perf">전월 실적 <b>${formatWon(prev)}</b> · ${reached ? manwon(reached) + ' 구간' : `첫 구간(${manwon(mins[0])})까지 ${formatWon(mins[0] - prev)} 부족`}
+        <div class="bar"><i style="width:${Math.min(100, (cur / mins[mins.length - 1]) * 100)}%"></i></div>
+        이번 달 사용 <b>${formatWon(cur)}</b> · 다음 달 ${nowReached ? manwon(nowReached) + ' 구간 예상' : '구간 미달 예상'}${nextMin ? ` (${manwon(nextMin)}까지 ${formatWon(nextMin - cur)})` : ''}`;
+    } else {
+      head = '<div class="perf">';
+    }
+    const rows = bens.map((b) => {
+      if (!b.tiers) return `<div class="benefit"><span>${escapeHtml(b.name)}</span><span>${escapeHtml(b.note || '')}</span></div>`;
+      const t = b.tiers.filter((x) => x.min <= prev).pop();
+      return `<div class="benefit"><span>${escapeHtml(b.name)}</span><span>${t ? '<b>' + escapeHtml(t.value) + '</b>' : '실적 ' + manwon(b.tiers[0].min) + '부터'}</span></div>
+        <div class="benefit-sub">${b.tiers.map((x) => `${manwon(x.min)} ${escapeHtml(x.value)}`).join(' / ')}</div>`;
+    }).join('');
+    return head + rows + '</div>';
+  }
+
   function renderCards(monthTx) {
     const wrap = el('cards-list');
     if (!cards.length && !recurs.length) {
@@ -1304,12 +1364,13 @@
       if (c.kind === 'credit' && c.payDay) parts.push(`매월 ${c.payDay}일 결제`);
       parts.push(`이번 달 사용 ${formatWon(spend[c.id] || 0)}`);
       if (mine.length) parts.push(`자동이체 월 ${formatWon(sum(mine))}`);
+      const info = [c.brand, c.fee ? '연회비 ' + formatWon(c.fee) : ''].filter(Boolean).map(escapeHtml).join(' · ');
       return `<div class="cardbox">
         <div class="cardhead">
-          <div><b>${escapeHtml(c.name)}</b><span class="tag">${c.kind === 'credit' ? '신용' : '체크'}</span>
-          <div class="cardsub">${parts.join(' · ')}</div></div>
+          <div><button type="button" class="card-edit" data-edit-card="${c.id}" aria-label="카드 정보 수정"><b>${escapeHtml(c.name)}</b><span class="tag">${c.kind === 'credit' ? '신용' : '체크'}</span> ✎</button>
+          <div class="cardsub">${parts.join(' · ')}</div>${info ? `<div class="cardsub">${info}</div>` : ''}</div>
           <button type="button" class="icon-btn" data-del-card="${c.id}" aria-label="카드 삭제">🗑</button>
-        </div>${recRows(mine)}</div>`;
+        </div>${perfHtml(c)}${recRows(mine)}</div>`;
     });
     const acct = recurs.filter((r) => !r.cardId || !cardById(r.cardId));
     if (acct.length) {
@@ -1413,32 +1474,52 @@
   }
   el('cat-manage-btn').addEventListener('click', () => openCatSheet(currentType));
 
-  function openCardSheet() {
+  // card가 있으면 수정, 없으면 등록. 카드번호 같은 민감한 정보는 받지 않는다.
+  function openCardSheet(card) {
+    const c = card && card.id ? card : null;
+    const val = (x) => attr(x == null ? '' : String(x));
     openSheet(`<form>
-      <h3>카드 등록</h3>
+      <h3>${c ? '카드 정보 수정' : '카드 등록'}</h3>
       <label>카드 이름</label>
-      <input name="name" required maxlength="20" placeholder="예: 삼성카드, 국민 체크">
+      <input name="name" required maxlength="20" placeholder="예: 하나카드(SK), 국민 체크" value="${val(c && c.name)}">
       <label>종류</label>
-      <select name="kind"><option value="credit">신용카드</option><option value="debit">체크카드</option></select>
+      <select name="kind"><option value="credit"${c && c.kind === 'debit' ? '' : ' selected'}>신용카드</option><option value="debit"${c && c.kind === 'debit' ? ' selected' : ''}>체크카드</option></select>
       <label>결제일 (신용카드만, 선택)</label>
-      <input name="payDay" type="number" min="1" max="31" inputmode="numeric" placeholder="매월 며칠">
-      <p class="goal-hint">카드번호는 입력하지 않아요. 이름으로만 구분해요.</p>
-      <div class="sheet-actions"><button type="button" data-cancel>취소</button><button type="submit">등록</button></div>
+      <input name="payDay" type="number" min="1" max="31" inputmode="numeric" placeholder="매월 며칠" value="${val(c && c.payDay ? c.payDay : '')}">
+      <label>연회비 (원, 선택)</label>
+      <input name="fee" type="number" min="0" inputmode="numeric" placeholder="예: 7000" value="${val(c && c.fee ? c.fee : '')}">
+      <label>브랜드 (선택)</label>
+      <input name="brand" maxlength="20" list="card-brands" placeholder="예: VISA, 마스터" value="${val(c && c.brand)}" autocomplete="off">
+      <datalist id="card-brands"><option value="VISA"><option value="마스터"><option value="BC"><option value="국내전용"><option value="유니온페이"><option value="JCB"><option value="아멕스"></datalist>
+      <label>혜택 · 실적 (한 줄에 하나, 선택)</label>
+      <textarea name="benefits" maxlength="2000" placeholder="통신비할인 / 40-4천원 / 70-7천원 / 100-13천원&#10;SK주유소할인 / 리터당 40-100원 / 70-150원&#10;학원 5%">${escapeHtml(c && c.benefits ? c.benefits : '')}</textarea>
+      <p class="goal-hint">‘40-4천원’은 전월 실적 40만원 이상이면 4천원이라는 뜻이에요. 이렇게 쓰면 전월 사용액에 맞는 혜택을 골라 보여 줘요. 다른 형식은 적은 그대로 보여 줘요. 카드번호는 입력하지 않아요.</p>
+      <div class="sheet-actions"><button type="button" data-cancel>취소</button><button type="submit">${c ? '저장' : '등록'}</button></div>
     </form>`, (fd) => {
       const name = String(fd.get('name')).trim();
       if (!name) return false;
       const kind = fd.get('kind') === 'debit' ? 'debit' : 'credit';
       const day = parseInt(fd.get('payDay'), 10);
-      const id = newId();
-      cards.push({ id, name, kind, payDay: kind === 'credit' && day >= 1 && day <= 31 ? day : 0 });
+      const rec = {
+        name, kind, payDay: kind === 'credit' && day >= 1 && day <= 31 ? day : 0,
+        fee: Math.max(0, parseInt(fd.get('fee'), 10) || 0), brand: String(fd.get('brand')).trim(),
+        benefits: String(fd.get('benefits')).trim()
+      };
+      if (c) {
+        Object.assign(c, rec);
+      } else {
+        const id = newId();
+        cards.push({ id, ...rec });
+        if (selectNewCard) selectNewCard = id;
+      }
       saveJson(CARDS_KEY, cards);
       renderCardOptions();
-      if (selectNewCard) el('f-card').value = id;
+      if (typeof selectNewCard === 'string') el('f-card').value = selectNewCard;
       renderAll();
-      showToast('카드를 등록했어요');
+      showToast(c ? '카드 정보를 저장했어요' : '카드를 등록했어요');
     });
   }
-  el('add-card-btn').addEventListener('click', openCardSheet);
+  el('add-card-btn').addEventListener('click', () => openCardSheet());
 
   el('add-recur-btn').addEventListener('click', () => {
     const cardOpts = cards.map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('')
@@ -1498,6 +1579,8 @@
   });
 
   el('cards-list').addEventListener('click', (e) => {
+    const editCard = e.target.closest('[data-edit-card]');
+    if (editCard) { openCardSheet(cardById(editCard.dataset.editCard)); return; }
     const delCard = e.target.closest('[data-del-card]');
     const delRecur = e.target.closest('[data-del-recur]');
     if (delCard) {
@@ -2848,7 +2931,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v11'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v12'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').textContent = '다다리 가계부 ' + APP_VERSION;
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {

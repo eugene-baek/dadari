@@ -12,7 +12,7 @@
 - 허락 범위는 이 저장소의 main 푸시뿐이다. force push, 다른 저장소·브랜치, 서버 설정 변경은 따로 확인받는다.
 - 사용자 데이터는 폰 브라우저 localStorage에 있다. 저장 키(`dadari_transactions_v1`, `dadari_goal_v1`, `dadari_cards_v1`, `dadari_recurs_v1`, `dadari_recur_done_v1`)는 바꾸지 않는다. 바꿔야 하면 기존 데이터를 옮기는 코드를 같이 넣는다.
 - 백업 JSON은 두 형식을 모두 불러온다: 예전 형식(내역 배열)과 v2 형식(`{app, version, transactions, cards, recurs, recurDone, goal}`). 내보내기는 v2.
-- 카드는 이름·종류·결제일만 저장한다. 카드번호 등 민감한 정보는 받지 않는다.
+- 카드는 이름·종류·결제일·연회비(`fee`)·브랜드(`brand`)·혜택 텍스트(`benefits`)만 저장한다. 카드번호 등 민감한 정보는 받지 않는다. 혜택은 한 줄에 하나이고 "이름 / 40-4천원 / 70-7천원"(전월 실적 만원-혜택) 형식이면 `parseBenefits`가 구간으로 읽어 전월 실적(그 카드로 기록한 지출)에 맞는 혜택을 보여 준다. 형식이 아닌 줄은 적은 그대로 보여 준다.
 - 시간표(`dadari_schedule_v1`: members, items)는 백업 v2의 `schedule`에 들어간다. 시간표만 담은 파일도 불러올 수 있다.
 - **이 저장소는 공개다.** 가족 이름, 아이 시간표, 학원·장소 같은 개인 정보를 코드·커밋에 넣지 않는다. 시험 데이터도 저장소 폴더 밖에서 만들고, 배포 전에 `git status`와 grep으로 확인한다(`deploy.sh`가 `git add -A`를 쓴다).
 - 카테고리(`dadari_categories_v1`)는 사용자가 수정한다. `CATEGORIES`는 기본값일 뿐이고, 화면은 `categories`를 쓴다. 이름을 바꾸면 내역·자동이체의 카테고리도 같이 바꾼다.
