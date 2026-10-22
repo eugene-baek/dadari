@@ -523,20 +523,24 @@
   .dc-filters { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px; }
   .dc-filters button { padding: 4px 10px; border: 1px solid var(--border); border-radius: 99px; background: none; color: var(--text-muted); font-size: 12px; cursor: pointer; text-decoration: line-through; opacity: .7; }
   .dc-filters button.on { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); text-decoration: none; opacity: 1; }
-  .dc-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); border-top: 1px solid var(--border); border-left: 1px solid var(--border); }
+  .dc-grid { border-top: 1px solid var(--border); }
+  .dc-dowrow, .dc-week7 { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); border-left: 1px solid var(--border); }
   .dc-dow { text-align: center; font-size: 11px; font-weight: 600; color: var(--text-muted); padding: 5px 0; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); background: var(--bg); }
   .dc-dow.sun, .dc-n.sun { color: var(--expense); }
   .dc-dow.sat, .dc-n.sat { color: var(--accent); }
-  .dc-cell { min-height: 86px; padding: 2px 1px 3px; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); cursor: pointer; overflow: hidden; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-  .dc-cell.out { background: var(--bg); opacity: .55; }
+  .dc-cell { min-height: 76px; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); cursor: pointer; }
+  .dc-cell.out { background: var(--bg); }
   .dc-cell.sel { box-shadow: inset 0 0 0 2px var(--accent); }
-  .dc-n { align-self: flex-start; min-width: 20px; height: 20px; line-height: 20px; margin-left: 2px; padding: 0 4px; border-radius: 99px; font-size: 12px; font-weight: 700; text-align: center; }
-  .dc-cell.today .dc-n { background: var(--accent); color: #fff; }
-  .dc-chip { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; line-height: 1.35; padding: 0 2px; border-left: 2px solid transparent; border-radius: 3px; color: var(--text); }
-  .dc-chip.nl { border-top-left-radius: 0; border-bottom-left-radius: 0; margin-left: -1px; }
-  .dc-chip.nr { border-top-right-radius: 0; border-bottom-right-radius: 0; margin-right: -1px; }
+  .dc-n { pointer-events: none; justify-self: start; align-self: start; min-width: 20px; height: 20px; line-height: 20px; margin: 2px 0 0 2px; padding: 0 4px; border-radius: 99px; font-size: 12px; font-weight: 700; text-align: center; }
+  .dc-n.today { background: var(--accent); color: #fff; }
+  .dc-chip { display: block; pointer-events: none; white-space: normal; word-break: keep-all; overflow-wrap: anywhere; font-size: 10px; line-height: 1.35; padding: 1px 3px; border-left: 2px solid transparent; border-radius: 3px; color: var(--text); }
+  .dc-chip b.tm { display: block; white-space: nowrap; font-size: 9px; font-weight: 700; letter-spacing: -0.4px; color: var(--text-muted); }
+  .dc-chip.bar { margin: 1px 2px; align-self: start; font-weight: 600; }
+  .dc-chip.nl { border-top-left-radius: 0; border-bottom-left-radius: 0; margin-left: 0; }
+  .dc-chip.nr { border-top-right-radius: 0; border-bottom-right-radius: 0; margin-right: 0; }
   .dc-chip.hol { color: var(--expense); font-weight: 600; background: none; }
-  .dc-more { font-size: 10px; color: var(--text-muted); padding-left: 3px; }
+  .dc-stack { pointer-events: none; display: flex; flex-direction: column; gap: 2px; padding: 0 2px 3px; min-width: 0; align-self: start; }
+  .dc-stack.out { opacity: .55; }
   .dc-sp { font-size: 10px; line-height: 1.2; color: var(--expense); padding-left: 3px; white-space: nowrap; }
   .dc-sp.inc { color: var(--income); }
   .dc-item { display: flex; justify-content: space-between; align-items: center; gap: 8px; width: 100%; padding: 8px 10px; margin: 0 0 4px; border: 0; border-left: 4px solid var(--c, var(--accent)); border-radius: 8px; background: var(--bg); color: var(--text); font-size: 13px; text-align: left; cursor: pointer; }
@@ -2713,6 +2717,8 @@
     const draw = () => {
       sheetBody.innerHTML = `<form>
         <h3>구성원 관리</h3>
+        <div class="rec" data-me="1"><span class="grip" style="visibility:hidden" aria-hidden="true">☰</span><div><div class="rec-name">${escapeHtml(meName())}</div><div class="rec-sub">기본 구성원 · 항상 맨 앞 · 삭제할 수 없어요</div></div>
+          <button type="button" class="icon-btn" data-mren="me" aria-label="이름 바꾸기">✎</button></div>
         ${schedule.members.length ? schedule.members.map((m) => `<div class="rec" data-id="${m.id}"><span class="grip" aria-label="끌어서 순서 바꾸기">☰</span><div><div class="rec-name">${escapeHtml(m.name)}</div>
           <div class="rec-sub">${validDate(m.birth) ? m.birth.replace(/-/g, '.') + ' · ' + ageText(monthsBetween(m.birth, todayStr())) : '생년월일 미입력'}</div></div>
           <button type="button" class="icon-btn" data-mbirth="${m.id}" aria-label="생년월일">🎂</button>
@@ -2725,7 +2731,7 @@
         <div class="sheet-actions"><button type="button" data-cancel>닫기</button></div>
       </form>`;
     };
-    const taken = (name, exceptId) => name === '나' || schedule.members.some((m) => m.name === name && m.id !== exceptId);
+    const taken = (name, exceptId) => name === meName() || schedule.members.some((m) => m.name === name && m.id !== exceptId);
     const add = () => {
       const name = sheetBody.querySelector('#mem-new').value.trim();
       if (!name) return;
@@ -2739,7 +2745,21 @@
       draw();
       showToast('추가했어요');
     };
+    // "나"의 이름 바꾸기: 프로필의 이름과 같은 값이다. 비우면 "나"로 돌아간다.
+    const renameMe = () => {
+      const cur = meName();
+      const v = prompt('나의 표시 이름을 입력하세요 (비우면 “나”로 돌아가요)', cur === '나' ? '' : cur);
+      if (v === null) return;
+      const name = v.trim().slice(0, 12);
+      if (name && schedule.members.some((m) => m.name === name)) { showToast('이미 있는 이름이에요'); return; }
+      profile.name = name;
+      saveProfile();
+      refreshNames();
+      draw();
+      showToast(name ? '이름을 바꿨어요' : '“나”로 되돌렸어요');
+    };
     const rename = (id) => {
+      if (id === 'me') { renameMe(); return; }
       const m = schedule.members.find((x) => x.id === id);
       const name = (prompt('새 이름을 입력하세요', m.name) || '').trim();
       if (!name || name === m.name) return;
@@ -2859,7 +2879,13 @@
   let healthWho = 'all';
   let cycleView = { y: new Date().getFullYear(), m: new Date().getMonth() };
   const saveHealth = () => saveJson(HEALTH_KEY, health);
-  const people = () => [{ id: 'me', name: '나' }, ...schedule.members];
+  // "나"는 늘 맨 앞에 자동으로 들어가는 구성원이다. 표시 이름은 프로필의 이름(`profile.name`)을 쓰고, 비어 있으면 "나"다.
+  // 프로필 변수는 뒤쪽에서 만들어지므로 저장된 값을 직접 읽는다(처음 그릴 때 초기화 순서와 상관없이 안전하다).
+  function meName() {
+    try { const n = JSON.parse(localStorage.getItem('dadari_profile_v1')).name; if (typeof n === 'string' && n.trim()) return n.trim(); } catch (e) { /* 이름이 없으면 기본 */ }
+    return '나';
+  }
+  const people = () => [{ id: 'me', name: meName() }, ...schedule.members];
   const whoName = (id) => (people().find((p) => p.id === id) || { name: '(삭제된 구성원)' }).name;
 
   const parseD = (s) => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
@@ -5318,7 +5344,7 @@
           for (; s <= to; s = addDays(s, 7)) starts.push(s);
         } else if (rep === 'month') msPrev.forEach(([y, m]) => { const s = ymdOf(y, m, +c.date.slice(8, 10)); if (s >= c.date) starts.push(s); });
         else for (let y = fromY - 1; y <= toY; y++) { const s = ymdOf(y, +c.date.slice(5, 7) - 1, +c.date.slice(8, 10)); if (s >= c.date) starts.push(s); }
-        starts.forEach((s) => { for (let i = 0; i <= span; i++) add('mine', addDays(s, i), { text: c.title, time: c.time || '', id: c.id, color: c.color || CAL_COLORS[0], first: i === 0, last: i === span, repeat: rep !== 'none' }); });
+        starts.forEach((s) => { for (let i = 0; i <= span; i++) add('mine', addDays(s, i), { text: c.title, time: c.time || '', endTime: c.endTime || '', id: c.id, color: c.color || CAL_COLORS[0], first: i === 0, last: i === span, repeat: rep !== 'none', multi: span > 0, occ: s, occEnd: addDays(s, span) }); });
       });
     }
     if (cal === 'fin') transactions.forEach((t) => {
@@ -5332,29 +5358,51 @@
   }
 
   const hexA = (c, a) => c + a;   // #rrggbb + 2자리 투명도
-  function calChip(e, dow) {
+  // 시간 표시: 시작만 있으면 "09:00", 끝나는 시간까지 있으면 "09:00~10:30"
+  const calTime = (e) => (e.time ? (e.endTime && e.endTime > e.time ? e.time + '~' + e.endTime : e.time) : '');
+  function calChip(e) {
     if (e.kind === 'hol') return `<span class="dc-chip hol">${esc(e.text)}</span>`;
-    const c = e.color || CAL_COLORS[0];
-    const cont = e.first === false || e.last === false;
-    const label = cont && e.first === false && dow !== 0 ? '&nbsp;' : esc(e.text);
-    return `<span class="dc-chip${e.first === false ? ' nl' : ''}${e.last === false ? ' nr' : ''}" style="background:${hexA(c, '2e')};border-left-color:${c}">${label}</span>`;   // 칸이 좁아 아이콘은 빼고 제목만 보여 준다(아이콘은 아래 상세 목록에)
+    const c = e.color || CAL_COLORS[0], ranged = e.time && e.endTime && e.endTime > e.time;
+    // 좁은 칸에서도 안 잘리게 시작·끝 시간을 두 줄로 나눠 쓴다(10:00 / ~11:00)
+    return `<span class="dc-chip" style="background:${hexA(c, '2e')};border-left-color:${c}">${e.time ? `<b class="tm">${e.time}${ranged ? '<br>~' + e.endTime : ''}</b>` : ''}${esc(e.text)}</span>`;
   }
   function calFilterHtml(cal) {
     return CAL_CHIPS[cal].map(([k, n]) => `<button type="button" data-cf="${k}" class="${calOff[cal].has(k) ? '' : 'on'}">${n}</button>`).join('');
   }
-  // 달력 격자(앞뒤 달의 날짜도 채운 주 단위). 칸 안에 일정 제목이 보이는 다이어리 모양이다.
-  function calGridHtml(cal, map, money, maxChips) {
-    const S = CS[cal], today = todayStr(), first = new Date(S.y, S.m, 1), lead = first.getDay();
+  // 달력 격자: 주마다 7열 그리드. 여러 날 일정은 이어진 한 줄 띠로 묶어 제목을 한 번만 보여 주고, 글씨는 줄바꿈해서 모두 보이게 한다(칸은 내용만큼 늘어난다).
+  function calGridHtml(cal, map, money) {
+    const S = CS[cal], today = todayStr(), lead = new Date(S.y, S.m, 1).getDay();
     const weeks = Math.ceil((lead + new Date(S.y, S.m + 1, 0).getDate()) / 7);
-    let h = CAL_DAYN.map((d, i) => `<div class="dc-dow${i === 0 ? ' sun' : i === 6 ? ' sat' : ''}">${d}</div>`).join('');
-    for (let i = 0; i < weeks * 7; i++) {
-      const d = new Date(S.y, S.m, 1 - lead + i), date = dstr(d), dow = d.getDay(), evs = map[date] || [], mo = money && money[date];
-      const hol = evs.some((e) => e.kind === 'hol');
-      const shown = evs.slice(0, maxChips);
-      h += `<div class="dc-cell${d.getMonth() !== S.m ? ' out' : ''}${date === today ? ' today' : ''}${date === S.sel ? ' sel' : ''}" data-cd="${date}" role="button" tabindex="0" aria-label="${d.getMonth() + 1}월 ${d.getDate()}일">`
-        + `<span class="dc-n${dow === 0 || hol ? ' sun' : dow === 6 ? ' sat' : ''}">${d.getDate()}</span>`
-        + shown.map((e) => calChip(e, dow)).join('') + (evs.length > shown.length ? `<span class="dc-more">+${evs.length - shown.length}</span>` : '')
-        + (mo && mo.exp ? `<span class="dc-sp">-${shortWon(mo.exp)}</span>` : '') + (mo && mo.inc ? `<span class="dc-sp inc">+${shortWon(mo.inc)}</span>` : '') + '</div>';
+    let h = `<div class="dc-dowrow">${CAL_DAYN.map((d, i) => `<div class="dc-dow${i === 0 ? ' sun' : i === 6 ? ' sat' : ''}">${d}</div>`).join('')}</div>`;
+    for (let w = 0; w < weeks; w++) {
+      const days = [];
+      for (let c = 0; c < 7; c++) { const d = new Date(S.y, S.m, 1 - lead + w * 7 + c), date = dstr(d); days.push({ d, date, evs: map[date] || [] }); }
+      // 이 주에 걸친 여러 날 일정(같은 일정의 같은 회차)을 하나로 묶는다
+      const segs = {};
+      days.forEach((x, c) => x.evs.forEach((e) => {
+        if (e.kind === 'mine' && e.multi) { const k = e.id + '|' + e.occ; (segs[k] = segs[k] || { cols: [], ents: [] }); segs[k].cols.push(c); segs[k].ents.push(e); }
+      }));
+      const list = Object.keys(segs).map((k) => { const g = segs[k]; return { s0: g.cols[0], s1: g.cols[g.cols.length - 1], e: g.ents[0], contL: g.ents[0].first === false, contR: g.ents[g.ents.length - 1].last === false }; })
+        .sort((a, b) => a.s0 - b.s0 || (b.s1 - b.s0) - (a.s1 - a.s0));
+      const laneEnd = [];
+      list.forEach((g) => { let l = laneEnd.findIndex((end) => end < g.s0); if (l < 0) { l = laneEnd.length; laneEnd.push(-1); } laneEnd[l] = g.s1; g.lane = l; });
+      const total = laneEnd.length + 2;
+      h += '<div class="dc-week7">';
+      days.forEach((x, c) => {
+        const dow = x.d.getDay(), hol = x.evs.some((e) => e.kind === 'hol'), out = x.d.getMonth() !== S.m;
+        h += `<div class="dc-cell${out ? ' out' : ''}${x.date === S.sel ? ' sel' : ''}" data-cd="${x.date}" role="button" tabindex="0" aria-label="${x.d.getMonth() + 1}월 ${x.d.getDate()}일" style="grid-column:${c + 1};grid-row:1 / span ${total}"></div>`
+          + `<span class="dc-n${dow === 0 || hol ? ' sun' : dow === 6 ? ' sat' : ''}${x.date === today ? ' today' : ''}" style="grid-column:${c + 1};grid-row:1">${x.d.getDate()}</span>`;
+      });
+      list.forEach((g) => {
+        const col = g.e.color || CAL_COLORS[0];
+        h += `<span class="dc-chip bar${g.contL ? ' nl' : ''}${g.contR ? ' nr' : ''}" style="grid-column:${g.s0 + 1} / span ${g.s1 - g.s0 + 1};grid-row:${g.lane + 2};background:${hexA(col, '2e')};border-left-color:${col}">${esc(g.e.text)}</span>`;
+      });
+      days.forEach((x, c) => {
+        const mo = money && money[x.date], single = x.evs.filter((e) => !(e.kind === 'mine' && e.multi));
+        h += `<div class="dc-stack${x.d.getMonth() !== S.m ? ' out' : ''}" style="grid-column:${c + 1};grid-row:${total}">${single.map(calChip).join('')}`
+          + (mo && mo.exp ? `<span class="dc-sp">-${shortWon(mo.exp)}</span>` : '') + (mo && mo.inc ? `<span class="dc-sp inc">+${shortWon(mo.inc)}</span>` : '') + '</div>';
+      });
+      h += '</div>';
     }
     return `<div class="dc-grid">${h}</div>`;
   }
@@ -5363,9 +5411,9 @@
     return [dstr(new Date(S.y, S.m, 1 - lead)), dstr(new Date(S.y, S.m, 1 - lead + weeks * 7 - 1))];
   };
   function calItemHtml(e) {
-    const c = e.color || CAL_COLORS[0];
+    const c = e.color || CAL_COLORS[0], tm = calTime(e), md = (d) => d.slice(5).replace('-', '/');
     return `<button type="button" class="dc-item${e.kind === 'hol' ? ' hol' : ''}" style="--c:${c}"${e.id ? ` data-cid="${attr(e.id)}"` : e.view ? ` data-cv="${e.view}"` : ''}${e.sub ? ` data-csub="${e.sub}"` : ''}>`
-      + `<span class="t">${e.time ? `<b>${e.time}</b> ` : ''}${e.icon ? e.icon + ' ' : ''}${esc(e.text)}${e.repeat ? ' <small>↻</small>' : ''}${e.first === false ? ' <small>(계속)</small>' : ''}</span>${e.amt ? `<span class="a">${formatWon(e.amt)}</span>` : ''}</button>`;
+      + `<span class="t">${tm ? `<b>${tm}</b> ` : ''}${e.icon ? e.icon + ' ' : ''}${esc(e.text)}${e.repeat ? ' <small>↻</small>' : ''}${e.multi ? ` <small>(${md(e.occ)} ~ ${md(e.occEnd)})</small>` : ''}</span>${e.amt ? `<span class="a">${formatWon(e.amt)}</span>` : ''}</button>`;
   }
   function calDayHtml(cal, date, map) {
     const d = dparse(date), evs = map[date] || [];
@@ -5389,19 +5437,21 @@
     if (S.mode === 'month') {
       el('cal-label').innerHTML = `<small>${S.y}</small>${S.m + 1}월`;
       const [from, to] = calGridRange('diary'), { map } = calRange('diary', from, to);
-      html = calGridHtml('diary', map, null, 3) + calDayHtml('diary', S.sel, map);
+      html = calGridHtml('diary', map, null) + calDayHtml('diary', S.sel, map);
     } else if (S.mode === 'week') {
       const sd = dparse(S.sel), start = new Date(sd.getFullYear(), sd.getMonth(), sd.getDate() - sd.getDay()), end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6);
       el('cal-label').innerHTML = `<small>${start.getFullYear()}</small>${start.getMonth() + 1}/${start.getDate()} ~ ${end.getMonth() + 1}/${end.getDate()}`;
       const { map } = calRange('diary', dstr(start), dstr(end));
       for (let i = 0; i < 7; i++) {
-        const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i), date = dstr(d), evs = map[date] || [];
+        const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i), date = dstr(d), evs = (map[date] || []).filter((e) => !(e.multi && e.first === false && i !== 0));
         html += `<div class="dc-week${date === today ? ' today' : ''}"><div class="dc-wd${i === 0 || evs.some((e) => e.kind === 'hol') ? ' sun' : i === 6 ? ' sat' : ''}" data-cadd="${date}" title="일정 추가"><b>${d.getDate()}</b><span>${CAL_DAYN[i]}</span></div>`
           + `<div class="dc-wl">${evs.length ? evs.map(calItemHtml).join('') : '<span class="dc-none">일정 없음</span>'}</div></div>`;
       }
     } else {
       el('cal-label').innerHTML = '<small>다가오는</small>60일';
-      const { map } = calRange('diary', today, addDays(today, 60)), days = Object.keys(map).sort();
+      const { map } = calRange('diary', today, addDays(today, 60));
+      Object.keys(map).forEach((d) => { map[d] = map[d].filter((e) => !(e.multi && e.first === false && d !== today)); if (!map[d].length) delete map[d]; });
+      const days = Object.keys(map).sort();
       html = days.length ? days.map((date) => {
         const d = dparse(date), dd = diffDays(date, today);
         return `<h2 class="section-title" style="margin:14px 0 4px">${d.getMonth() + 1}월 ${d.getDate()}일 (${CAL_DAYN[d.getDay()]}) <small style="font-weight:400">${dd === 0 ? '오늘' : 'D-' + dd}</small></h2>` + map[date].map(calItemHtml).join('');
@@ -5421,7 +5471,7 @@
     Object.keys(map).filter((d) => d.startsWith(ym)).forEach((d) => map[d].forEach((e) => { if (e.kind === 'pay' && e.amt) { pay += e.amt; payN++; } else if (e.kind === 'inc' && e.amt) { inc += e.amt; incN++; } }));
     Object.keys(money).filter((d) => d.startsWith(ym)).forEach((d) => { aInc += money[d].inc; aExp += money[d].exp; });
     el('fin-body').innerHTML = `<div class="ins-sum">납부·이체 예정 <b>${formatWon(pay)}</b> (${payN}건)${incN ? ` · 수입 예정 <b class="inc">${formatWon(inc)}</b> (${incN}건)` : ''}<br>실제 지출 <b>${formatWon(aExp)}</b> · 수입 <b class="inc">${formatWon(aInc)}</b></div>`
-      + calGridHtml('fin', map, money, 2) + calDayHtml('fin', S.sel, map);
+      + calGridHtml('fin', map, money) + calDayHtml('fin', S.sel, map);
   }
 
   function calGo(cal, y, m) {
@@ -5530,7 +5580,7 @@
     openSheet(`<form>
       <h3>프로필·목표</h3>
       <label>아바타</label><div class="pf-emojis">${PF_EMOJI.map((e) => `<label><input type="radio" name="emoji" value="${e}"${e === (profile.emoji || '🙂') ? ' checked' : ''}><span>${e}</span></label>`).join('')}</div>
-      <label>이름(별명)</label><input name="name" maxlength="12" placeholder="예: 유진" value="${val(profile.name)}" autocomplete="off">
+      <label>이름(별명) — 구성원 목록의 “나”에도 이 이름이 쓰여요</label><input name="name" maxlength="12" placeholder="비우면 “나”로 표시돼요. 예: 유진" value="${val(profile.name)}" autocomplete="off">
       <label>한 줄 소개</label><input name="intro" maxlength="60" placeholder="예: 올해는 꾸준히, 천천히 부자 되기" value="${val(profile.intro)}" autocomplete="off">
       <label>목표 (한 줄에 하나, 최대 5개)</label><textarea name="goals" rows="5" maxlength="300" placeholder="예: 월 100만원 저축">${profile.goals.map((g) => esc(g.text)).join(PF_NL)}</textarea>
       <label class="check"><input type="checkbox" name="show"${profile.show === false ? '' : ' checked'}> 화면 맨 위에 프로필 카드 보이기</label>
@@ -5545,9 +5595,22 @@
       profile.intro = String(fd.get('intro')).trim();
       profile.show = fd.get('show') === 'on';
       saveProfile();
-      renderProfile();
+      refreshNames();
       showToast(profile.show ? '저장했어요' : '프로필 카드를 감췄어요. 다시 보려면 대시보드 설정에서 켜세요');
     });
+  }
+  function refreshNames() {
+    renderProfile();
+    renderSchedule();
+    renderHealth();
+    renderInsurance();
+    renderRental();
+    renderAcademy();
+    renderSavings();
+    renderSide();
+    renderCal();
+    renderFin();
+    renderTodo();
   }
   el('profile-card').addEventListener('click', (e) => {
     const b = e.target.closest('[data-pf]');
@@ -6567,7 +6630,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v44'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v45'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span style="display:block;margin-bottom:4px">다달이, 매일의 기록이 모여 더 나은 생활이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
