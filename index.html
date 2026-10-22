@@ -914,7 +914,8 @@
       const pay = el('f-card').value;
       if (cardById(pay)) entry.cardId = pay;
       entry.pay = cardById(pay) || pay === 'card' ? 'card' : pay === 'transfer' ? 'transfer' : 'cash';
-      try { localStorage.setItem('dadari_lastpay', pay); } catch (e) { /* 기억하지 못해도 기록은 계속 */ }
+      // 고정비 기본 카드가 자동으로 골라진 경우에는 "마지막에 쓴 결제수단"으로 기억하지 않는다.
+      try { localStorage.setItem('dadari_lastpay', payBeforeFixed !== null ? payBeforeFixed : pay); } catch (e) { /* 기억하지 못해도 기록은 계속 */ }
     }
     if (el('f-fixed').checked) entry.fixed = true;
     if (pendingBlob) {
@@ -930,6 +931,7 @@
     clearReceipt();
     dateTouched = false;
     el('f-fixed').checked = false;
+    restoreFixedPay();
     el('f-amount').value = '';
     el('f-memo').value = '';
     viewDate = new Date(entry.date);
@@ -1239,7 +1241,25 @@
     return cardName(t) || (t.pay === 'card' ? '카드' : t.pay === 'transfer' ? '계좌이체' : t.pay === 'cash' ? '현금' : '');
   }
 
+  // 고정비 기본 카드: "고정비"에 체크하면 결제수단을 그 카드로 바꾸고, 체크를 풀거나 기록을 마치면 원래 선택으로 되돌린다.
+  let payBeforeFixed = null;
+  function restoreFixedPay() {
+    if (payBeforeFixed === null) return;
+    const def = cards.find((c) => c.fixedDefault);
+    if (def && el('f-card').value === def.id) el('f-card').value = payBeforeFixed;
+    payBeforeFixed = null;
+  }
+  el('f-fixed').addEventListener('change', (e) => {
+    const def = cards.find((c) => c.fixedDefault);
+    if (e.target.checked) {
+      if (def && currentType === 'expense' && payBeforeFixed === null) { payBeforeFixed = el('f-card').value; el('f-card').value = def.id; }
+    } else {
+      restoreFixedPay();
+    }
+  });
+
   el('f-card').addEventListener('change', (e) => {
+    payBeforeFixed = null;   // 직접 고른 결제수단은 고정비 자동 선택보다 우선한다
     if (e.target.value !== '__new') return;
     renderCardOptions();   // 선택을 되돌려 두고 카드 등록 화면을 연다
     openCardSheet();
@@ -1384,7 +1404,7 @@
       const info = [c.brand, c.fee ? '연회비 ' + formatWon(c.fee) : ''].filter(Boolean).map(escapeHtml).join(' · ');
       return `<div class="cardbox">
         <div class="cardhead">
-          <div><button type="button" class="card-edit" data-edit-card="${c.id}" aria-label="카드 정보 수정"><b>${escapeHtml(c.name)}</b><span class="tag">${c.kind === 'credit' ? '신용' : '체크'}</span></button>
+          <div><button type="button" class="card-edit" data-edit-card="${c.id}" aria-label="카드 정보 수정"><b>${escapeHtml(c.name)}</b><span class="tag">${c.kind === 'credit' ? '신용' : '체크'}</span>${c.fixedDefault ? '<span class="tag">고정비 기본</span>' : ''}</button>
           <div class="cardsub">${parts.join(' · ')}</div>${info ? `<div class="cardsub">${info}</div>` : ''}</div>
           <div class="card-btns"><button type="button" class="pill-btn" data-edit-card="${c.id}">✎ 수정</button>
           <button type="button" class="icon-btn" data-del-card="${c.id}" aria-label="카드 삭제">🗑</button></div>
@@ -1509,6 +1529,8 @@
       <label>브랜드 (선택)</label>
       <input name="brand" maxlength="20" list="card-brands" placeholder="예: VISA, 마스터" value="${val(c && c.brand)}" autocomplete="off">
       <datalist id="card-brands"><option value="VISA"><option value="마스터"><option value="BC"><option value="국내전용"><option value="유니온페이"><option value="JCB"><option value="아멕스"></datalist>
+      <label class="check"><input type="checkbox" name="fixedDefault"${c && c.fixedDefault ? ' checked' : ''}> 고정비 기본 카드로 지정</label>
+      <p class="goal-hint" style="margin-top:2px">지정하면 기록할 때 “고정비”에 체크하는 순간 결제수단이 이 카드로 자동 선택돼요. 기본 카드는 하나만 지정할 수 있어요.</p>
       <label>혜택 · 실적 (한 줄에 하나, 선택)</label>
       <textarea name="benefits" maxlength="2000" placeholder="통신비할인 / 40-4천원 / 70-7천원 / 100-13천원&#10;주유할인 / 리터당 40-100원 / 70-150원&#10;편의점 5%">${escapeHtml(c && c.benefits ? c.benefits : '')}</textarea>
       <p class="goal-hint">‘40-4천원’은 전월 실적 40만원 이상이면 4천원이라는 뜻이에요(‘-’ 대신 ‘_’ ‘:’ ‘=’도 돼요). 이렇게 쓰면 전월 사용액에 맞는 혜택을 골라 보여 줘요. ‘전월실적 30만원’처럼 한 줄로 쓰면 그 금액을 실적 기준으로 읽고, 다른 형식은 적은 그대로 보여 줘요. 카드번호는 입력하지 않아요.</p>
@@ -1521,15 +1543,18 @@
       const rec = {
         name, kind, payDay: kind === 'credit' && day >= 1 && day <= 31 ? day : 0,
         fee: Math.max(0, parseInt(fd.get('fee'), 10) || 0), brand: String(fd.get('brand')).trim(),
-        benefits: String(fd.get('benefits')).trim()
+        benefits: String(fd.get('benefits')).trim(), fixedDefault: fd.get('fixedDefault') === 'on'
       };
+      let savedId;
       if (c) {
         Object.assign(c, rec);
+        savedId = c.id;
       } else {
-        const id = newId();
-        cards.push({ id, ...rec });
-        if (selectNewCard) selectNewCard = id;
+        savedId = newId();
+        cards.push({ id: savedId, ...rec });
+        if (selectNewCard) selectNewCard = savedId;
       }
+      if (rec.fixedDefault) cards.forEach((x) => { if (x.id !== savedId) x.fixedDefault = false; });   // 기본 카드는 하나만
       saveJson(CARDS_KEY, cards);
       renderCardOptions();
       if (typeof selectNewCard === 'string') el('f-card').value = selectNewCard;
@@ -1540,7 +1565,7 @@
   el('add-card-btn').addEventListener('click', () => openCardSheet());
 
   el('add-recur-btn').addEventListener('click', () => {
-    const cardOpts = cards.map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('')
+    const cardOpts = cards.map((c) => `<option value="${c.id}"${c.fixedDefault ? ' selected' : ''}>${escapeHtml(c.name)}</option>`).join('')
       + '<option value="">카드 없이 (계좌 자동이체)</option>';
     const catOpts = catOptions('expense');
     openSheet(`<form>
@@ -2949,7 +2974,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v16'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v17'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').textContent = '다다리 가계부 ' + APP_VERSION;
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
