@@ -319,6 +319,43 @@
   .week .fill.near { background: #d97706; }
   .week .fill.over { background: var(--expense); }
   .week .over-text { color: var(--expense); }
+  .receipt-row { display: flex; align-items: center; gap: 10px; }
+  label.receipt-btn {
+    display: inline-block;
+    margin: 0;
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: 1px dashed var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 13px;
+    cursor: pointer;
+  }
+  #rc-thumb { width: 44px; height: 44px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); }
+  #rc-remove { border: none; background: none; color: var(--text-muted); font-size: 16px; cursor: pointer; padding: 6px; }
+  .viewer {
+    position: fixed;
+    inset: 0;
+    z-index: 20;
+    background: rgba(0,0,0,0.85);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 16px;
+  }
+  .viewer[hidden] { display: none; }
+  .viewer img { max-width: 100%; max-height: calc(100vh - 90px); object-fit: contain; border-radius: 8px; }
+  .viewer button {
+    padding: 10px 28px;
+    border: none;
+    border-radius: 20px;
+    background: var(--card-bg);
+    color: var(--text);
+    font-size: 14px;
+    cursor: pointer;
+  }
   .install-btn {
     width: 100%;
     padding: 10px;
@@ -395,6 +432,16 @@
         <label for="f-memo">메모 (선택)</label>
         <input type="text" id="f-memo" placeholder="예: 점심 식사">
       </div>
+      <div class="full">
+        <label>영수증 사진 (선택)</label>
+        <div class="receipt-row">
+          <label class="receipt-btn" for="f-receipt">📷 촬영 / 사진 선택</label>
+          <input type="file" id="f-receipt" accept="image/*" hidden>
+          <img id="rc-thumb" alt="영수증 미리보기" hidden>
+          <button type="button" id="rc-remove" aria-label="사진 지우기" hidden>✕</button>
+        </div>
+        <p class="goal-hint" id="rc-status"></p>
+      </div>
       <button type="submit" class="submit-btn">기록하기</button>
     </form>
   </section>
@@ -425,6 +472,11 @@
   </section>
 
 </main>
+
+<div class="viewer" id="viewer" hidden>
+  <img id="viewer-img" alt="영수증">
+  <button type="button" id="viewer-close">닫기</button>
+</div>
 
 <div class="toast" id="toast"></div>
 
@@ -503,7 +555,7 @@
     renderCategoryOptions();
   });
 
-  form.addEventListener('submit', (e) => {
+  form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const amount = parseFloat(el('f-amount').value);
     if (!amount || amount <= 0) {
@@ -518,8 +570,18 @@
       amount: amount,
       memo: el('f-memo').value.trim()
     };
+    if (pendingBlob) {
+      try {
+        await putReceipt(entry.id, pendingBlob);
+        entry.receipt = true;
+      } catch (err) {
+        showToast('사진을 저장하지 못했어요. 기록은 사진 없이 저장해요');
+      }
+    }
     transactions.push(entry);
     save();
+    clearReceipt();
+    dateTouched = false;
     el('f-amount').value = '';
     el('f-memo').value = '';
     viewDate = new Date(entry.date);
@@ -663,17 +725,23 @@
           </div>
           <div class="tx-amt ${t.type}">${sign}${formatWon(t.amount)}</div>
           <div class="tx-actions">
+            ${t.receipt ? '<button class="rc-btn" title="영수증 보기" aria-label="영수증 보기">📷</button>' : ''}
             <button class="del-btn" title="삭제" aria-label="삭제">🗑</button>
           </div>
         </div>`;
       })
       .join('');
 
+    wrap.querySelectorAll('.rc-btn').forEach((btn) => {
+      btn.addEventListener('click', (e) => showReceipt(e.target.closest('.tx-item').dataset.id));
+    });
+
     wrap.querySelectorAll('.del-btn').forEach((btn) => {
       btn.addEventListener('click', (e) => {
         const item = e.target.closest('.tx-item');
         const id = item.dataset.id;
         transactions = transactions.filter((t) => t.id !== id);
+        delReceipt(id).catch(() => {});
         save();
         renderAll();
         showToast('삭제되었어요');
@@ -734,6 +802,162 @@
     };
     reader.readAsText(file);
   });
+
+  /* ---------- 영수증 사진 ---------- */
+  // 사진은 localStorage에 들어가기엔 커서 IndexedDB에 기록 id로 저장한다. 백업 JSON에는 포함되지 않는다.
+  let pendingBlob = null;
+  let ocrToken = 0;
+  let dateTouched = false;
+  let viewerUrl = null;
+  dateInput.addEventListener('input', () => { dateTouched = true; });
+
+  function openDb() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open('dadari', 1);
+      req.onupgradeneeded = () => req.result.createObjectStore('receipts');
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+  async function receiptTx(mode, fn) {
+    const db = await openDb();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction('receipts', mode);
+      const req = fn(tx.objectStore('receipts'));
+      tx.oncomplete = () => { db.close(); resolve(req.result); };
+      tx.onerror = tx.onabort = () => { db.close(); reject(tx.error); };
+    });
+  }
+  const putReceipt = (id, blob) => receiptTx('readwrite', (s) => s.put(blob, id));
+  const getReceipt = (id) => receiptTx('readonly', (s) => s.get(id));
+  const delReceipt = (id) => receiptTx('readwrite', (s) => s.delete(id));
+
+  // 긴 변 1600px 이하 JPEG로 줄여 용량을 아끼고 글자 인식에 충분한 해상도는 남긴다.
+  function shrinkImage(file, max = 1600) {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        const s = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+        const c = document.createElement('canvas');
+        c.width = Math.round(img.naturalWidth * s);
+        c.height = Math.round(img.naturalHeight * s);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(url);
+        c.toBlob((b) => (b ? resolve(b) : reject(new Error('toBlob'))), 'image/jpeg', 0.72);
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('load')); };
+      img.src = url;
+    });
+  }
+
+  function clearReceipt() {
+    ocrToken++;
+    pendingBlob = null;
+    const thumb = el('rc-thumb');
+    if (thumb.src.startsWith('blob:')) URL.revokeObjectURL(thumb.src);
+    thumb.removeAttribute('src');
+    thumb.hidden = true;
+    el('rc-remove').hidden = true;
+    el('rc-status').textContent = '';
+  }
+
+  el('f-receipt').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    clearReceipt();
+    try {
+      pendingBlob = await shrinkImage(file);
+    } catch (err) {
+      showToast('사진을 불러오지 못했어요');
+      return;
+    }
+    el('rc-thumb').src = URL.createObjectURL(pendingBlob);
+    el('rc-thumb').hidden = false;
+    el('rc-remove').hidden = false;
+    readReceipt(pendingBlob);
+  });
+  el('rc-remove').addEventListener('click', clearReceipt);
+
+  async function showReceipt(id) {
+    try {
+      const blob = await getReceipt(id);
+      if (!blob) { showToast('이 기기에는 저장된 사진이 없어요'); return; }
+      if (viewerUrl) URL.revokeObjectURL(viewerUrl);
+      viewerUrl = URL.createObjectURL(blob);
+      el('viewer-img').src = viewerUrl;
+      el('viewer').hidden = false;
+    } catch (err) {
+      showToast('사진을 불러오지 못했어요');
+    }
+  }
+  const closeViewer = () => { el('viewer').hidden = true; };
+  el('viewer-close').addEventListener('click', closeViewer);
+  el('viewer').addEventListener('click', (e) => { if (e.target === el('viewer')) closeViewer(); });
+
+  /* ---------- 영수증 글자 읽기 (OCR) ---------- */
+  // 처음 사용할 때만 Tesseract.js와 한글 언어 데이터를 내려받는다. 사진은 기기 밖으로 나가지 않는다.
+  function loadTesseract() {
+    if (window.Tesseract) return Promise.resolve(window.Tesseract);
+    return new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';
+      s.onload = () => resolve(window.Tesseract);
+      s.onerror = () => reject(new Error('load'));
+      document.head.appendChild(s);
+    });
+  }
+
+  function parseReceipt(text) {
+    const lines = text.split('\n').map((s) => s.replace(/\s+/g, ' ').trim()).filter(Boolean);
+    const numbers = (s) => (s.match(/\d{1,3}(?:[,.]\d{3})+|\d{3,9}/g) || [])
+      .map((x) => parseInt(x.replace(/[,.]/g, ''), 10))
+      .filter((n) => n >= 100 && n < 100000000);
+    const skip = /부가세|세액|VAT|과세|면세|할인|포인트|적립|\d{2,4}-\d{3,4}-\d{4}/i;
+    const keyword = /합\s*계|총\s*액|결제\s*(금액|요청)|받을\s*금액|청구\s*금액|판매\s*총액|TOTAL|AMOUNT/i;
+
+    let amount = 0;
+    lines.filter((l) => keyword.test(l) && !skip.test(l)).forEach((l) => {
+      amount = Math.max(amount, ...numbers(l), 0);
+    });
+    if (!amount) {
+      // 키워드를 못 찾으면 쉼표 형식(1,234)의 숫자 중 가장 큰 값을 후보로 쓴다.
+      lines.filter((l) => !skip.test(l)).forEach((l) => {
+        (l.match(/\d{1,3}(?:,\d{3})+/g) || []).forEach((x) => { amount = Math.max(amount, parseInt(x.replace(/,/g, ''), 10)); });
+      });
+    }
+
+    let date = '';
+    const m = text.match(/(20\d{2})\s*[-./년]\s*(\d{1,2})\s*[-./월]\s*(\d{1,2})/);
+    if (m) {
+      const mo = +m[2], d = +m[3];
+      const cand = m[1] + '-' + String(mo).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+      if (mo >= 1 && mo <= 12 && d >= 1 && d <= 31 && cand <= todayStr()) date = cand;
+    }
+    return { amount, date };
+  }
+
+  async function readReceipt(blob) {
+    const token = ++ocrToken;
+    const status = el('rc-status');
+    status.textContent = '영수증을 읽는 중이에요… (처음에는 언어 데이터를 받느라 1분쯤 걸릴 수 있어요)';
+    try {
+      const T = await loadTesseract();
+      const { data } = await T.recognize(blob, 'kor+eng');
+      if (token !== ocrToken) return;
+      const r = parseReceipt(data.text);
+      const done = [];
+      if (r.amount && !el('f-amount').value) { el('f-amount').value = r.amount; done.push('금액 ' + formatWon(r.amount)); }
+      if (r.date && !dateTouched) { dateInput.value = r.date; done.push('날짜 ' + r.date); }
+      status.textContent = done.length
+        ? '읽은 값: ' + done.join(', ') + ' — 맞는지 꼭 확인하세요'
+        : '금액을 읽지 못했어요. 직접 입력해 주세요';
+    } catch (err) {
+      if (token !== ocrToken) return;
+      status.textContent = '글자를 읽지 못했어요(인터넷 연결이 필요해요). 사진만 첨부해도 돼요';
+    }
+  }
 
   /* ---------- PWA ---------- */
   let installEvt = null;
