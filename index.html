@@ -533,13 +533,12 @@
   .dc-cell.sel { box-shadow: inset 0 0 0 2px var(--accent); }
   .dc-n { pointer-events: none; justify-self: start; align-self: start; min-width: 20px; height: 20px; line-height: 20px; margin: 2px 0 0 2px; padding: 0 4px; border-radius: 99px; font-size: 12px; font-weight: 700; text-align: center; }
   .dc-n.today { background: var(--accent); color: #fff; }
-  .dc-chip { display: block; pointer-events: none; white-space: normal; word-break: keep-all; overflow-wrap: anywhere; font-size: 10px; line-height: 1.35; padding: 1px 3px; border-radius: 3px; color: #1c1e21; }
-  .dc-chip b.tm { display: block; white-space: nowrap; font-size: 9px; font-weight: 700; letter-spacing: -0.4px; color: #4b5563; }
-  .dc-chip.bar { margin: 1px 2px; align-self: start; font-weight: 600; }
-  .dc-chip.nl { border-top-left-radius: 0; border-bottom-left-radius: 0; margin-left: 0; }
-  .dc-chip.nr { border-top-right-radius: 0; border-bottom-right-radius: 0; margin-right: 0; }
+  .dc-chip { display: block; pointer-events: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 10px; line-height: 1.4; padding: 1px 3px; border-radius: 0; margin: 0; color: #1c1e21; }
+  .dc-chip b.tm { font-size: 9px; font-weight: 700; color: #4b5563; }
+  .dc-more { font-size: 10px; color: var(--text-muted); padding-left: 3px; }
+  .dc-chip.bar { margin: 0; align-self: start; font-weight: 600; }
   .dc-chip.hol { color: var(--expense); font-weight: 600; background: none; }
-  .dc-stack { pointer-events: none; display: flex; flex-direction: column; gap: 2px; padding: 0 2px 3px; min-width: 0; align-self: start; }
+  .dc-stack { pointer-events: none; display: flex; flex-direction: column; gap: 0; padding: 0 0 2px; min-width: 0; align-self: start; }
   .dc-stack.out { opacity: .55; }
   .dc-sp { font-size: 10px; line-height: 1.2; color: var(--expense); padding-left: 3px; white-space: nowrap; }
   .dc-sp.inc { color: var(--income); }
@@ -770,16 +769,18 @@
   .member-chips button { padding: 7px 14px; border-radius: 99px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 13px; cursor: pointer; }
   .member-chips button.active { background: var(--accent); border-color: var(--accent); color: white; }
   .week-wrap { overflow-x: auto; }
-  table.week { border-collapse: collapse; width: 100%; font-size: 11px; min-width: 520px; table-layout: fixed; }   /* 요일 칸 너비를 모두 같게 */
+  table.week { border-collapse: separate; border-spacing: 0; border-top: 1px solid var(--border); border-left: 1px solid var(--border); width: 100%; font-size: 11px; min-width: 520px; table-layout: fixed; }   /* 요일 칸 너비를 모두 같게 */
   table.week th:first-child { width: 58px; }
   table.week td { word-break: keep-all; overflow-wrap: anywhere; }
-  table.week th, table.week td { border: 1px solid var(--border); padding: 5px 4px; vertical-align: top; text-align: center; }
+  table.week th, table.week td { border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 5px 4px; vertical-align: top; text-align: center; }
   table.week th { background: var(--bg); color: var(--text-muted); font-weight: 600; }
   table.week td.t { white-space: nowrap; color: var(--text-muted); background: var(--bg); }
   table.week th:first-child, table.week td.t { position: sticky; left: 0; z-index: 1; }
   table.week th.today { color: var(--accent); background: var(--accent-soft); }
   table.week td.today { background: var(--accent-soft); }
   table.week td { padding: 3px; }
+  table.week td.filled { padding: 5px 3px; vertical-align: middle; }
+  table.week td.filled button { background: none; margin: 0; padding: 0; text-align: center; border-radius: 0; }
   table.week button { display: block; width: 100%; margin: 0 0 3px; border: none; border-radius: 4px; background: none; color: #1c1e21; font-size: 11px; font-weight: 600; cursor: pointer; padding: 3px 4px; line-height: 1.35; text-align: left; }
   table.week button:last-child { margin-bottom: 0; }
   table.week button small { font-weight: 400; color: #4b5563; }
@@ -2587,7 +2588,7 @@
 
   function itemButton(i, now) {
     return `<button type="button" class="sch-item${now ? ' now' : ''}" data-item="${i.id}" style="background:${tone(schColor(i), schKey(i.title))}">
-      <span class="sch-time">${fmtTime(i.time)}</span>
+      <span class="sch-time">${i.end && i.end > i.time ? i.time + '~' + i.end : fmtTime(i.time)}</span>
       <span class="sch-title">${escapeHtml(i.title)}${now ? '<span class="sch-tag">지금</span>' : ''}${i.note ? `<span class="sch-note">${escapeHtml(i.note)}</span>` : ''}</span>
     </button>`;
   }
@@ -2631,9 +2632,37 @@
       return;
     }
     const head = '<th>시간</th>' + days.map((d) => `<th class="${d === today ? 'today' : ''}">${DAYS[d]}</th>`).join('');
-    const rows = times.map((t) => '<tr><td class="t">' + fmtTime(t) + '</td>' + days.map((d) => {
-      const cell = mine.filter((i) => i.day === d && i.time === t);
-      return `<td class="${d === today ? 'today' : ''}">` + cell.map((i) => { const c = schColor(i); return `<button type="button" data-item="${i.id}" style="background:${tone(c, schKey(i.title))}">${escapeHtml(i.title)}${i.note ? '<br><small>' + escapeHtml(i.note) + '</small>' : ''}</button>`; }).join('') + '</td>';
+    // 엑셀의 "합치기"처럼: 끝나는 시간이 있으면 그 시간까지(다음 일정이 시작하기 전까지), 없으면 같은 일정이 바로 아래 칸에 이어질 때 한 덩어리로 합친다.
+    const cellsOf = (d, t) => mine.filter((i) => i.day === d && i.time === t);
+    const skip = {}, span = {};
+    days.forEach((d) => {
+      const col = mine.filter((i) => i.day === d).sort(byTime);
+      for (let r = 0; r < times.length; r++) {
+        if (skip[d + '|' + r]) continue;
+        const cell = cellsOf(d, times[r]);
+        if (cell.length !== 1) continue;
+        const it = cell[0], nextStart = (col.find((x) => x.time > it.time) || {}).time;
+        let q = r + 1;
+        if (/^\d{2}:\d{2}$/.test(it.end || '') && it.end > it.time) {
+          const limit = nextStart && nextStart < it.end ? nextStart : it.end;
+          while (q < times.length && times[q] < limit) { skip[d + '|' + q] = true; q++; }
+        } else {
+          while (q < times.length) {
+            const nx = cellsOf(d, times[q]);
+            if (nx.length === 1 && nx[0].title === it.title && schColor(nx[0]) === schColor(it) && !nx[0].end) { skip[d + '|' + q] = true; q++; } else break;
+          }
+        }
+        span[d + '|' + r] = q - r;
+      }
+    });
+    const rows = times.map((t, r) => '<tr><td class="t">' + fmtTime(t) + '</td>' + days.map((d) => {
+      if (skip[d + '|' + r]) return '';
+      const cell = cellsOf(d, t), today_ = d === today ? ' today' : '', rs = span[d + '|' + r] > 1 ? ` rowspan="${span[d + '|' + r]}"` : '';
+      if (cell.length === 1) {
+        const i = cell[0], bg = tone(schColor(i), schKey(i.title)), range = i.end && i.end > i.time ? `<br><small>${i.time}~${i.end}</small>` : '';
+        return `<td class="filled"${rs} style="background:${bg};border-color:${bg}"><button type="button" data-item="${i.id}">${escapeHtml(i.title)}${i.note ? '<br><small>' + escapeHtml(i.note) + '</small>' : ''}${range}</button></td>`;
+      }
+      return `<td class="${today_.trim()}">` + cell.map((i) => `<button type="button" data-item="${i.id}" style="background:${tone(schColor(i), schKey(i.title))}">${escapeHtml(i.title)}${i.note ? '<br><small>' + escapeHtml(i.note) + '</small>' : ''}</button>`).join('') + '</td>';
     }).join('') + '</tr>').join('');
     // 범례: 시간표에 나온 일정 이름(괄호 앞)과 색
     const legend = new Map();
@@ -2863,6 +2892,8 @@
       ${dayField}
       <label>시작 시간</label>
       <input name="time" type="time" required value="${item ? item.time : ''}">
+      <label>끝나는 시간 (선택 · 넣으면 그 시간까지 한 덩어리로 이어져요)</label>
+      <input name="end" type="time" value="${item && item.end ? item.end : ''}">
       <label>일정</label>
       <input name="title" required maxlength="30" placeholder="예: 영어, 수영, 하교" value="${item ? escapeHtml(item.title).replace(/"/g, '&quot;') : ''}">
       <label>메모 (장소 등, 선택)</label>
@@ -2878,7 +2909,8 @@
       const title = String(fd.get('title')).trim();
       const time = String(fd.get('time'));
       if (!title || !/^\d{2}:\d{2}$/.test(time)) { showToast('일정 이름과 시간을 확인해 주세요'); return false; }
-      const base = { memberId: String(fd.get('member')), time, title, note: String(fd.get('note')).trim(), color: /^#[0-9a-fA-F]{6}$/.test(String(fd.get('color'))) ? String(fd.get('color')) : '' };
+      const endT = /^\d{2}:\d{2}$/.test(String(fd.get('end'))) && String(fd.get('end')) > time ? String(fd.get('end')) : '';
+      const base = { memberId: String(fd.get('member')), time, end: endT, title, note: String(fd.get('note')).trim(), color: /^#[0-9a-fA-F]{6}$/.test(String(fd.get('color'))) ? String(fd.get('color')) : '' };
       if (item) {
         Object.assign(item, base, { day: +fd.get('day') });
       } else {
@@ -5411,14 +5443,15 @@
   const calTime = (e) => (e.time ? (e.endTime && e.endTime > e.time ? e.time + '~' + e.endTime : e.time) : '');
   function calChip(e) {
     if (e.kind === 'hol') return `<span class="dc-chip hol">${esc(e.text)}</span>`;
-    const c = e.color || CAL_COLORS[0], ranged = e.time && e.endTime && e.endTime > e.time;
-    // 좁은 칸에서도 안 잘리게 시작·끝 시간을 두 줄로 나눠 쓴다(10:00 / ~11:00)
-    return `<span class="dc-chip" style="background:${tone(c, e.text)}">${e.time ? `<b class="tm">${e.time}${ranged ? '<br>~' + e.endTime : ''}</b>` : ''}${esc(e.text)}</span>`;
+    const c = e.color || CAL_COLORS[0];
+    // 칸에서는 한 줄로 줄여 보여 준다(전체 글씨·시간 범위는 날짜를 눌렀을 때 아래 목록에 나온다)
+    return `<span class="dc-chip" style="background:${tone(c, e.text)}">${e.time ? `<b class="tm">${e.time}</b> ` : ''}${esc(e.text)}</span>`;
   }
   function calFilterHtml(cal) {
     return CAL_CHIPS[cal].map(([k, n]) => `<button type="button" data-cf="${k}" class="${calOff[cal].has(k) ? '' : 'on'}">${n}</button>`).join('');
   }
-  // 달력 격자: 주마다 7열 그리드. 여러 날 일정은 이어진 한 줄 띠로 묶어 제목을 한 번만 보여 주고, 글씨는 줄바꿈해서 모두 보이게 한다(칸은 내용만큼 늘어난다).
+  // 달력 격자: 주마다 7열 그리드. 여러 날 일정은 엑셀의 합치기처럼 틈 없이 이어진 한 줄 띠로 묶어 제목을 한 번만 보여 준다.
+  // 한 칸에는 일정 몇 개만 한 줄로 보이고(나머지는 +N) 전체는 날짜를 눌렀을 때 아래 목록에 나온다.
   function calGridHtml(cal, map, money) {
     const S = CS[cal], today = todayStr(), lead = new Date(S.y, S.m, 1).getDay();
     const weeks = Math.ceil((lead + new Date(S.y, S.m + 1, 0).getDate()) / 7);
@@ -5447,8 +5480,8 @@
         h += `<span class="dc-chip bar${g.contL ? ' nl' : ''}${g.contR ? ' nr' : ''}" style="grid-column:${g.s0 + 1} / span ${g.s1 - g.s0 + 1};grid-row:${g.lane + 2};background:${tone(col, g.e.text)}">${esc(g.e.text)}</span>`;
       });
       days.forEach((x, c) => {
-        const mo = money && money[x.date], single = x.evs.filter((e) => !(e.kind === 'mine' && e.multi));
-        h += `<div class="dc-stack${x.d.getMonth() !== S.m ? ' out' : ''}" style="grid-column:${c + 1};grid-row:${total}">${single.map(calChip).join('')}`
+        const mo = money && money[x.date], single = x.evs.filter((e) => !(e.kind === 'mine' && e.multi)), maxChips = cal === 'fin' ? 2 : 3;
+        h += `<div class="dc-stack${x.d.getMonth() !== S.m ? ' out' : ''}" style="grid-column:${c + 1};grid-row:${total}">${single.slice(0, maxChips).map(calChip).join('')}${single.length > maxChips ? `<span class="dc-more">+${single.length - maxChips}</span>` : ''}`
           + (mo && mo.exp ? `<span class="dc-sp">-${shortWon(mo.exp)}</span>` : '') + (mo && mo.inc ? `<span class="dc-sp inc">+${shortWon(mo.inc)}</span>` : '') + '</div>';
       });
       h += '</div>';
@@ -6679,7 +6712,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v47'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v48'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span style="display:block;margin-bottom:4px">다달이, 매일의 기록이 모여 더 나은 생활이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
