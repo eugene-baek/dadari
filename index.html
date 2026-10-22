@@ -765,13 +765,24 @@
   .member-chips button { padding: 7px 14px; border-radius: 99px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 13px; cursor: pointer; }
   .member-chips button.active { background: var(--accent); border-color: var(--accent); color: white; }
   .week-wrap { overflow-x: auto; }
-  table.week { border-collapse: collapse; width: 100%; font-size: 11px; min-width: 520px; }
+  table.week { border-collapse: collapse; width: 100%; font-size: 11px; min-width: 520px; table-layout: fixed; }   /* 요일 칸 너비를 모두 같게 */
+  table.week th:first-child { width: 58px; }
+  table.week td { word-break: keep-all; overflow-wrap: anywhere; }
   table.week th, table.week td { border: 1px solid var(--border); padding: 5px 4px; vertical-align: top; text-align: center; }
   table.week th { background: var(--bg); color: var(--text-muted); font-weight: 600; }
   table.week td.t { white-space: nowrap; color: var(--text-muted); background: var(--bg); }
   table.week th:first-child, table.week td.t { position: sticky; left: 0; z-index: 1; }
-  table.week th.today { color: var(--accent); }
-  table.week button { border: none; background: none; color: var(--text); font-size: 11px; cursor: pointer; padding: 0; line-height: 1.35; }
+  table.week th.today { color: var(--accent); background: var(--accent-soft); }
+  table.week td.today { background: var(--accent-soft); }
+  table.week td { padding: 3px; }
+  table.week button { display: block; width: 100%; margin: 0 0 3px; border: none; border-left: 3px solid transparent; border-radius: 4px; background: none; color: var(--text); font-size: 11px; font-weight: 600; cursor: pointer; padding: 3px 4px; line-height: 1.35; text-align: left; }
+  table.week button:last-child { margin-bottom: 0; }
+  table.week button small { font-weight: 400; color: var(--text-muted); }
+  .sch-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 10px; font-size: 11px; color: var(--text-muted); }
+  .sch-legend i { display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 4px; }
+  .sch-item { border-left: 4px solid var(--c, transparent); padding-left: 10px; }
+  .cal-sw.auto span { display: block; height: 32px; line-height: 26px; padding: 0 10px; border-radius: 99px; border: 3px solid transparent; box-shadow: 0 0 0 1px var(--border); font-size: 12px; cursor: pointer; }
+  .cal-sw.auto input:checked + span { border-color: var(--card-bg); box-shadow: 0 0 0 3px var(--text); }
   .days-check { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
   .days-check label.d { display: inline-flex; align-items: center; gap: 4px; margin: 0; padding: 7px 10px; border: 1px solid var(--border); border-radius: 99px; font-size: 13px; color: var(--text); }
   .days-check input { width: auto; margin: 0; }
@@ -2499,8 +2510,30 @@
     if (b) setView(b.dataset.view);
   });
 
+  // 시간표 색: 일정마다 직접 고른 색(color)이 있으면 그것, 없으면 이름으로 자동 정한다.
+  // 학교(등교·수업·하교)=파랑, 이동·대기=회색, 집=청록, 그 밖의 학원·활동은 이름(괄호 앞)에 따라 주황·분홍·보라·노랑 중 하나(같은 이름은 늘 같은 색).
+  const SCH_COLORS = ['#2a78d6', '#eb6834', '#1baf7a', '#e87ba4', '#6250d6', '#eda100', '#8b93a1'];
+  const schKey = (title) => String(title).split('(')[0].trim();
+  function schFixedColor(i) {
+    if (/^#[0-9a-fA-F]{6}$/.test(i.color || '')) return i.color;
+    const t = String(i.title);
+    if (/등교|하교|수업|학교|조회|급식/.test(t)) return '#2a78d6';
+    if (/대기|이동|차량|버스|픽업|셔틀/.test(t)) return '#8b93a1';
+    if (/^집|귀가|휴식|식사/.test(t)) return '#1baf7a';
+    return '';
+  }
+  // 학원·활동 이름(괄호 앞)에는 이름순으로 주황·분홍·보라·노랑을 차례로 준다(처음 네 곳은 서로 다른 색, 같은 이름은 같은 색)
+  let schOtherCache = { sig: '', map: {} };
+  function schOtherMap() {
+    const keys = [...new Set(schedule.items.filter((i) => !schFixedColor(i)).map((i) => schKey(i.title)))].sort();
+    const sig = keys.join('|');
+    if (sig !== schOtherCache.sig) schOtherCache = { sig, map: Object.fromEntries(keys.map((k, n) => [k, ['#eb6834', '#e87ba4', '#6250d6', '#eda100'][n % 4]])) };
+    return schOtherCache.map;
+  }
+  const schColor = (i) => schFixedColor(i) || schOtherMap()[schKey(i.title)] || '#eb6834';
+
   function itemButton(i, now) {
-    return `<button type="button" class="sch-item${now ? ' now' : ''}" data-item="${i.id}">
+    return `<button type="button" class="sch-item${now ? ' now' : ''}" data-item="${i.id}" style="--c:${schColor(i)}">
       <span class="sch-time">${fmtTime(i.time)}</span>
       <span class="sch-title">${escapeHtml(i.title)}${now ? '<span class="sch-tag">지금</span>' : ''}${i.note ? `<span class="sch-note">${escapeHtml(i.note)}</span>` : ''}</span>
     </button>`;
@@ -2547,9 +2580,13 @@
     const head = '<th>시간</th>' + days.map((d) => `<th class="${d === today ? 'today' : ''}">${DAYS[d]}</th>`).join('');
     const rows = times.map((t) => '<tr><td class="t">' + fmtTime(t) + '</td>' + days.map((d) => {
       const cell = mine.filter((i) => i.day === d && i.time === t);
-      return '<td>' + cell.map((i) => `<button type="button" data-item="${i.id}">${escapeHtml(i.title)}${i.note ? '<br><small>' + escapeHtml(i.note) + '</small>' : ''}</button>`).join('<br>') + '</td>';
+      return `<td class="${d === today ? 'today' : ''}">` + cell.map((i) => { const c = schColor(i); return `<button type="button" data-item="${i.id}" style="background:${c}26;border-left-color:${c}">${escapeHtml(i.title)}${i.note ? '<br><small>' + escapeHtml(i.note) + '</small>' : ''}</button>`; }).join('') + '</td>';
     }).join('') + '</tr>').join('');
-    el('sch-body').innerHTML = `<div class="week-wrap"><table class="week"><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table></div>`;
+    // 범례: 시간표에 나온 일정 이름(괄호 앞)과 색
+    const legend = new Map();
+    mine.forEach((i) => { const k = schKey(i.title); if (k && !legend.has(k)) legend.set(k, schColor(i)); });
+    el('sch-body').innerHTML = `<div class="week-wrap"><table class="week"><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table></div>`
+      + `<div class="sch-legend">${[...legend].slice(0, 14).map(([k, c]) => `<span><i style="background:${c}"></i>${escapeHtml(k)}</span>`).join('')}</div>`;
   }
 
   el('sch-modes').addEventListener('click', (e) => {
@@ -2761,6 +2798,8 @@
       <input name="title" required maxlength="30" placeholder="예: 영어, 수영, 하교" value="${item ? escapeHtml(item.title).replace(/"/g, '&quot;') : ''}">
       <label>메모 (장소 등, 선택)</label>
       <input name="note" maxlength="30" placeholder="예: 5층음악실" value="${item ? escapeHtml(item.note || '').replace(/"/g, '&quot;') : ''}">
+      <label>색</label>
+      <div class="cal-sw-row"><label class="cal-sw auto"><input type="radio" name="color" value=""${item && /^#[0-9a-fA-F]{6}$/.test(item.color || '') ? '' : ' checked'}><span>자동</span></label>${SCH_COLORS.map((c) => `<label class="cal-sw"><input type="radio" name="color" value="${c}"${item && item.color === c ? ' checked' : ''}><i style="background:${c}"></i></label>`).join('')}</div>
       <div class="sheet-actions">
         <button type="button" data-cancel>취소</button>
         ${item ? '<button type="button" data-delete>삭제</button>' : ''}
@@ -2770,7 +2809,7 @@
       const title = String(fd.get('title')).trim();
       const time = String(fd.get('time'));
       if (!title || !/^\d{2}:\d{2}$/.test(time)) { showToast('일정 이름과 시간을 확인해 주세요'); return false; }
-      const base = { memberId: String(fd.get('member')), time, title, note: String(fd.get('note')).trim() };
+      const base = { memberId: String(fd.get('member')), time, title, note: String(fd.get('note')).trim(), color: /^#[0-9a-fA-F]{6}$/.test(String(fd.get('color'))) ? String(fd.get('color')) : '' };
       if (item) {
         Object.assign(item, base, { day: +fd.get('day') });
       } else {
@@ -6528,7 +6567,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v43'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v44'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span style="display:block;margin-bottom:4px">다달이, 매일의 기록이 모여 더 나은 생활이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
