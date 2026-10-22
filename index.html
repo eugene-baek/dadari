@@ -782,7 +782,7 @@
 </header>
 
 <nav class="viewtabs" id="viewtabs">
-  <button type="button" data-view="status"><span class="ic">📊</span>현황</button>
+  <button type="button" data-view="status"><span class="ic">📊</span>대시보드</button>
   <button type="button" data-view="calendar"><span class="ic">📅</span>캘린더</button>
   <button type="button" data-view="ledger" class="active"><span class="ic">💰</span>가계부</button>
   <button type="button" data-view="savings"><span class="ic">🐷</span>저축</button>
@@ -869,9 +869,52 @@
 </main>
 
 <main id="view-status" hidden>
-  <nav class="subtabs" id="sub-status" aria-label="현황 메뉴"></nav>
+  <nav class="subtabs" id="sub-status" aria-label="대시보드 메뉴"></nav>
   <section class="card">
     <div id="status-body"></div>
+  </section>
+
+  <section class="card" data-sub="set">
+    <h2 class="section-title">백업 &amp; 복원</h2>
+    <div class="backup-row">
+      <button id="export-btn" type="button">내보내기 (JSON)</button>
+      <label for="import-input">가져오기</label>
+      <input type="file" id="import-input" accept="application/json">
+    </div>
+  </section>
+
+  <section class="card" id="alarm-card" data-sub="set">
+    <h2 class="section-title">📅 알람 (캘린더로 내보내기)</h2>
+    <p class="goal-hint" style="margin:0 0 10px">병원 예약·접종·납부일·갱신·렌탈 방문·복약 시간을 아이폰 캘린더에 넣어 진짜 알림으로 울리게 해요. 앱이 꺼져 있어도 울려요.</p>
+    <div id="alarm-opts"></div>
+    <button class="install-btn" id="alarm-export" type="button">📅 캘린더 파일 만들기</button>
+    <p class="goal-hint" id="alarm-result" style="margin:8px 0 0"></p>
+  </section>
+
+  <section class="card" id="sync-card" data-sub="set">
+    <h2 class="section-title">동기화 (폰 · 컴퓨터)</h2>
+    <p class="goal-hint" id="sync-status" style="margin:0 0 10px"></p>
+    <div class="backup-row">
+      <button type="button" id="sync-setup">연결 설정</button>
+      <button type="button" id="sync-now">지금 동기화</button>
+    </div>
+  </section>
+
+  <section class="card" id="lock-card" data-sub="set">
+    <h2 class="section-title">🔒 앱 잠금</h2>
+    <p class="goal-hint" id="lock-status" style="margin:0 0 10px"></p>
+    <div class="backup-row">
+      <button type="button" id="lock-setup">잠금 설정</button>
+      <button type="button" id="lock-off" hidden>잠금 끄기</button>
+      <button type="button" id="lock-recovery" hidden>🔑 복구 코드 새로 만들기</button>
+    </div>
+    <p class="goal-hint" style="margin:8px 0 0">이 폰·컴퓨터에서 앱을 열 때 비밀번호를 묻는 화면 잠금이에요. 비밀번호는 이 기기에만 저장되고 동기화·백업에는 들어가지 않아요.</p>
+  </section>
+
+  <section class="card" id="install-card" data-sub="set" hidden>
+    <h2 class="section-title">홈 화면에 설치</h2>
+    <button class="install-btn" id="install-btn" type="button" hidden>앱으로 설치하기</button>
+    <p class="goal-hint" id="install-hint" style="margin:0"></p>
   </section>
 </main>
 
@@ -1068,48 +1111,6 @@
     <div id="sq-result"></div>
   </section>
 
-  <section class="card" data-sub="set">
-    <h2 class="section-title">백업 &amp; 복원</h2>
-    <div class="backup-row">
-      <button id="export-btn" type="button">내보내기 (JSON)</button>
-      <label for="import-input">가져오기</label>
-      <input type="file" id="import-input" accept="application/json">
-    </div>
-  </section>
-
-  <section class="card" id="alarm-card" data-sub="set">
-    <h2 class="section-title">📅 알람 (캘린더로 내보내기)</h2>
-    <p class="goal-hint" style="margin:0 0 10px">병원 예약·접종·납부일·갱신·렌탈 방문·복약 시간을 아이폰 캘린더에 넣어 진짜 알림으로 울리게 해요. 앱이 꺼져 있어도 울려요.</p>
-    <div id="alarm-opts"></div>
-    <button class="install-btn" id="alarm-export" type="button">📅 캘린더 파일 만들기</button>
-    <p class="goal-hint" id="alarm-result" style="margin:8px 0 0"></p>
-  </section>
-
-  <section class="card" id="sync-card" data-sub="set">
-    <h2 class="section-title">동기화 (폰 · 컴퓨터)</h2>
-    <p class="goal-hint" id="sync-status" style="margin:0 0 10px"></p>
-    <div class="backup-row">
-      <button type="button" id="sync-setup">연결 설정</button>
-      <button type="button" id="sync-now">지금 동기화</button>
-    </div>
-  </section>
-
-  <section class="card" id="lock-card" data-sub="set">
-    <h2 class="section-title">🔒 앱 잠금</h2>
-    <p class="goal-hint" id="lock-status" style="margin:0 0 10px"></p>
-    <div class="backup-row">
-      <button type="button" id="lock-setup">잠금 설정</button>
-      <button type="button" id="lock-off" hidden>잠금 끄기</button>
-      <button type="button" id="lock-recovery" hidden>🔑 복구 코드 새로 만들기</button>
-    </div>
-    <p class="goal-hint" style="margin:8px 0 0">이 폰·컴퓨터에서 앱을 열 때 비밀번호를 묻는 화면 잠금이에요. 비밀번호는 이 기기에만 저장되고 동기화·백업에는 들어가지 않아요.</p>
-  </section>
-
-  <section class="card" id="install-card" data-sub="set" hidden>
-    <h2 class="section-title">홈 화면에 설치</h2>
-    <button class="install-btn" id="install-btn" type="button" hidden>앱으로 설치하기</button>
-    <p class="goal-hint" id="install-hint" style="margin:0"></p>
-  </section>
 
 </main>
 
@@ -4960,8 +4961,8 @@
   // 선택한 탭은 이 기기의 localStorage(`dadari_sub_v1`)에만 기억한다. 새 메뉴에 쓰려면 SUBS에 항목과 <nav class="subtabs" id="sub-메뉴"> 를 추가한다.
   const SUB_KEY = 'dadari_sub_v1';
   const SUBS = {
-    ledger: [['sum', '요약'], ['rec', '기록'], ['list', '내역'], ['plan', '목표·분석'], ['card', '카드·이체'], ['set', '설정']],
-    status: [['table', '현황표'], ['chart', '그래프'], ['fixed', '고정·카드']]
+    ledger: [['sum', '요약'], ['rec', '기록'], ['list', '내역'], ['plan', '목표·분석'], ['card', '카드·이체']],
+    status: [['table', '현황표'], ['chart', '그래프'], ['fixed', '고정·카드'], ['set', '설정']]
   };
   const subGet = () => { try { return JSON.parse(localStorage.getItem(SUB_KEY)) || {}; } catch (e) { return {}; } };
   function subCurrent(view) { const k = subGet()[view]; return SUBS[view].some((x) => x[0] === k) ? k : SUBS[view][0][0]; }
@@ -4989,7 +4990,7 @@
 
   /* ---------- 메뉴(탭) 순서 ---------- */
   const TAB_KEY = 'dadari_tab_order_v1';   // 이 기기의 설정(동기화하지 않는다)
-  const TAB_LABELS = { status: '📊 현황', calendar: '📅 캘린더', ledger: '💰 가계부', savings: '🐷 저축', schedule: '🗓 시간표', health: '🩺 건강', insurance: '🛡 보험', rental: '🧰 렌탈·구독', academy: '📚 학원비', biz: '📈 사업매출', food: '🍳 오늘뭐먹지' };
+  const TAB_LABELS = { status: '📊 대시보드', calendar: '📅 캘린더', ledger: '💰 가계부', savings: '🐷 저축', schedule: '🗓 시간표', health: '🩺 건강', insurance: '🛡 보험', rental: '🧰 렌탈·구독', academy: '📚 학원비', biz: '📈 사업매출', food: '🍳 오늘뭐먹지' };
   function tabOrder() {
     const base = Object.keys(TAB_LABELS);
     let saved = [];
@@ -5900,7 +5901,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v37'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v38'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span style="display:block;margin-bottom:4px">다달이, 매일의 기록이 모여 더 나은 생활이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
