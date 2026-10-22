@@ -791,7 +791,7 @@
   <button type="button" data-view="insurance"><span class="ic">🛡</span>보험</button>
   <button type="button" data-view="rental"><span class="ic">🧰</span>렌탈·구독</button>
   <button type="button" data-view="academy"><span class="ic">📚</span>학원비</button>
-  <button type="button" data-view="biz"><span class="ic">📈</span>사업매출</button>
+  <button type="button" data-view="biz"><span class="ic">📈</span>나는CEO</button>
   <button type="button" data-view="food"><span class="ic">🍳</span>오늘뭐먹지</button>
 </nav>
 <div class="viewtabs-foot"><button type="button" class="tab-order-btn" id="tab-order-btn">⇅ 메뉴 순서 바꾸기</button></div>
@@ -4001,10 +4001,12 @@
       <button type="button" class="mini-btn" id="shop-add" style="margin-top:8px">＋ 사업 추가</button>
       <div class="sheet-actions"><button type="button" data-cancel>취소</button><button type="submit">저장</button></div>
     </form>`, () => {
-      const rows = [...sheetBody.querySelectorAll('.shop-row')];
+      // 새로 추가했지만 이름을 안 적은 빈 줄은 무시하고 저장한다(비어 있는 줄 때문에 저장이 막히지 않게)
+      const rows = [...sheetBody.querySelectorAll('.shop-row')].filter((r) => !(r.dataset.new && !r.querySelector('[data-f=name]').value.trim()));
       if (!rows.length) { showToast('사업이 하나는 있어야 해요'); return false; }
+      const blank = rows.find((r) => !r.querySelector('[data-f=name]').value.trim());
+      if (blank) { showToast('사업 이름을 입력해 주세요'); blank.querySelector('[data-f=name]').focus(); return false; }
       const next = rows.map((r) => ({ id: r.dataset.id, name: r.querySelector('[data-f=name]').value.trim(), target: Math.max(0, parseInt(r.querySelector('[data-f=target]').value, 10) || 0) }));
-      if (next.some((s) => !s.name)) { showToast('사업 이름을 입력해 주세요'); return false; }
       const keep = new Set(next.map((s) => s.id));
       biz.shops.filter((s) => !keep.has(s.id)).forEach((s) => {
         tomb(s.id);
@@ -4990,7 +4992,7 @@
 
   /* ---------- 메뉴(탭) 순서 ---------- */
   const TAB_KEY = 'dadari_tab_order_v1';   // 이 기기의 설정(동기화하지 않는다)
-  const TAB_LABELS = { status: '📊 대시보드', calendar: '📅 캘린더', ledger: '💰 가계부', savings: '🐷 저축', schedule: '🗓 시간표', health: '🩺 건강', insurance: '🛡 보험', rental: '🧰 렌탈·구독', academy: '📚 학원비', biz: '📈 사업매출', food: '🍳 오늘뭐먹지' };
+  const TAB_LABELS = { status: '📊 대시보드', calendar: '📅 캘린더', ledger: '💰 가계부', savings: '🐷 저축', schedule: '🗓 시간표', health: '🩺 건강', insurance: '🛡 보험', rental: '🧰 렌탈·구독', academy: '📚 학원비', biz: '📈 나는CEO', food: '🍳 오늘뭐먹지' };
   function tabOrder() {
     const base = Object.keys(TAB_LABELS);
     let saved = [];
@@ -5412,7 +5414,7 @@
       row('📚', '학원비', `수강 ${liveAca.length}건 · 납부 ${liveAca.length - acaUnpaid.length}/${liveAca.length}`, acaUnpaid.length ? `미납 ${acaUnpaid.length}건 ${formatWon(sum(acaUnpaid, (a) => +a.fee || 0))}` : '', acaTotal ? formatWon(acaTotal) : '-', 'academy'),
       row('🩺', '건강', `접종 예정 ${planned.length} · 병원 예약 ${visitsNext}${medsLeft ? ` · 오늘 복약 ${medsLeft}개 남음` : ''}`, [overdueVac ? `접종 ${overdueVac}건 지남` : '', claimTodo ? `실비 청구 필요 ${claimTodo}건` : ''].filter(Boolean).join(' · '), '-', 'health'),
       row('🗓', '시간표', `오늘 일정 ${todaySch}개 · 구성원 ${schedule.members.length}명`, '', '-', 'schedule'),
-      row('📈', '사업매출', (biz.shops.length > 1 ? `사업 ${biz.shops.length}개 · ` : '') + (bizMonth.length ? `매출 ${formatWon(bizSales)} · 비용 ${formatWon(bizCost)}` : '이번 달 입력 없음'), bizTarget > 0 && bizSales < bizTarget ? `목표 ${formatWon(bizTarget)} 중 ${Math.round((bizSales / bizTarget) * 100)}%` : '', bizMonth.length ? `${bizSales - bizCost < 0 ? '-' : ''}${formatWon(Math.abs(bizSales - bizCost))}` : '-', 'biz'),
+      row('📈', '나는CEO', (biz.shops.length > 1 ? `사업 ${biz.shops.length}개 · ` : '') + (bizMonth.length ? `매출 ${formatWon(bizSales)} · 비용 ${formatWon(bizCost)}` : '이번 달 입력 없음'), bizTarget > 0 && bizSales < bizTarget ? `목표 ${formatWon(bizTarget)} 중 ${Math.round((bizSales / bizTarget) * 100)}%` : '', bizMonth.length ? `${bizSales - bizCost < 0 ? '-' : ''}${formatWon(Math.abs(bizSales - bizCost))}` : '-', 'biz'),
       row('🐷', '저축', savings.accounts.length ? `통장·목표 ${savings.accounts.length}개 · 이번 달 입금 ${money(savMonthIn)}` : '등록한 통장이 없어요', savMiss ? `이번 달 저축 계획 미달 ${savMiss}건` : '', savings.accounts.length ? formatWon(savTotal) : '-', 'savings'),
       row('🍳', '냉장고', `재료 ${fridge.length}개 · 임박 ${soonFood.length - expiredFood}개`, expiredFood ? `기한 지남 ${expiredFood}개` : '', '-', 'food')
     ].join('');
@@ -5901,7 +5903,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v38'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v39'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span style="display:block;margin-bottom:4px">다달이, 매일의 기록이 모여 더 나은 생활이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
