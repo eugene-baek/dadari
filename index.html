@@ -438,6 +438,13 @@
   .visit .v1 { display: flex; justify-content: space-between; gap: 8px; }
   .visit .v2 { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
   .visit .dd { font-weight: 700; color: var(--accent); }
+  #health-modes button { font-size: 12px; padding: 9px 2px; }
+  .med-row { padding: 8px 0; border-top: 1px solid var(--border); }
+  .med-row:first-of-type { border-top: none; }
+  .med-name { font-size: 14px; margin-bottom: 6px; }
+  .med-slots { display: flex; gap: 6px; flex-wrap: wrap; }
+  .slot { padding: 7px 12px; border-radius: 99px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 13px; cursor: pointer; }
+  .slot.on { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
   .vrow { display: flex; align-items: center; gap: 6px; border-top: 1px solid var(--border); }
   .vrow .visit { flex: 1; border-top: none; }
   .vcheck { flex-shrink: 0; padding: 7px 10px; border-radius: 99px; border: 1px solid var(--accent); background: none; color: var(--accent); font-size: 12px; font-weight: 600; cursor: pointer; }
@@ -565,6 +572,7 @@
     <div class="sch-modes" id="health-modes">
       <button type="button" data-hm="visit" class="active">🏥 병원</button>
       <button type="button" data-hm="vaccine">💉 접종</button>
+      <button type="button" data-hm="meds">💊 복약</button>
       <button type="button" data-hm="cycle">🌸 생리주기</button>
     </div>
     <div class="member-chips" id="health-who" hidden></div>
@@ -1161,6 +1169,7 @@
             mergeById(health.visits, h.visits, (v) => validDate(v.date) && typeof v.hospital === 'string');
             mergeById(health.periods, h.periods, (p) => validDate(p.start));
             mergeById(health.vaccines, h.vaccines, (v) => validDate(v.date) && typeof v.name === 'string');
+            mergeById(health.meds, h.meds, (m) => typeof m.name === 'string');
             saveHealth();
             renderHealth();
           }
@@ -1658,6 +1667,102 @@
   }
   el('add-member-btn').addEventListener('click', openMemberSheet);
 
+  // 구성원을 지우면 그 사람의 시간표 일정과 병원·접종 기록도 함께 지운다. 지우기 전에 몇 건인지 알려 주고 확인받는다.
+  function removeMember(id) {
+    const m = schedule.members.find((x) => x.id === id);
+    if (!m) return false;
+    const items = schedule.items.filter((i) => i.memberId === id);
+    const visits = health.visits.filter((v) => v.who === id);
+    const vaccines = health.vaccines.filter((v) => v.who === id);
+    const parts = [];
+    if (items.length) parts.push(`시간표 일정 ${items.length}개`);
+    if (visits.length) parts.push(`진료 기록 ${visits.length}건`);
+    if (vaccines.length) parts.push(`접종 기록 ${vaccines.length}건`);
+    const medCount = health.meds.filter((v) => v.who === id).length;
+    if (medCount) parts.push(`복약 ${medCount}개`);
+    if (!confirm(`“${m.name}”을(를) 삭제할까요?` + (parts.length ? `\n${parts.join(', ')}도 함께 지워져요.` : ''))) return false;
+    const meds = health.meds.filter((v) => v.who === id);
+    tomb(id, ...items.map((i) => i.id), ...visits.map((v) => v.id), ...vaccines.map((v) => v.id), ...meds.map((v) => v.id));
+    schedule.members = schedule.members.filter((x) => x.id !== id);
+    schedule.items = schedule.items.filter((i) => i.memberId !== id);
+    health.visits = health.visits.filter((v) => v.who !== id);
+    health.vaccines = health.vaccines.filter((v) => v.who !== id);
+    health.meds = health.meds.filter((v) => v.who !== id);
+    if (healthWho === id) healthWho = 'all';
+    saveSchedule();
+    saveHealth();
+    renderSchedule();
+    renderHealth();
+    showToast('삭제했어요');
+    return true;
+  }
+
+  function openMemberManager() {
+    const draw = () => {
+      sheetBody.innerHTML = `<form>
+        <h3>구성원 관리</h3>
+        ${schedule.members.length ? schedule.members.map((m, i, all) => `<div class="rec"><div class="rec-name">${escapeHtml(m.name)}</div>
+          <button type="button" class="icon-btn" data-mup="${m.id}" aria-label="위로"${i === 0 ? ' disabled style="opacity:.25"' : ''}>▲</button>
+          <button type="button" class="icon-btn" data-mdown="${m.id}" aria-label="아래로"${i === all.length - 1 ? ' disabled style="opacity:.25"' : ''}>▼</button>
+          <button type="button" class="icon-btn" data-mren="${m.id}" aria-label="이름 바꾸기">✎</button>
+          <button type="button" class="icon-btn" data-mdel="${m.id}" aria-label="삭제">🗑</button></div>`).join('')
+          : '<div class="empty-msg" style="padding:10px 0">아직 구성원이 없어요</div>'}
+        <label>새 구성원</label>
+        <div class="goal-row"><input id="mem-new" maxlength="20" placeholder="이름 입력" autocomplete="off"><button type="button" data-madd>추가</button></div>
+        <p class="goal-hint">구성원은 시간표와 건강관리에서 함께 써요. “나”는 항상 있어요.</p>
+        <div class="sheet-actions"><button type="button" data-cancel>닫기</button></div>
+      </form>`;
+    };
+    const taken = (name, exceptId) => name === '나' || schedule.members.some((m) => m.name === name && m.id !== exceptId);
+    const add = () => {
+      const name = sheetBody.querySelector('#mem-new').value.trim();
+      if (!name) return;
+      if (taken(name)) { showToast('이미 있는 이름이에요'); return; }
+      schedule.members.push({ id: newId(), name });
+      saveSchedule();
+      renderSchedule();
+      renderHealth();
+      draw();
+      showToast('추가했어요');
+    };
+    const rename = (id) => {
+      const m = schedule.members.find((x) => x.id === id);
+      const name = (prompt('새 이름을 입력하세요', m.name) || '').trim();
+      if (!name || name === m.name) return;
+      if (taken(name, id)) { showToast('이미 있는 이름이에요'); return; }
+      m.name = name;
+      saveSchedule();
+      renderSchedule();
+      renderHealth();
+      draw();
+      showToast('이름을 바꿨어요');
+    };
+    // 위·아래로 한 칸 옮긴다. 시간표의 구성원 칸, 건강관리의 사람 선택이 이 순서를 따른다("나"는 늘 맨 앞).
+    const move = (id, step) => {
+      const i = schedule.members.findIndex((m) => m.id === id);
+      const j = i + step;
+      if (i < 0 || j < 0 || j >= schedule.members.length) return;
+      [schedule.members[i], schedule.members[j]] = [schedule.members[j], schedule.members[i]];
+      saveSchedule();
+      renderSchedule();
+      renderHealth();
+      draw();
+    };
+    sheetBody.onsubmit = (e) => { e.preventDefault(); add(); };
+    sheetBody.onclick = (e) => {
+      const b = e.target.closest('button');
+      if (!b || b.disabled) return;
+      if (b.dataset.madd !== undefined) add();
+      else if (b.dataset.cancel !== undefined) closeSheet();
+      else if (b.dataset.mdel) { if (removeMember(b.dataset.mdel)) draw(); }
+      else if (b.dataset.mren) rename(b.dataset.mren);
+      else if (b.dataset.mup) move(b.dataset.mup, -1);
+      else if (b.dataset.mdown) move(b.dataset.mdown, 1);
+    };
+    draw();
+    sheet.hidden = false;
+  }
+
   // item이 있으면 수정(요일 하나), 없으면 추가(요일 여러 개를 한 번에 고를 수 있다).
   function openItemSheet(item) {
     const memberOpts = schedule.members.map((m) =>
@@ -1717,16 +1822,7 @@
     const it = e.target.closest('[data-item]');
     if (it) { openItemSheet(schedule.items.find((i) => i.id === it.dataset.item)); return; }
     const dm = e.target.closest('[data-del-member]');
-    if (dm) {
-      const m = schedule.members.find((x) => x.id === dm.dataset.delMember);
-      if (!m || !confirm(`“${m.name}”을(를) 삭제할까요?\n등록한 시간표 일정도 함께 지워져요.`)) return;
-      tomb(m.id, ...schedule.items.filter((i) => i.memberId === m.id).map((i) => i.id));
-      schedule.members = schedule.members.filter((x) => x.id !== m.id);
-      schedule.items = schedule.items.filter((i) => i.memberId !== m.id);
-      saveSchedule();
-      renderSchedule();
-      showToast('삭제했어요');
-    }
+    if (dm) removeMember(dm.dataset.delMember);
   });
   // 켜 둔 채 시간이 흘러도 "지금" 표시가 맞도록 1분마다 갱신한다.
   setInterval(() => { if (!el('view-schedule').hidden && schMode === 'day') renderSchedule(); }, 60000);
@@ -1737,7 +1833,8 @@
   const normalizeHealth = (h) => ({
     visits: Array.isArray(h && h.visits) ? h.visits : [],
     periods: Array.isArray(h && h.periods) ? h.periods : [],
-    vaccines: Array.isArray(h && h.vaccines) ? h.vaccines : []
+    vaccines: Array.isArray(h && h.vaccines) ? h.vaccines : [],
+    meds: Array.isArray(h && h.meds) ? h.meds : []
   });
   let health = normalizeHealth(loadJson(HEALTH_KEY, null));
   let healthMode = 'visit';
@@ -1757,14 +1854,17 @@
   function renderHealth() {
     el('health-modes').querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.dataset.hm === healthMode));
     el('health-who').hidden = healthMode === 'cycle' || people().length < 2;
-    const member = '<button type="button" class="mini-btn" data-act="add-member">＋ 구성원 추가</button>';
+    const member = '<button type="button" class="mini-btn" data-act="manage-member">👥 구성원 관리</button>';
     el('health-actions').innerHTML = healthMode === 'visit'
       ? '<button type="button" class="mini-btn" data-act="add-visit">＋ 진료 기록</button>' + member
       : healthMode === 'vaccine'
         ? '<button type="button" class="mini-btn" data-act="add-vaccine">＋ 접종 기록</button>' + member
-        : '<button type="button" class="mini-btn" data-act="add-period">＋ 생리 시작 기록</button>';
+        : healthMode === 'meds'
+          ? '<button type="button" class="mini-btn" data-act="add-med">＋ 약 추가</button>' + member
+          : '<button type="button" class="mini-btn" data-act="add-period">＋ 생리 시작 기록</button>';
     if (healthMode === 'visit') renderVisits();
     else if (healthMode === 'vaccine') renderVaccines();
+    else if (healthMode === 'meds') renderMeds();
     else renderCycle();
   }
 
@@ -1796,7 +1896,7 @@
     html += past.length ? past.map((v) => `<button type="button" class="visit" data-visit="${v.id}">
         <div class="v1"><span>${v.date.slice(2).replace(/-/g, '.')} · ${title(v)}</span><span>${+v.cost ? formatWon(+v.cost) : ''}</span></div>
         <div class="v2">${[v.reason, validDate(v.next) ? '다음 예약 ' + mdOf(v.next) : '', v.note].filter(Boolean).map(escapeHtml).join(' · ')}</div></button>`).join('')
-      : '<div class="empty-msg">진료 기록이 없어요<br>아래 “＋ 진료 기록”으로 추가하세요<br>가족별로 나누려면 “＋ 구성원 추가”를 먼저 눌러 주세요</div>';
+      : '<div class="empty-msg">진료 기록이 없어요<br>아래 “＋ 진료 기록”으로 추가하세요<br>가족별로 나누려면 “구성원 관리”에서 이름을 먼저 추가해 주세요</div>';
     el('health-body').innerHTML = html;
   }
 
@@ -1941,6 +2041,94 @@
     }
   }
 
+  // 복약: 복용 중인 약과 오늘 복용 체크. 용량·복용법은 의사·약사 안내대로 직접 입력한다(앱이 정해 주지 않는다).
+  const SLOTS = [['morning', '아침'], ['noon', '점심'], ['evening', '저녁'], ['bed', '자기 전']];
+  const slotName = (k) => (SLOTS.find((s) => s[0] === k) || [k, k])[1];
+  const medActive = (m, today) => !(validDate(m.start) && m.start > today) && !(validDate(m.end) && m.end < today);
+
+  function renderMeds() {
+    const ppl = people();
+    if (healthWho !== 'all' && !ppl.some((p) => p.id === healthWho)) healthWho = 'all';
+    el('health-who').innerHTML = [{ id: 'all', name: '전체' }, ...ppl]
+      .map((p) => `<button type="button" data-who="${p.id}" class="${p.id === healthWho ? 'active' : ''}">${escapeHtml(p.name)}</button>`).join('');
+    const list = health.meds.filter((m) => healthWho === 'all' || m.who === healthWho);
+    const today = todayStr();
+    const tag = (m) => (healthWho === 'all' && ppl.length > 1 ? `<span class="who-tag">${escapeHtml(whoName(m.who))}</span>` : '');
+    const title = (m) => escapeHtml(m.name || '') + (m.dose ? ' ' + escapeHtml(m.dose) : '') + tag(m);
+    const active = list.filter((m) => medActive(m, today));
+    const ended = list.filter((m) => validDate(m.end) && m.end < today);
+    const upcoming = list.filter((m) => !medActive(m, today) && !ended.includes(m));
+    const timesOf = (m) => ((m.times || []).length ? m.times.map(slotName).join('·') : '필요할 때');
+    const refill = (m) => {
+      if (!validDate(m.refill)) return '';
+      const dd = diffDays(m.refill, today);
+      return dd < 0 ? `<span style="color:var(--expense)">재처방일 ${-dd}일 지남</span>` : `재처방 ${dd === 0 ? '오늘' : 'D-' + dd}${dd <= 7 ? ' ⚠' : ''}`;
+    };
+    const range = (m) => (validDate(m.start) ? mdOf(m.start) : '') + (validDate(m.start) || validDate(m.end) ? ' ~ ' : '') + (validDate(m.end) ? mdOf(m.end) : '계속');
+
+    const daily = active.filter((m) => (m.times || []).length);
+    let html = '<div class="h-sec">오늘 복용</div>';
+    html += daily.length ? daily.map((m) => {
+      const taken = (m.taken && m.taken[today]) || [];
+      return `<div class="med-row"><div class="med-name">${title(m)}</div><div class="med-slots">${m.times.map((t) =>
+        `<button type="button" class="slot${taken.includes(t) ? ' on' : ''}" data-take="${m.id}" data-slot="${t}">${taken.includes(t) ? '✓ ' : ''}${slotName(t)}</button>`).join('')}</div></div>`;
+    }).join('') : '<div class="empty-msg" style="padding:14px 0">오늘 챙길 약이 없어요</div>';
+
+    const row = (m) => `<button type="button" class="visit" data-med="${m.id}"><div class="v1"><span>${title(m)}</span><span>${timesOf(m)}</span></div>
+      <div class="v2">${[range(m), refill(m), m.place].filter(Boolean).map((x, i) => (i === 1 ? x : escapeHtml(x))).join(' · ')}${m.note ? ' · ' + escapeHtml(m.note) : ''}</div></button>`;
+    html += `<div class="h-sec">복용 중인 약${active.length ? ` · ${active.length}개` : ''}</div>`;
+    html += active.length ? active.map(row).join('') : '<div class="empty-msg" style="padding:14px 0">복용 중인 약이 없어요<br>아래 “＋ 약 추가”로 기록하세요</div>';
+    if (upcoming.length) html += `<div class="h-sec">복용 예정인 약 · ${upcoming.length}개</div>` + upcoming.map(row).join('');
+    if (ended.length) html += `<div class="h-sec">복용이 끝난 약 · ${ended.length}개</div>` + ended.map(row).join('');
+    html += '<p class="cyc-note">용량과 복용법은 의사·약사의 안내를 따르세요. 이 기록은 챙겨 먹는 것을 돕는 메모예요.</p>';
+    el('health-body').innerHTML = html;
+  }
+
+  function openMedSheet(m) {
+    const who = m ? m.who : healthWho === 'all' ? 'me' : healthWho;
+    const whoOpts = people().map((p) => `<option value="${attr(p.id)}"${p.id === who ? ' selected' : ''}>${escapeHtml(p.name)}</option>`).join('');
+    const val = (x) => attr(x == null ? '' : String(x));
+    const slots = SLOTS.map(([k, n]) => `<label class="d"><input type="checkbox" name="times" value="${k}"${m && (m.times || []).includes(k) ? ' checked' : ''}>${n}</label>`).join('');
+    openSheet(`<form>
+      <h3>${m ? '약 수정' : '약 추가'}</h3>
+      <label>누구</label><select name="who">${whoOpts}</select>
+      <label>약 이름</label><input name="name" required maxlength="40" placeholder="예: 타이레놀, 비타민D" value="${val(m && m.name)}" autocomplete="off">
+      <label>용량 (선택)</label><input name="dose" maxlength="20" placeholder="예: 1정, 5ml" value="${val(m && m.dose)}">
+      <label>복용 시간 (필요할 때만 먹는 약은 비워 두세요)</label>
+      <div class="days-check">${slots}</div>
+      <label>복용 시작일 (선택)</label><input name="start" type="date" value="${val(m ? m.start : todayStr())}">
+      <label>복용 종료일 (선택, 계속 먹으면 비워 두세요)</label><input name="end" type="date" value="${val(m && m.end)}">
+      <label>다음 처방 · 소진 예정일 (선택)</label><input name="refill" type="date" value="${val(m && m.refill)}">
+      <label>병원 · 증상 (선택)</label><input name="place" maxlength="30" placeholder="예: 우리소아과, 알레르기" value="${val(m && m.place)}">
+      <label>메모 (선택)</label><input name="note" maxlength="80" placeholder="예: 식후 30분" value="${val(m && m.note)}">
+      <div class="sheet-actions"><button type="button" data-cancel>취소</button>${m ? '<button type="button" data-delete>삭제</button>' : ''}<button type="submit">저장</button></div>
+    </form>`, (fd) => {
+      const name = String(fd.get('name')).trim();
+      if (!name) { showToast('약 이름을 입력해 주세요'); return false; }
+      const date = (k) => (validDate(String(fd.get(k))) ? String(fd.get(k)) : '');
+      const rec = {
+        who: String(fd.get('who')), name, dose: String(fd.get('dose')).trim(), times: fd.getAll('times'),
+        start: date('start'), end: date('end'), refill: date('refill'), place: String(fd.get('place')).trim(), note: String(fd.get('note')).trim()
+      };
+      if (rec.start && rec.end && rec.end < rec.start) { showToast('종료일이 시작일보다 빨라요'); return false; }
+      if (m) Object.assign(m, rec); else health.meds.push({ id: newId(), taken: {}, ...rec });
+      saveHealth();
+      renderHealth();
+      showToast(m ? '수정했어요' : '추가했어요');
+    });
+    const del = sheetBody.querySelector('[data-delete]');
+    if (del) {
+      del.addEventListener('click', () => {
+        tomb(m.id);
+        health.meds = health.meds.filter((x) => x.id !== m.id);
+        saveHealth();
+        closeSheet();
+        renderHealth();
+        showToast('삭제했어요');
+      });
+    }
+  }
+
   // 생리주기: 시작일 기록으로 평균 주기·기간을 계산해 다음 예정일을 추정한다. 참고용이다.
   function cycleStats() {
     const ps = health.periods.filter((p) => validDate(p.start)).sort((a, b) => (a.start < b.start ? -1 : a.start > b.start ? 1 : 0));
@@ -2053,12 +2241,30 @@
     if (!b) return;
     if (b.dataset.act === 'add-visit') openVisitSheet(null);
     else if (b.dataset.act === 'add-vaccine') openVaccineSheet(null);
-    else if (b.dataset.act === 'add-member') openMemberSheet();
+    else if (b.dataset.act === 'add-med') openMedSheet(null);
+    else if (b.dataset.act === 'manage-member') openMemberManager();
     else openPeriodSheet(null);
   });
   el('health-body').addEventListener('click', (e) => {
     const visit = e.target.closest('[data-visit]');
     if (visit) { openVisitSheet(health.visits.find((v) => v.id === visit.dataset.visit)); return; }
+    const take = e.target.closest('[data-take]');
+    if (take) {
+      const m = health.meds.find((x) => x.id === take.dataset.take);
+      if (!m) return;
+      const today = todayStr();
+      m.taken = m.taken || {};
+      const arr = m.taken[today] || [];
+      const slot = take.dataset.slot;
+      m.taken[today] = arr.includes(slot) ? arr.filter((s) => s !== slot) : [...arr, slot];
+      if (!m.taken[today].length) delete m.taken[today];
+      Object.keys(m.taken).forEach((d) => { if (d < addDays(today, -45)) delete m.taken[d]; });   // 오래된 체크는 정리한다
+      saveHealth();
+      renderHealth();
+      return;
+    }
+    const med = e.target.closest('[data-med]');
+    if (med) { openMedSheet(health.meds.find((x) => x.id === med.dataset.med)); return; }
     const vdone = e.target.closest('[data-vdone]');
     if (vdone) {
       const v = health.vaccines.find((x) => x.id === vdone.dataset.vdone);
@@ -2104,7 +2310,7 @@
   const defaultCats = () => ({ expense: [...CATEGORIES.expense], income: [...CATEGORIES.income] });
   const sameCats = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   const hasData = () => transactions.length || cards.length || recurs.length || schedule.members.length
-    || health.visits.length || health.periods.length || health.vaccines.length || goal > 0 || !sameCats(categories, defaultCats());
+    || health.visits.length || health.periods.length || health.vaccines.length || health.meds.length || goal > 0 || !sameCats(categories, defaultCats());
 
   function markDirty() {
     if (applying) return;
@@ -2128,7 +2334,8 @@
     const dead = new Set([...(local.tombs || []), ...(remote.tombs || [])]);
     const union = (l, r) => {
       const m = new Map();
-      [r, l].forEach((list) => (Array.isArray(list) ? list : []).forEach((x) => { if (x && x.id) m.set(x.id, x); }));
+      // 이 기기 항목을 먼저 넣어 같은 id는 이 기기 것을 쓰고 순서도 이 기기 순서를 따른다.
+      [l, r].forEach((list) => (Array.isArray(list) ? list : []).forEach((x) => { if (x && x.id && !m.has(x.id)) m.set(x.id, x); }));
       return [...m.values()].filter((x) => !dead.has(x.id));
     };
     const members = union(local.schedule && local.schedule.members, remote.schedule && remote.schedule.members);
@@ -2141,7 +2348,7 @@
       recurs: union(local.recurs, remote.recurs),
       recurDone: [...new Set([...(local.recurDone || []), ...(remote.recurDone || [])])],
       schedule: { members, items: union(local.schedule && local.schedule.items, remote.schedule && remote.schedule.items).filter((i) => ids.has(i.memberId)) },
-      health: { visits: union(lh.visits, rh.visits), periods: union(lh.periods, rh.periods), vaccines: union(lh.vaccines, rh.vaccines) },
+      health: { visits: union(lh.visits, rh.visits), periods: union(lh.periods, rh.periods), vaccines: union(lh.vaccines, rh.vaccines), meds: union(lh.meds, rh.meds) },
       categories: remote.categories && sameCats(local.categories, defaultCats()) ? remote.categories : local.categories,
       goal: local.goal || remote.goal || 0,
       tombs: [...dead]
@@ -2468,7 +2675,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v9'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v10'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').textContent = '다다리 가계부 ' + APP_VERSION;
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
