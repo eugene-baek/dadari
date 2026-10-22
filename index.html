@@ -370,6 +370,56 @@
     font-size: 14px;
     cursor: pointer;
   }
+  .cardbox { margin-top: 12px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; }
+  .cardbox:first-child { margin-top: 0; }
+  .cardhead { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+  .cardhead b { font-size: 15px; }
+  .tag { font-size: 10px; background: var(--accent-soft); color: var(--accent); border-radius: 99px; padding: 1px 7px; margin-left: 4px; vertical-align: 1px; }
+  .cardsub { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
+  .icon-btn { border: none; background: none; color: var(--text-muted); font-size: 15px; cursor: pointer; padding: 4px; flex-shrink: 0; }
+  .rec { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-top: 1px solid var(--border); margin-top: 8px; }
+  .rec > div:first-child { flex: 1; min-width: 0; }
+  .rec-name { font-size: 13px; font-weight: 600; }
+  .rec-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+  .rec-amt { font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .cards-actions { display: flex; gap: 8px; margin-top: 12px; }
+  .mini-btn {
+    flex: 1;
+    padding: 10px 8px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .sheet-wrap {
+    position: fixed;
+    inset: 0;
+    z-index: 15;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+  }
+  .sheet-wrap[hidden] { display: none; }
+  .sheet-body {
+    width: 100%;
+    max-width: 720px;
+    max-height: 90vh;
+    overflow-y: auto;
+    background: var(--card-bg);
+    border-radius: 18px 18px 0 0;
+    padding: 20px 20px calc(20px + env(safe-area-inset-bottom));
+  }
+  .sheet-body h3 { margin: 0 0 14px; font-size: 16px; }
+  .sheet-body label { margin-top: 10px; }
+  .sheet-body .check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text); margin-top: 14px; }
+  .sheet-body .check input { width: auto; }
+  .sheet-actions { display: flex; gap: 10px; margin-top: 18px; }
+  .sheet-actions button { flex: 1; padding: 12px; border-radius: 10px; border: none; font-size: 14px; font-weight: 600; cursor: pointer; }
+  .sheet-actions [data-cancel] { background: var(--bg); color: var(--text); }
+  .sheet-actions [type="submit"] { background: var(--accent); color: white; flex: 2; }
   .install-btn {
     width: 100%;
     padding: 10px;
@@ -439,6 +489,10 @@
         <label for="f-category">카테고리</label>
         <select id="f-category"></select>
       </div>
+      <div class="full" id="pay-wrap">
+        <label for="f-card">결제수단</label>
+        <select id="f-card"></select>
+      </div>
       <div class="full">
         <label for="f-amount">금액</label>
         <input type="number" id="f-amount" placeholder="0" min="0" inputmode="numeric" required>
@@ -466,6 +520,15 @@
     <div id="breakdown-list"></div>
   </section>
 
+  <section class="card" id="cards-card">
+    <h2 class="section-title">카드 · 자동이체</h2>
+    <div id="cards-list"></div>
+    <div class="cards-actions">
+      <button type="button" class="mini-btn" id="add-card-btn">＋ 카드 등록</button>
+      <button type="button" class="mini-btn" id="add-recur-btn">＋ 자동이체·정기결제</button>
+    </div>
+  </section>
+
   <section class="card">
     <h2 class="section-title">내역</h2>
     <div class="tx-list" id="tx-list"></div>
@@ -490,6 +553,10 @@
 
 <p class="ver" id="ver"></p>
 
+<div class="sheet-wrap" id="sheet" hidden>
+  <div class="sheet-body" id="sheet-body"></div>
+</div>
+
 <div class="viewer" id="viewer" hidden>
   <img id="viewer-img" alt="영수증">
   <button type="button" id="viewer-close">닫기</button>
@@ -507,9 +574,15 @@
   };
 
   const GOAL_KEY = 'dadari_goal_v1';
+  const CARDS_KEY = 'dadari_cards_v1';
+  const RECURS_KEY = 'dadari_recurs_v1';
+  const DONE_KEY = 'dadari_recur_done_v1';
 
   let transactions = load();
   let goal = loadGoal();
+  let cards = loadJson(CARDS_KEY, []);       // {id, name, kind: 'credit'|'debit', payDay}  카드번호는 받지 않는다
+  let recurs = loadJson(RECURS_KEY, []);     // {id, cardId|null, name, amount, day, category, auto, start}
+  let recurDone = new Set(loadJson(DONE_KEY, [])); // 자동 기록을 이미 만든 "정기결제id:YYYY-MM"
   let currentType = 'expense';
   let viewDate = new Date();
   viewDate.setDate(1);
@@ -539,6 +612,25 @@
       showToast('저장 공간이 부족해 저장하지 못했어요');
     }
   }
+
+  function loadJson(key, fallback) {
+    try {
+      const v = JSON.parse(localStorage.getItem(key));
+      return v == null ? fallback : v;
+    } catch (e) {
+      return fallback;
+    }
+  }
+
+  function saveJson(key, value) {
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+    } catch (e) {
+      showToast('저장 공간이 부족해 저장하지 못했어요');
+    }
+  }
+
+  const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 
   function loadGoal() {
     try {
@@ -570,6 +662,7 @@
     currentType = btn.dataset.type;
     [...typeToggle.children].forEach((b) => b.classList.toggle('active', b === btn));
     renderCategoryOptions();
+    updatePayVisibility();
   });
 
   form.addEventListener('submit', async (e) => {
@@ -580,13 +673,14 @@
       return;
     }
     const entry = {
-      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      id: newId(),
       type: currentType,
       date: dateInput.value || todayStr(),
       category: categorySelect.value,
       amount: amount,
       memo: el('f-memo').value.trim()
     };
+    if (currentType === 'expense' && el('f-card').value) entry.cardId = el('f-card').value;
     if (pendingBlob) {
       try {
         await putReceipt(entry.id, pendingBlob);
@@ -638,6 +732,7 @@
 
     renderWeeks(monthTx.filter((t) => t.type === 'expense'));
     renderBreakdown(monthTx.filter((t) => t.type === 'expense'));
+    renderCards(monthTx);
     renderList(monthTx);
   }
 
@@ -738,7 +833,7 @@
         return `<div class="tx-item" data-id="${t.id}">
           <div class="tx-main">
             <div class="tx-cat">${t.category}${t.memo ? ' · ' + escapeHtml(t.memo) : ''}</div>
-            <div class="tx-meta">${day}</div>
+            <div class="tx-meta">${day}${cardName(t) ? ' · ' + escapeHtml(cardName(t)) : ''}${t.recurId ? ' · 자동' : ''}</div>
           </div>
           <div class="tx-amt ${t.type}">${sign}${formatWon(t.amount)}</div>
           <div class="tx-actions">
@@ -782,7 +877,9 @@
   }
 
   el('export-btn').addEventListener('click', () => {
-    const blob = new Blob([JSON.stringify(transactions, null, 2)], { type: 'application/json' });
+    // 예전 백업은 내역 배열만 있었다. 지금은 카드·자동이체·월 목표까지 한 파일에 담고, 불러올 때 두 형식을 모두 받는다.
+    const backup = { app: 'dadari', version: 2, transactions, cards, recurs, recurDone: [...recurDone], goal };
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     const stamp = todayStr();
@@ -802,22 +899,255 @@
     reader.onload = () => {
       try {
         const data = JSON.parse(reader.result);
-        if (!Array.isArray(data)) throw new Error('invalid format');
-        const valid = data.filter(
+        const txs = Array.isArray(data) ? data : data && data.transactions;
+        if (!Array.isArray(txs)) throw new Error('invalid format');
+        const valid = txs.filter(
           (t) => t && t.id && t.date && t.category && typeof t.amount === 'number' && (t.type === 'income' || t.type === 'expense')
         );
         const existingIds = new Set(transactions.map((t) => t.id));
-        const merged = transactions.concat(valid.filter((t) => !existingIds.has(t.id)));
-        transactions = merged;
+        const added = valid.filter((t) => !existingIds.has(t.id));
+        transactions = transactions.concat(added);
         save();
+        if (!Array.isArray(data)) {
+          const mergeById = (target, incoming, ok) => {
+            const ids = new Set(target.map((x) => x.id));
+            (Array.isArray(incoming) ? incoming : []).filter((x) => x && x.id && ok(x) && !ids.has(x.id)).forEach((x) => target.push(x));
+          };
+          mergeById(cards, data.cards, (c) => typeof c.name === 'string');
+          mergeById(recurs, data.recurs, (r) => typeof r.name === 'string' && r.amount > 0 && r.day >= 1 && r.day <= 31);
+          (Array.isArray(data.recurDone) ? data.recurDone : []).forEach((k) => recurDone.add(k));
+          saveJson(CARDS_KEY, cards);
+          saveJson(RECURS_KEY, recurs);
+          saveJson(DONE_KEY, [...recurDone]);
+          if (!goal && data.goal > 0) {
+            goal = Math.round(data.goal);
+            saveJson(GOAL_KEY, goal);
+          }
+          renderCardOptions();
+        }
         renderAll();
-        showToast(`${valid.length}건을 불러왔어요`);
+        showToast(`${added.length}건을 새로 불러왔어요`);
       } catch (err) {
         showToast('올바른 백업 파일이 아니에요');
       }
       e.target.value = '';
     };
     reader.readAsText(file);
+  });
+
+  /* ---------- 카드 · 자동이체 ---------- */
+  // 카드는 이름·종류·결제일만 저장한다. 카드번호 등 민감한 정보는 입력받지 않는다.
+  const pad2 = (n) => String(n).padStart(2, '0');
+  const cardById = (id) => cards.find((c) => c.id === id);
+  function cardName(t) {
+    const c = t.cardId && cardById(t.cardId);
+    return c ? c.name : '';
+  }
+
+  function renderCardOptions() {
+    const sel = el('f-card');
+    const prev = sel.value;
+    sel.innerHTML = '<option value="">현금 · 계좌이체</option>' + cards
+      .map((c) => `<option value="${c.id}">${escapeHtml(c.name)} (${c.kind === 'credit' ? '신용' : '체크'})</option>`)
+      .join('');
+    sel.value = cards.some((c) => c.id === prev) ? prev : '';
+  }
+
+  function updatePayVisibility() {
+    el('pay-wrap').hidden = currentType !== 'expense';
+  }
+
+  function recRows(list) {
+    return list.map((r) => `<div class="rec">
+        <div><div class="rec-name">${escapeHtml(r.name)}</div>
+        <div class="rec-sub">매월 ${r.day}일 · ${escapeHtml(r.category)}${r.auto ? ' · 자동 기록' : ' · 기록 안 함'}</div></div>
+        <div class="rec-amt">${formatWon(r.amount)}</div>
+        <button type="button" class="icon-btn" data-del-recur="${r.id}" aria-label="자동이체 삭제">✕</button>
+      </div>`).join('');
+  }
+
+  function renderCards(monthTx) {
+    const wrap = el('cards-list');
+    if (!cards.length && !recurs.length) {
+      wrap.innerHTML = '<div class="empty-msg">등록한 카드가 없어요<br>카드 이름만 등록하면 돼요 (카드번호는 입력하지 않아요)</div>';
+      return;
+    }
+    const spend = {};
+    monthTx.filter((t) => t.type === 'expense' && t.cardId).forEach((t) => {
+      spend[t.cardId] = (spend[t.cardId] || 0) + t.amount;
+    });
+    const sum = (list) => list.reduce((s, r) => s + r.amount, 0);
+
+    const boxes = cards.map((c) => {
+      const mine = recurs.filter((r) => r.cardId === c.id);
+      const parts = [];
+      if (c.kind === 'credit' && c.payDay) parts.push(`매월 ${c.payDay}일 결제`);
+      parts.push(`이번 달 사용 ${formatWon(spend[c.id] || 0)}`);
+      if (mine.length) parts.push(`자동이체 월 ${formatWon(sum(mine))}`);
+      return `<div class="cardbox">
+        <div class="cardhead">
+          <div><b>${escapeHtml(c.name)}</b><span class="tag">${c.kind === 'credit' ? '신용' : '체크'}</span>
+          <div class="cardsub">${parts.join(' · ')}</div></div>
+          <button type="button" class="icon-btn" data-del-card="${c.id}" aria-label="카드 삭제">🗑</button>
+        </div>${recRows(mine)}</div>`;
+    });
+    const acct = recurs.filter((r) => !r.cardId || !cardById(r.cardId));
+    if (acct.length) {
+      boxes.push(`<div class="cardbox">
+        <div class="cardhead"><div><b>계좌 자동이체</b>
+        <div class="cardsub">카드 없이 통장에서 빠지는 항목 · 월 ${formatWon(sum(acct))}</div></div></div>${recRows(acct)}</div>`);
+    }
+    wrap.innerHTML = boxes.join('');
+  }
+
+  const sheet = el('sheet');
+  const sheetBody = el('sheet-body');
+  function closeSheet() {
+    sheet.hidden = true;
+    sheetBody.innerHTML = '';
+  }
+  function openSheet(html, onSubmit) {
+    sheetBody.innerHTML = html;
+    sheet.hidden = false;
+    const f = sheetBody.querySelector('form');
+    f.addEventListener('submit', (e) => {
+      e.preventDefault();
+      if (onSubmit(new FormData(f)) !== false) closeSheet();
+    });
+    sheetBody.querySelector('[data-cancel]').addEventListener('click', closeSheet);
+  }
+  sheet.addEventListener('click', (e) => { if (e.target === sheet) closeSheet(); });
+
+  el('add-card-btn').addEventListener('click', () => {
+    openSheet(`<form>
+      <h3>카드 등록</h3>
+      <label>카드 이름</label>
+      <input name="name" required maxlength="20" placeholder="예: 삼성카드, 국민 체크">
+      <label>종류</label>
+      <select name="kind"><option value="credit">신용카드</option><option value="debit">체크카드</option></select>
+      <label>결제일 (신용카드만, 선택)</label>
+      <input name="payDay" type="number" min="1" max="31" inputmode="numeric" placeholder="매월 며칠">
+      <p class="goal-hint">카드번호는 입력하지 않아요. 이름으로만 구분해요.</p>
+      <div class="sheet-actions"><button type="button" data-cancel>취소</button><button type="submit">등록</button></div>
+    </form>`, (fd) => {
+      const name = String(fd.get('name')).trim();
+      if (!name) return false;
+      const kind = fd.get('kind') === 'debit' ? 'debit' : 'credit';
+      const day = parseInt(fd.get('payDay'), 10);
+      cards.push({ id: newId(), name, kind, payDay: kind === 'credit' && day >= 1 && day <= 31 ? day : 0 });
+      saveJson(CARDS_KEY, cards);
+      renderCardOptions();
+      renderAll();
+      showToast('카드를 등록했어요');
+    });
+  });
+
+  el('add-recur-btn').addEventListener('click', () => {
+    const cardOpts = cards.map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('')
+      + '<option value="">카드 없이 (계좌 자동이체)</option>';
+    const catOpts = CATEGORIES.expense.map((c) => `<option>${c}</option>`).join('');
+    openSheet(`<form>
+      <h3>자동이체 · 정기결제 등록</h3>
+      <label>결제 카드</label>
+      <select name="card">${cardOpts}</select>
+      <label>항목 이름</label>
+      <input name="name" required maxlength="30" placeholder="예: 통신비, 넷플릭스">
+      <label>금액 (원)</label>
+      <input name="amount" type="number" min="1" inputmode="numeric" required>
+      <label>매월 결제일</label>
+      <input name="day" type="number" min="1" max="31" inputmode="numeric" required placeholder="1~31 (없는 날은 그 달 말일)">
+      <label>카테고리</label>
+      <select name="category">${catOpts}</select>
+      <label>기록 시작일</label>
+      <input name="start" type="date" value="${todayStr()}">
+      <label class="check"><input type="checkbox" name="auto" checked> 결제일이 되면 내역에 자동으로 기록</label>
+      <p class="goal-hint">시작일 이후의 결제일부터 기록돼요. 이미 직접 기록한 달은 시작일을 다음 달로 잡으면 중복되지 않아요.</p>
+      <div class="sheet-actions"><button type="button" data-cancel>취소</button><button type="submit">등록</button></div>
+    </form>`, (fd) => {
+      const name = String(fd.get('name')).trim();
+      const amount = parseInt(fd.get('amount'), 10);
+      const day = parseInt(fd.get('day'), 10);
+      const start = /^\d{4}-\d{2}-\d{2}$/.test(fd.get('start')) ? String(fd.get('start')) : todayStr();
+      if (!name || !(amount > 0) || !(day >= 1 && day <= 31)) {
+        showToast('항목 이름, 금액, 결제일을 확인해 주세요');
+        return false;
+      }
+      recurs.push({
+        id: newId(),
+        cardId: fd.get('card') || null,
+        name,
+        amount,
+        day,
+        category: String(fd.get('category')),
+        auto: fd.get('auto') === 'on',
+        start
+      });
+      saveJson(RECURS_KEY, recurs);
+      applyRecurs();
+      renderAll();
+      showToast('자동이체를 등록했어요');
+    });
+  });
+
+  el('cards-list').addEventListener('click', (e) => {
+    const delCard = e.target.closest('[data-del-card]');
+    const delRecur = e.target.closest('[data-del-recur]');
+    if (delCard) {
+      const c = cardById(delCard.dataset.delCard);
+      if (!c || !confirm(`“${c.name}” 카드를 삭제할까요?\n이 카드의 자동이체 등록도 함께 지워져요. 기존 내역은 남고 결제수단 표시만 사라져요.`)) return;
+      cards = cards.filter((x) => x.id !== c.id);
+      recurs = recurs.filter((r) => r.cardId !== c.id);
+      transactions.forEach((t) => { if (t.cardId === c.id) delete t.cardId; });
+      save();
+      saveJson(CARDS_KEY, cards);
+      saveJson(RECURS_KEY, recurs);
+      renderCardOptions();
+      renderAll();
+      showToast('카드를 삭제했어요');
+    } else if (delRecur) {
+      const r = recurs.find((x) => x.id === delRecur.dataset.delRecur);
+      if (!r || !confirm(`“${r.name}” 자동이체를 삭제할까요?\n이미 기록된 내역은 그대로 남아요.`)) return;
+      recurs = recurs.filter((x) => x.id !== r.id);
+      saveJson(RECURS_KEY, recurs);
+      renderAll();
+      showToast('자동이체를 삭제했어요');
+    }
+  });
+
+  // 결제일이 지난 자동 기록 항목을 내역에 만든다. 같은 달 항목은 한 번만 만들고, 지운 뒤에도 다시 만들지 않는다.
+  function applyRecurs() {
+    const today = todayStr();
+    const now = new Date();
+    let changed = false;
+    recurs.forEach((r) => {
+      if (!r.auto || !r.start) return;
+      let [y, m] = r.start.split('-').map(Number);
+      m -= 1;
+      while (y < now.getFullYear() || (y === now.getFullYear() && m <= now.getMonth())) {
+        const last = new Date(y, m + 1, 0).getDate();
+        const date = y + '-' + pad2(m + 1) + '-' + pad2(Math.min(r.day, last));
+        const key = r.id + ':' + date.slice(0, 7);
+        if (date >= r.start && date <= today && !recurDone.has(key)) {
+          const entry = { id: newId(), type: 'expense', date, category: r.category, amount: r.amount, memo: r.name, recurId: r.id };
+          if (r.cardId) entry.cardId = r.cardId;
+          transactions.push(entry);
+          recurDone.add(key);
+          changed = true;
+        }
+        m += 1;
+        if (m > 11) { m = 0; y += 1; }
+      }
+    });
+    if (changed) {
+      save();
+      saveJson(DONE_KEY, [...recurDone]);
+    }
+    return changed;
+  }
+
+  // 앱을 켜 둔 채 결제일이 지나는 경우도 있어서, 앱으로 돌아올 때마다 한 번 더 확인한다.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && applyRecurs()) renderAll();
   });
 
   /* ---------- 영수증 사진 ---------- */
@@ -977,7 +1307,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v4'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v5'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').textContent = '다다리 가계부 ' + APP_VERSION;
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
@@ -1019,6 +1349,9 @@
   }
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
 
+  applyRecurs();
+  renderCardOptions();
+  updatePayVisibility();
   renderAll();
 })();
 </script>
