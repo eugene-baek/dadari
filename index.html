@@ -432,7 +432,14 @@
   .fx-row:first-child { border-top: none; }
   .fx-row span { color: var(--text-muted); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .fx-row span em { font-style: normal; color: var(--text); }
-  .viewtabs button { padding: 10px 4px; font-size: 13px; }
+  /* 탭이 5개라 아이콘을 위, 이름을 아래에 두어 폰 너비에서도 한 줄에 들어가게 한다 */
+  .viewtabs { gap: 5px; padding: 0 12px; }
+  .viewtabs button { padding: 8px 0; font-size: 11px; line-height: 1.3; display: flex; flex-direction: column; align-items: center; gap: 1px; white-space: nowrap; min-width: 0; }
+  .viewtabs button .ic { font-size: 16px; }
+  .ins-sum { background: var(--accent-soft); border-radius: 12px; padding: 12px 14px; font-size: 13px; line-height: 1.7; }
+  .ins-sum b { font-size: 16px; }
+  .ins-badge { font-size: 10px; border-radius: 99px; padding: 1px 7px; margin-left: 6px; vertical-align: 1px; background: var(--chip, var(--bg)); color: var(--text-muted); border: 1px solid var(--border); }
+  .ins-badge.warn { color: var(--expense); border-color: var(--expense); }
   .h-sec { font-size: 12px; font-weight: 600; color: var(--text-muted); margin: 14px 0 4px; }
   .h-sec:first-child { margin-top: 0; }
   .visit { display: block; width: 100%; text-align: left; padding: 10px 4px; border: none; border-top: 1px solid var(--border); background: none; color: var(--text); font-size: 14px; cursor: pointer; }
@@ -446,6 +453,19 @@
   .med-slots { display: flex; gap: 6px; flex-wrap: wrap; }
   .slot { padding: 7px 12px; border-radius: 99px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 13px; cursor: pointer; }
   .slot.on { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .cards-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .ctile { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; text-align: left; padding: 10px; min-height: 108px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg); color: var(--text); font: inherit; cursor: pointer; overflow: hidden; }
+  .ctile .ct-name { font-size: 13px; font-weight: 700; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ctile .ct-tags { display: flex; gap: 3px; flex-wrap: wrap; }
+  .ctile .ct-tags .tag { margin: 0; font-size: 9px; padding: 1px 5px; }
+  .ctile .ct-use { font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: auto; }
+  .ctile .ct-sub { font-size: 10px; color: var(--text-muted); }
+  .ctile .ct-perf { width: 100%; font-size: 10px; }
+  .ctile .ct-perf .bar { display: block; height: 5px; margin: 3px 0; }
+  .ctile .ct-warn { color: var(--expense); }
+  .ctile.empty { align-items: center; justify-content: center; border-style: dashed; color: var(--text-muted); font-size: 22px; gap: 2px; }
+  .ctile.empty small { font-size: 11px; }
+  .cardbox.plain { border: 0; padding: 0; margin: 0; }
   .card-btns { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
   .pill-btn { padding: 5px 10px; border-radius: 99px; border: 1px solid var(--accent); background: none; color: var(--accent); font-size: 12px; font-weight: 600; cursor: pointer; }
   .card-edit { background: none; border: 0; color: inherit; text-align: left; padding: 0; font: inherit; cursor: pointer; }
@@ -583,10 +603,34 @@
 </header>
 
 <nav class="viewtabs" id="viewtabs">
-  <button type="button" data-view="ledger" class="active">💰 가계부</button>
-  <button type="button" data-view="schedule">🗓 시간표</button>
-  <button type="button" data-view="health">🩺 건강</button>
+  <button type="button" data-view="ledger" class="active"><span class="ic">💰</span>가계부</button>
+  <button type="button" data-view="schedule"><span class="ic">🗓</span>시간표</button>
+  <button type="button" data-view="health"><span class="ic">🩺</span>건강</button>
+  <button type="button" data-view="insurance"><span class="ic">🛡</span>보험</button>
+  <button type="button" data-view="rental"><span class="ic">🧰</span>렌탈</button>
 </nav>
+
+<main id="view-insurance" hidden>
+  <section class="card">
+    <div class="member-chips" id="ins-who" hidden></div>
+    <div id="ins-body"></div>
+    <div class="cards-actions">
+      <button type="button" class="mini-btn" id="add-ins-btn">＋ 보험 추가</button>
+      <button type="button" class="mini-btn" id="ins-member-btn">👥 구성원 관리</button>
+    </div>
+  </section>
+</main>
+
+<main id="view-rental" hidden>
+  <section class="card">
+    <div class="member-chips" id="rent-who" hidden></div>
+    <div id="rent-body"></div>
+    <div class="cards-actions">
+      <button type="button" class="mini-btn" id="add-rent-btn">＋ 렌탈 추가</button>
+      <button type="button" class="mini-btn" id="rent-member-btn">👥 구성원 관리</button>
+    </div>
+  </section>
+</main>
 
 <main id="view-health" hidden>
   <section class="card">
@@ -971,7 +1015,7 @@
 
     renderWeeks(monthTx.filter((t) => t.type === 'expense'));
     renderBreakdown(monthTx.filter((t) => t.type === 'expense'));
-    renderCards(monthTx);
+    renderCards();
     renderFixed(monthTx);
     renderList(onlyFixed ? monthTx.filter(isFixed) : monthTx);
   }
@@ -1131,7 +1175,7 @@
 
   el('export-btn').addEventListener('click', () => {
     // 예전 백업은 내역 배열만 있었다. 지금은 카드·자동이체·월 목표까지 한 파일에 담고, 불러올 때 두 형식을 모두 받는다.
-    const backup = { app: 'dadari', version: 2, transactions, categories, cards, recurs, recurDone: [...recurDone], goal, schedule, health };
+    const backup = { app: 'dadari', version: 2, transactions, categories, cards, recurs, recurDone: [...recurDone], goal, schedule, health, insurance, rentals };
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -1195,6 +1239,16 @@
             mergeById(health.meds, h.meds, (m) => typeof m.name === 'string');
             saveHealth();
             renderHealth();
+          }
+          if (Array.isArray(data.insurance)) {
+            mergeById(insurance, data.insurance, (p) => typeof p.name === 'string' && p.premium > 0);
+            saveInsurance();
+            renderInsurance();
+          }
+          if (Array.isArray(data.rentals)) {
+            mergeById(rentals, data.rentals, (r) => typeof r.name === 'string' && r.fee > 0);
+            saveRentals();
+            renderRental();
           }
           if (data.schedule && typeof data.schedule === 'object') {
             mergeById(schedule.members, data.schedule.members, (m) => typeof m.name === 'string');
@@ -1383,40 +1437,104 @@
     return head + rows + '</div>';
   }
 
-  function renderCards(monthTx) {
-    const wrap = el('cards-list');
-    if (!cards.length && !recurs.length) {
-      wrap.innerHTML = '<div class="empty-msg">등록한 카드가 없어요<br>카드 이름만 등록하면 돼요 (카드번호는 입력하지 않아요)</div>';
-      return;
-    }
-    const spend = {};
-    monthTx.filter((t) => t.type === 'expense' && t.cardId).forEach((t) => {
-      spend[t.cardId] = (spend[t.cardId] || 0) + t.amount;
-    });
-    const sum = (list) => list.reduce((s, r) => s + r.amount, 0);
+  // 카드 칸: 한 줄에 3개씩, 기본 6칸(3×2). 카드가 6장을 넘으면 3칸 단위로 줄이 늘어난다. 칸을 누르면 상세(혜택·실적·자동이체)가 열린다.
+  const CARD_SLOTS = 6;
+  const sumAmount = (list) => list.reduce((s, r) => s + r.amount, 0);
 
-    const boxes = cards.map((c) => {
-      const mine = recurs.filter((r) => r.cardId === c.id);
-      const parts = [];
-      if (c.kind === 'credit' && c.payDay) parts.push(`매월 ${c.payDay}일 결제`);
-      parts.push(`이번 달 사용 ${formatWon(spend[c.id] || 0)}`);
-      if (mine.length) parts.push(`자동이체 월 ${formatWon(sum(mine))}`);
-      const info = [c.brand, c.fee ? '연회비 ' + formatWon(c.fee) : ''].filter(Boolean).map(escapeHtml).join(' · ');
-      return `<div class="cardbox">
-        <div class="cardhead">
-          <div><button type="button" class="card-edit" data-edit-card="${c.id}" aria-label="카드 정보 수정"><b>${escapeHtml(c.name)}</b><span class="tag">${c.kind === 'credit' ? '신용' : '체크'}</span>${c.fixedDefault ? '<span class="tag">고정비 기본</span>' : ''}</button>
-          <div class="cardsub">${parts.join(' · ')}</div>${info ? `<div class="cardsub">${info}</div>` : ''}</div>
-          <div class="card-btns"><button type="button" class="pill-btn" data-edit-card="${c.id}">✎ 수정</button>
-          <button type="button" class="icon-btn" data-del-card="${c.id}" aria-label="카드 삭제">🗑</button></div>
-        </div>${perfHtml(c)}${recRows(mine)}</div>`;
-    });
+  function cardBoxHtml(c, plain) {
+    const mine = recurs.filter((r) => r.cardId === c.id);
+    const parts = [];
+    if (c.kind === 'credit' && c.payDay) parts.push(`매월 ${c.payDay}일 결제`);
+    parts.push(`이번 달 사용 ${formatWon(cardUse(c.id, monthKey(viewDate)))}`);
+    if (mine.length) parts.push(`자동이체 월 ${formatWon(sumAmount(mine))}`);
+    const info = [c.brand, c.fee ? '연회비 ' + formatWon(c.fee) : ''].filter(Boolean).map(escapeHtml).join(' · ');
+    return `<div class="cardbox${plain ? ' plain' : ''}">
+      <div class="cardhead">
+        <div><b>${escapeHtml(c.name)}</b><span class="tag">${c.kind === 'credit' ? '신용' : '체크'}</span>${c.fixedDefault ? '<span class="tag">고정비 기본</span>' : ''}
+        <div class="cardsub">${parts.join(' · ')}</div>${info ? `<div class="cardsub">${info}</div>` : ''}</div>
+        <div class="card-btns"><button type="button" class="pill-btn" data-edit-card="${c.id}">✎ 수정</button>
+        <button type="button" class="icon-btn" data-del-card="${c.id}" aria-label="카드 삭제">🗑</button></div>
+      </div>${perfHtml(c)}${recRows(mine)}</div>`;
+  }
+
+  // 칸에 보이는 한 줄 실적 요약(구간 또는 단일 기준이 있는 카드만)
+  function perfMini(c) {
+    const all = parseBenefits(c.benefits);
+    if (!all.length) return '';
+    const req = (all.find((b) => b.req) || {}).req || 0;
+    const mins = [...new Set(all.flatMap((b) => (b.tiers || []).map((t) => t.min)))].sort((a, b) => a - b);
+    const target = mins.length ? mins[mins.length - 1] : req;
+    if (!target) return '';
+    const cur = cardUse(c.id, monthKey(viewDate));
+    const prev = cardUse(c.id, monthKey(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1)));
+    const reached = mins.length ? mins.filter((m) => m <= prev).pop() : (prev >= req ? req : 0);
+    const label = reached ? (mins.length ? manwon(reached) + ' 구간' : '실적 달성') : '실적 미달';
+    return `<span class="ct-perf"><span class="bar"><i style="width:${Math.min(100, (cur / target) * 100)}%"></i></span><span class="${reached ? '' : 'ct-warn'}">전월 ${label}</span></span>`;
+  }
+
+  function cardTile(c) {
+    return `<button type="button" class="ctile" data-card="${c.id}" aria-label="${escapeHtml(c.name)} 상세">
+      <span class="ct-name">${escapeHtml(c.name)}</span>
+      <span class="ct-tags"><span class="tag">${c.kind === 'credit' ? '신용' : '체크'}</span>${c.fixedDefault ? '<span class="tag">고정비</span>' : ''}</span>
+      <span class="ct-use">${formatWon(cardUse(c.id, monthKey(viewDate)))}</span>
+      <span class="ct-sub">이번 달 사용</span>${perfMini(c)}</button>`;
+  }
+
+  function renderCards() {
+    const wrap = el('cards-list');
+    const slots = Math.max(CARD_SLOTS, Math.ceil(cards.length / 3) * 3);
+    const tiles = cards.map(cardTile).concat(Array.from({ length: slots - cards.length }, () =>
+      '<button type="button" class="ctile empty" data-card-new aria-label="카드 등록">＋<small>카드 등록</small></button>'));
+    let html = `<div class="cards-grid">${tiles.join('')}</div>`;
+    if (!cards.length) html += '<p class="goal-hint" style="margin:10px 0 0">카드 이름만 등록하면 돼요(카드번호는 입력하지 않아요). 카드를 누르면 혜택·실적을 볼 수 있어요.</p>';
     const acct = recurs.filter((r) => !r.cardId || !cardById(r.cardId));
     if (acct.length) {
-      boxes.push(`<div class="cardbox">
+      html += `<div class="cardbox" style="margin-top:12px">
         <div class="cardhead"><div><b>계좌 자동이체 · 고정수입</b>
-        <div class="cardsub">카드 없이 통장으로 오가는 항목 · 월 지출 ${formatWon(sum(acct.filter((r) => r.type !== 'income')))}${acct.some((r) => r.type === 'income') ? ` · 월 수입 ${formatWon(sum(acct.filter((r) => r.type === 'income')))}` : ''}</div></div></div>${recRows(acct)}</div>`);
+        <div class="cardsub">카드 없이 통장으로 오가는 항목 · 월 지출 ${formatWon(sumAmount(acct.filter((r) => r.type !== 'income')))}${acct.some((r) => r.type === 'income') ? ` · 월 수입 ${formatWon(sumAmount(acct.filter((r) => r.type === 'income')))}` : ''}</div></div></div>${recRows(acct)}</div>`;
     }
-    wrap.innerHTML = boxes.join('');
+    wrap.innerHTML = html;
+  }
+
+  function deleteCard(id) {
+    const c = cardById(id);
+    if (!c || !confirm(`“${c.name}” 카드를 삭제할까요?\n이 카드의 자동이체 등록도 함께 지워져요. 기존 내역은 남고 결제수단 표시만 사라져요.`)) return false;
+    tomb(c.id, ...recurs.filter((r) => r.cardId === c.id).map((r) => r.id));
+    cards = cards.filter((x) => x.id !== c.id);
+    recurs = recurs.filter((r) => r.cardId !== c.id);
+    transactions.forEach((t) => { if (t.cardId === c.id) delete t.cardId; });
+    save();
+    saveJson(CARDS_KEY, cards);
+    saveJson(RECURS_KEY, recurs);
+    renderCardOptions();
+    renderAll();
+    showToast('카드를 삭제했어요');
+    return true;
+  }
+
+  function deleteRecur(id) {
+    const r = recurs.find((x) => x.id === id);
+    if (!r || !confirm(`“${r.name}” 자동이체를 삭제할까요?\n이미 기록된 내역은 그대로 남아요.`)) return false;
+    tomb(r.id);
+    recurs = recurs.filter((x) => x.id !== r.id);
+    saveJson(RECURS_KEY, recurs);
+    renderAll();
+    showToast('자동이체를 삭제했어요');
+    return true;
+  }
+
+  function openCardDetail(id) {
+    const c = cardById(id);
+    if (!c) return;
+    sheetBody.innerHTML = cardBoxHtml(c, true) + '<div class="sheet-actions"><button type="button" data-cancel>닫기</button></div>';
+    sheet.hidden = false;
+    sheetBody.onclick = (e) => {
+      const dr = e.target.closest('[data-del-recur]');
+      if (e.target.closest('[data-edit-card]')) { closeSheet(); setTimeout(() => openCardSheet(cardById(id)), 0); }
+      else if (e.target.closest('[data-del-card]')) { if (deleteCard(id)) closeSheet(); }
+      else if (dr) { if (deleteRecur(dr.dataset.delRecur)) openCardDetail(id); }
+      else if (e.target.closest('[data-cancel]')) closeSheet();
+    };
   }
 
   const sheet = el('sheet');
@@ -1622,32 +1740,11 @@
   });
 
   el('cards-list').addEventListener('click', (e) => {
-    const editCard = e.target.closest('[data-edit-card]');
-    if (editCard) { openCardSheet(cardById(editCard.dataset.editCard)); return; }
-    const delCard = e.target.closest('[data-del-card]');
+    const tile = e.target.closest('[data-card]');
+    if (tile) { openCardDetail(tile.dataset.card); return; }
+    if (e.target.closest('[data-card-new]')) { openCardSheet(); return; }
     const delRecur = e.target.closest('[data-del-recur]');
-    if (delCard) {
-      const c = cardById(delCard.dataset.delCard);
-      if (!c || !confirm(`“${c.name}” 카드를 삭제할까요?\n이 카드의 자동이체 등록도 함께 지워져요. 기존 내역은 남고 결제수단 표시만 사라져요.`)) return;
-      tomb(c.id, ...recurs.filter((r) => r.cardId === c.id).map((r) => r.id));
-      cards = cards.filter((x) => x.id !== c.id);
-      recurs = recurs.filter((r) => r.cardId !== c.id);
-      transactions.forEach((t) => { if (t.cardId === c.id) delete t.cardId; });
-      save();
-      saveJson(CARDS_KEY, cards);
-      saveJson(RECURS_KEY, recurs);
-      renderCardOptions();
-      renderAll();
-      showToast('카드를 삭제했어요');
-    } else if (delRecur) {
-      const r = recurs.find((x) => x.id === delRecur.dataset.delRecur);
-      if (!r || !confirm(`“${r.name}” 자동이체를 삭제할까요?\n이미 기록된 내역은 그대로 남아요.`)) return;
-      tomb(r.id);
-      recurs = recurs.filter((x) => x.id !== r.id);
-      saveJson(RECURS_KEY, recurs);
-      renderAll();
-      showToast('자동이체를 삭제했어요');
-    }
+    if (delRecur) deleteRecur(delRecur.dataset.delRecur);
   });
 
   // 결제일이 지난 자동 기록 항목을 내역에 만든다. 같은 달 항목은 한 번만 만들고, 지운 뒤에도 다시 만들지 않는다.
@@ -1709,10 +1806,14 @@
     el('view-ledger').hidden = v !== 'ledger';
     el('view-schedule').hidden = v !== 'schedule';
     el('view-health').hidden = v !== 'health';
+    el('view-insurance').hidden = v !== 'insurance';
+    el('view-rental').hidden = v !== 'rental';
     document.querySelectorAll('#viewtabs button').forEach((b) => b.classList.toggle('active', b.dataset.view === v));
     saveJson(VIEW_KEY, v);
     if (v === 'schedule') renderSchedule();
     if (v === 'health') renderHealth();
+    if (v === 'insurance') renderInsurance();
+    if (v === 'rental') renderRental();
   }
   el('viewtabs').addEventListener('click', (e) => {
     const b = e.target.closest('button[data-view]');
@@ -1815,21 +1916,36 @@
     if (items.length) parts.push(`시간표 일정 ${items.length}개`);
     if (visits.length) parts.push(`진료 기록 ${visits.length}건`);
     if (vaccines.length) parts.push(`접종 기록 ${vaccines.length}건`);
-    const medCount = health.meds.filter((v) => v.who === id).length;
-    if (medCount) parts.push(`복약 ${medCount}개`);
-    if (!confirm(`“${m.name}”을(를) 삭제할까요?` + (parts.length ? `\n${parts.join(', ')}도 함께 지워져요.` : ''))) return false;
     const meds = health.meds.filter((v) => v.who === id);
-    tomb(id, ...items.map((i) => i.id), ...visits.map((v) => v.id), ...vaccines.map((v) => v.id), ...meds.map((v) => v.id));
+    const policies = insurance.filter((p) => p.who === id);
+    const rents = rentals.filter((r) => r.who === id);
+    if (meds.length) parts.push(`복약 ${meds.length}개`);
+    if (policies.length) parts.push(`보험 ${policies.length}건`);
+    if (rents.length) parts.push(`렌탈 ${rents.length}건`);
+    if (!confirm(`“${m.name}”을(를) 삭제할까요?` + (parts.length ? `\n${parts.join(', ')}도 함께 지워져요.` : ''))) return false;
+    // 보험·렌탈에 연결된 가계부 자동 기록 항목도 함께 지운다(이미 기록된 내역은 남는다).
+    policies.forEach((p) => syncRecur(p, false, null));
+    rents.forEach((r) => syncRecur(r, false, null));
+    tomb(id, ...items.map((i) => i.id), ...visits.map((v) => v.id), ...vaccines.map((v) => v.id), ...meds.map((v) => v.id),
+      ...policies.map((p) => p.id), ...rents.map((r) => r.id));
     schedule.members = schedule.members.filter((x) => x.id !== id);
     schedule.items = schedule.items.filter((i) => i.memberId !== id);
     health.visits = health.visits.filter((v) => v.who !== id);
     health.vaccines = health.vaccines.filter((v) => v.who !== id);
     health.meds = health.meds.filter((v) => v.who !== id);
+    insurance = insurance.filter((p) => p.who !== id);
+    rentals = rentals.filter((r) => r.who !== id);
     if (healthWho === id) healthWho = 'all';
+    if (conWho === id) conWho = 'all';
     saveSchedule();
     saveHealth();
+    saveInsurance();
+    saveRentals();
     renderSchedule();
     renderHealth();
+    renderInsurance();
+    renderRental();
+    renderAll();
     showToast('삭제했어요');
     return true;
   }
@@ -1882,6 +1998,8 @@
       saveSchedule();
       renderSchedule();
       renderHealth();
+      renderInsurance();
+      renderRental();
       draw();
       showToast('추가했어요');
     };
@@ -2635,6 +2753,358 @@
     }
   });
 
+  /* ---------- 보험 · 렌탈 ---------- */
+  // 가입한 보험의 불입금과 렌탈 계약의 월 렌탈료·약정을 관리한다. 증권번호·계약번호 같은 식별 정보는 받지 않는다.
+  const INS_KEY = 'dadari_insurance_v1';
+  const RENT_KEY = 'dadari_rentals_v1';
+  const INS_KINDS = ['실손의료', '암', '종신', '정기', '연금', '저축', '어린이', '치아', '자동차', '운전자', '화재·주택', '여행', '기타'];
+  let insurance = loadJson(INS_KEY, []);   // {id, who, insurer, name, kind, premium, freq 'month'|'year', payDay, payMonth, cardId, start, payYears, expiry, renewal, status, auto, recurId, note}
+  let rentals = loadJson(RENT_KEY, []);    // {id, who, company, name, fee, payDay, cardId, start, termMonths, visitEvery, nextVisit, status, auto, recurId, note}
+  if (!Array.isArray(insurance)) insurance = [];
+  if (!Array.isArray(rentals)) rentals = [];
+  let conWho = 'all';
+  const saveInsurance = () => saveJson(INS_KEY, insurance);
+  const saveRentals = () => saveJson(RENT_KEY, rentals);
+
+  const clampDay = (y, m, d) => Math.min(d, new Date(y, m + 1, 0).getDate());
+  const ymdOf = (y, m, d) => y + '-' + pad2(m + 1) + '-' + pad2(clampDay(y, m, d));
+  const ddText = (dd) => (dd === 0 ? '오늘' : dd > 0 ? 'D-' + dd : -dd + '일 지남');
+  const esc = (s) => escapeHtml(s == null ? '' : String(s));
+
+  // start 이후 오늘까지 도래한 납입일 수(end가 있으면 그 날짜 전까지만 센다).
+  function dueCount(start, day, today, end, freq, payMonth) {
+    if (!validDate(start)) return 0;
+    const [sy, sm] = start.split('-').map(Number);
+    const [ty, tm] = today.split('-').map(Number);
+    const d = day >= 1 ? day : +start.slice(8, 10);
+    const pm = (payMonth >= 1 ? payMonth : sm) - 1;
+    let n = 0, y = sy, m = sm - 1;
+    while (y < ty || (y === ty && m <= tm - 1)) {
+      if (freq !== 'year' || m === pm) {
+        const date = ymdOf(y, m, d);
+        if (date >= start && date <= today && (!end || date < end)) n++;
+      }
+      m++;
+      if (m > 11) { m = 0; y++; }
+      if (n > 3000) break;
+    }
+    return n;
+  }
+  function nextDue(start, day, today, end, freq, payMonth) {
+    if (!validDate(start)) return '';
+    const [ty, tm] = today.split('-').map(Number);
+    const d = day >= 1 ? day : +start.slice(8, 10);
+    const pm = (payMonth >= 1 ? payMonth : +start.slice(5, 7)) - 1;
+    let y = ty, m = tm - 1;
+    for (let i = 0; i < 26; i++) {
+      if (freq !== 'year' || m === pm) {
+        const date = ymdOf(y, m, d);
+        if (date >= today && date >= start && (!end || date < end)) return date;
+      }
+      m++;
+      if (m > 11) { m = 0; y++; }
+    }
+    return '';
+  }
+
+  const insEnd = (p) => (validDate(p.start) && +p.payYears > 0 ? addMonthsTo(p.start, Math.round(p.payYears * 12)) : '');
+  const monthlyOf = (p) => (p.freq === 'year' ? p.premium / 12 : p.premium);
+  const insState = (p, today) => (p.status === 'ended' ? 'ended' : insEnd(p) && insEnd(p) <= today ? 'paidup' : 'active');
+  const rentEnd = (r) => (validDate(r.start) && +r.termMonths > 0 ? addMonthsTo(r.start, +r.termMonths) : '');
+  const rentState = (r, today) => (r.status === 'ended' ? 'ended' : rentEnd(r) && rentEnd(r) <= today ? 'expired' : 'active');
+
+  function ensureCategory(name) {
+    if (categories.expense.includes(name)) return;
+    categories.expense.push(name);
+    saveJson(CAT_KEY, categories);
+    renderCategoryOptions();
+  }
+  // 월 납입(렌탈료)을 가계부 자동 기록(고정비)과 연결한다. want가 꺼지면 연결된 자동 기록 항목을 지운다. 지난 달은 소급하지 않는다.
+  function syncRecur(item, want, data) {
+    const r = recurs.find((x) => x.id === item.recurId);
+    if (!want) {
+      if (r) { tomb(r.id); recurs = recurs.filter((x) => x.id !== r.id); saveJson(RECURS_KEY, recurs); }
+      item.recurId = '';
+      return;
+    }
+    ensureCategory(data.category);
+    if (r) {
+      Object.assign(r, data);
+    } else {
+      const created = { id: newId(), type: 'expense', start: todayStr(), ...data };
+      recurs.push(created);
+      item.recurId = created.id;
+    }
+    saveJson(RECURS_KEY, recurs);
+  }
+  const cardSelectOptions = (selected) => '<option value="">현금 · 계좌이체</option>'
+    + cards.map((c) => `<option value="${attr(c.id)}"${c.id === selected ? ' selected' : ''}>${esc(c.name)}</option>`).join('');
+  const payInfo = (cardId) => (cardById(cardId) ? cardById(cardId).name : '');
+
+  // 보험과 렌탈은 각각 따로 탭이다. 사람 선택(전체/나/구성원)은 두 탭이 같은 값을 쓴다.
+  function drawContractWho(whoEl) {
+    const ppl = people();
+    if (conWho !== 'all' && !ppl.some((p) => p.id === conWho)) conWho = 'all';
+    whoEl.hidden = ppl.length < 2;
+    whoEl.innerHTML = [{ id: 'all', name: '전체' }, ...ppl]
+      .map((p) => `<button type="button" data-cw="${attr(p.id)}" class="${p.id === conWho ? 'active' : ''}">${esc(p.name)}</button>`).join('');
+  }
+  function renderInsurance() {
+    drawContractWho(el('ins-who'));
+    el('ins-body').innerHTML = insuranceHtml();
+  }
+  function renderRental() {
+    drawContractWho(el('rent-who'));
+    el('rent-body').innerHTML = rentalHtml();
+  }
+
+  function eventsHtml(events) {
+    if (!events.length) return '';
+    return '<div class="h-sec">곧 확인할 일</div>' + events.sort((a, b) => a.date.localeCompare(b.date)).map((ev) =>
+      `<div class="fx-row"><span>${mdOf(ev.date)} <em>${esc(ev.text)}</em></span><b class="${ev.dd < 0 ? 'expense' : ''}">${ddText(ev.dd)}</b></div>`).join('');
+  }
+
+  function insuranceHtml() {
+    const today = todayStr();
+    const ppl = people();
+    const list = insurance.filter((p) => conWho === 'all' || p.who === conWho);
+    const tag = (p) => (conWho === 'all' && ppl.length > 1 ? `<span class="who-tag">${esc(whoName(p.who))}</span>` : '');
+    const by = (st) => list.filter((p) => insState(p, today) === st);
+    const active = by('active'), paidup = by('paidup'), ended = by('ended');
+    const monthly = Math.round(active.reduce((s, p) => s + monthlyOf(p), 0));
+    const yearly = active.reduce((s, p) => s + (p.freq === 'year' ? p.premium : p.premium * 12), 0);
+    let html = '';
+    if (!list.length) return '<div class="empty-msg">등록한 보험이 없어요<br>아래 “＋ 보험 추가”로 가입한 보험을 기록하세요</div>';
+
+    let per = '';
+    if (conWho === 'all' && ppl.length > 1) {
+      per = ppl.map((pp) => {
+        const sum = Math.round(active.filter((p) => p.who === pp.id).reduce((s, p) => s + monthlyOf(p), 0));
+        return sum ? `${esc(pp.name)} ${formatWon(sum)}` : '';
+      }).filter(Boolean).join(' · ');
+    }
+    html += `<div class="ins-sum">납입 중 <b>${active.length}건</b> · 월 약 <b>${formatWon(monthly)}</b><br>연 ${formatWon(yearly)}${per ? '<br>' + per : ''}</div>`;
+
+    const events = [];
+    list.filter((p) => insState(p, today) !== 'ended').forEach((p) => {
+      [['갱신', p.renewal], ['납입 만기', insState(p, today) === 'active' ? insEnd(p) : ''], ['보장 만기', p.expiry]].forEach(([label, date]) => {
+        if (!validDate(date)) return;
+        const dd = diffDays(date, today);
+        if (dd >= -7 && dd <= 90) events.push({ dd, date, text: `${p.name} ${label}` });
+      });
+    });
+    html += eventsHtml(events);
+
+    const row = (p) => {
+      const st = insState(p, today), end = insEnd(p);
+      const n = dueCount(p.start, p.payDay, today, end, p.freq, p.payMonth);
+      const total = +p.payYears > 0 ? Math.round(p.payYears * (p.freq === 'year' ? 1 : 12)) : 0;
+      const nd = st === 'active' ? nextDue(p.start, p.payDay, today, end, p.freq, p.payMonth) : '';
+      const when = p.freq === 'year' ? `매년 ${p.payMonth ? p.payMonth + '월 ' : ''}${p.payDay ? p.payDay + '일' : ''}` : `매월 ${p.payDay ? p.payDay + '일' : '-'}`;
+      const parts = [when, payInfo(p.cardId),
+        n ? `납입 ${n}${total ? '/' + total : ''}회${total ? ` (${Math.min(100, Math.round((n / total) * 100))}%)` : ''} · 누적 ${formatWon(n * p.premium)}` : '',
+        nd ? `다음 ${mdOf(nd)} (${ddText(diffDays(nd, today))})` : '', p.note];
+      const badge = st === 'paidup' ? '<span class="ins-badge">납입 완료</span>' : st === 'ended' ? '<span class="ins-badge">해지·종료</span>' : '';
+      return `<button type="button" class="visit" data-ins="${p.id}"><div class="v1"><span>${esc(p.insurer ? p.insurer + ' ' : '')}${esc(p.name)}${tag(p)}${p.kind ? `<span class="ins-badge">${esc(p.kind)}</span>` : ''}${badge}</span><span>${p.freq === 'year' ? '연 ' : '월 '}${formatWon(p.premium)}</span></div>
+        <div class="v2">${parts.filter(Boolean).map(esc).join(' · ')}</div></button>`;
+    };
+    if (active.length) html += `<div class="h-sec">납입 중 · ${active.length}건</div>` + active.sort((a, b) => monthlyOf(b) - monthlyOf(a)).map(row).join('');
+    if (paidup.length) html += `<div class="h-sec">납입 완료 (보장 중) · ${paidup.length}건</div>` + paidup.map(row).join('');
+    if (ended.length) html += `<div class="h-sec">해지·종료 · ${ended.length}건</div>` + ended.map(row).join('');
+    return html;
+  }
+
+  function rentalHtml() {
+    const today = todayStr();
+    const ppl = people();
+    const list = rentals.filter((r) => conWho === 'all' || r.who === conWho);
+    if (!list.length) return '<div class="empty-msg">등록한 렌탈이 없어요<br>아래 “＋ 렌탈 추가”로 정수기·안마의자 같은 렌탈 계약을 기록하세요</div>';
+    const tag = (r) => (conWho === 'all' && ppl.length > 1 ? `<span class="who-tag">${esc(whoName(r.who))}</span>` : '');
+    const live = list.filter((r) => rentState(r, today) !== 'ended');
+    const ended = list.filter((r) => rentState(r, today) === 'ended');
+    const monthly = live.reduce((s, r) => s + (+r.fee || 0), 0);
+    let html = `<div class="ins-sum">이용 중 <b>${live.length}건</b> · 월 <b>${formatWon(monthly)}</b><br>연 ${formatWon(monthly * 12)}</div>`;
+
+    const events = [];
+    live.forEach((r) => {
+      const end = rentEnd(r);
+      if (end) { const dd = diffDays(end, today); if (dd >= -30 && dd <= 120) events.push({ dd, date: end, text: `${r.name} 약정 만료 (해지·재약정 확인)` }); }
+      if (validDate(r.nextVisit)) { const dd = diffDays(r.nextVisit, today); if (dd <= 30) events.push({ dd, date: r.nextVisit, text: `${r.name} 방문 관리` }); }
+    });
+    html += eventsHtml(events);
+
+    const row = (r) => {
+      const st = rentState(r, today), end = rentEnd(r);
+      const n = dueCount(r.start, r.payDay, today, '', 'month');
+      const total = +r.termMonths > 0 ? +r.termMonths : 0;
+      const parts = [r.payDay ? `매월 ${r.payDay}일` : '', payInfo(r.cardId),
+        n ? `납입 ${Math.min(n, total || n)}${total ? '/' + total : ''}회` : '',
+        end ? `약정 ${end.slice(2).replace(/-/g, '.')}까지${st === 'active' ? ' (' + ddText(diffDays(end, today)) + ')' : ''}` : '',
+        validDate(r.nextVisit) ? `다음 방문 ${mdOf(r.nextVisit)} (${ddText(diffDays(r.nextVisit, today))})` : '', r.note];
+      const badge = st === 'expired' ? '<span class="ins-badge warn">약정 만료</span>' : st === 'ended' ? '<span class="ins-badge">해지·종료</span>' : '';
+      const visit = st !== 'ended' && validDate(r.nextVisit) && +r.visitEvery > 0
+        ? `<button type="button" class="vcheck" data-visitdone="${r.id}" aria-label="방문 완료">방문 완료</button>` : '';
+      return `<div class="vrow"><button type="button" class="visit" data-rent="${r.id}"><div class="v1"><span>${esc(r.company ? r.company + ' ' : '')}${esc(r.name)}${tag(r)}${badge}</span><span>월 ${formatWon(+r.fee || 0)}</span></div>
+        <div class="v2">${parts.filter(Boolean).map(esc).join(' · ')}</div></button>${visit}</div>`;
+    };
+    if (live.length) html += `<div class="h-sec">이용 중 · ${live.length}건</div>` + live.map(row).join('');
+    if (ended.length) html += `<div class="h-sec">해지·종료 · ${ended.length}건</div>` + ended.map(row).join('');
+    return html;
+  }
+
+  function openInsSheet(p) {
+    const val = (x) => attr(x == null ? '' : String(x));
+    const who = p ? p.who : conWho === 'all' ? 'me' : conWho;
+    const whoOpts = people().map((x) => `<option value="${attr(x.id)}"${x.id === who ? ' selected' : ''}>${esc(x.name)}</option>`).join('');
+    const kindOpts = INS_KINDS.map((k) => `<option${p && p.kind === k ? ' selected' : ''}>${k}</option>`).join('');
+    openSheet(`<form>
+      <h3>${p ? '보험 수정' : '보험 추가'}</h3>
+      <label>누구 보험인가요</label><select name="who">${whoOpts}</select>
+      <label>보험사 (선택)</label><input name="insurer" maxlength="20" placeholder="예: OO생명, OO화재" value="${val(p && p.insurer)}">
+      <label>상품 이름</label><input name="name" required maxlength="40" placeholder="예: 실손보험, 종신보험" value="${val(p && p.name)}">
+      <label>종류</label><select name="kind"><option value="">선택 안 함</option>${kindOpts}</select>
+      <label>불입금 (원)</label><input name="premium" type="number" min="1" inputmode="numeric" required value="${val(p && p.premium)}">
+      <label>납입 주기</label>
+      <select name="freq"><option value="month"${p && p.freq === 'year' ? '' : ' selected'}>매월</option><option value="year"${p && p.freq === 'year' ? ' selected' : ''}>매년 (연납)</option></select>
+      <label>납입일 (매월 며칠 · 연납이면 그 달의 며칠)</label><input name="payDay" type="number" min="1" max="31" inputmode="numeric" value="${val(p && p.payDay ? p.payDay : '')}">
+      <label>연납이면 납입 월 (선택)</label><input name="payMonth" type="number" min="1" max="12" inputmode="numeric" value="${val(p && p.payMonth ? p.payMonth : '')}">
+      <label>결제수단</label><select name="card">${cardSelectOptions(p && p.cardId)}</select>
+      <label>계약일 (선택)</label><input name="start" type="date" value="${val(p && p.start)}">
+      <label>납입 기간 (년, 선택)</label><input name="payYears" type="number" min="0" step="0.5" inputmode="decimal" placeholder="예: 20" value="${val(p && p.payYears ? p.payYears : '')}">
+      <label>보장 만기일 (선택)</label><input name="expiry" type="date" value="${val(p && p.expiry)}">
+      <label>갱신일 (선택, 갱신형·자동차 등)</label><input name="renewal" type="date" value="${val(p && p.renewal)}">
+      <label>상태</label>
+      <select name="status"><option value="active"${p && p.status === 'ended' ? '' : ' selected'}>유지 중</option><option value="ended"${p && p.status === 'ended' ? ' selected' : ''}>해지·종료</option></select>
+      <label>메모 (선택)</label><input name="note" maxlength="80" placeholder="예: 암 진단비 3천만원" value="${val(p && p.note)}">
+      <label class="check"><input type="checkbox" name="auto"${!p || p.auto ? ' checked' : ''}> 가계부에 불입금을 고정비로 자동 기록 (매월 납입만)</label>
+      <p class="goal-hint">증권번호 등 식별 번호는 입력하지 않아요. 자동 기록은 등록한 뒤의 납입일부터 만들어지고, 지난 달은 채우지 않아요.</p>
+      <div class="sheet-actions"><button type="button" data-cancel>취소</button>${p ? '<button type="button" data-delete>삭제</button>' : ''}<button type="submit">저장</button></div>
+    </form>`, (fd) => {
+      const name = String(fd.get('name')).trim();
+      const premium = parseInt(fd.get('premium'), 10);
+      if (!name || !(premium > 0)) { showToast('상품 이름과 불입금을 확인해 주세요'); return false; }
+      const date = (k) => (validDate(String(fd.get(k))) ? String(fd.get(k)) : '');
+      const rec = {
+        who: String(fd.get('who')), insurer: String(fd.get('insurer')).trim(), name, kind: String(fd.get('kind')), premium,
+        freq: fd.get('freq') === 'year' ? 'year' : 'month',
+        payDay: Math.min(31, Math.max(0, parseInt(fd.get('payDay'), 10) || 0)), payMonth: Math.min(12, Math.max(0, parseInt(fd.get('payMonth'), 10) || 0)),
+        cardId: String(fd.get('card')) || '', start: date('start'), payYears: Math.max(0, parseFloat(fd.get('payYears')) || 0),
+        expiry: date('expiry'), renewal: date('renewal'), status: fd.get('status') === 'ended' ? 'ended' : 'active',
+        auto: fd.get('auto') === 'on', note: String(fd.get('note')).trim()
+      };
+      let item = p;
+      if (p) Object.assign(p, rec); else { item = { id: newId(), recurId: '', ...rec }; insurance.push(item); }
+      syncRecur(item, rec.auto && rec.freq === 'month' && rec.status !== 'ended', {
+        cardId: rec.cardId || null, name: (rec.insurer ? rec.insurer + ' ' : '') + name, amount: premium, day: rec.payDay || (validDate(rec.start) ? +rec.start.slice(8, 10) : 1), category: '보험', auto: true
+      });
+      saveInsurance();
+      applyRecurs();
+      renderAll();
+      renderInsurance();
+      showToast(p ? '수정했어요' : '추가했어요');
+    });
+    const del = sheetBody.querySelector('[data-delete]');
+    if (del) del.addEventListener('click', () => {
+      syncRecur(p, false, null);
+      tomb(p.id);
+      insurance = insurance.filter((x) => x.id !== p.id);
+      saveInsurance();
+      closeSheet();
+      renderAll();
+      renderInsurance();
+      showToast('삭제했어요 (이미 기록된 가계부 내역은 남아요)');
+    });
+  }
+
+  function openRentSheet(r) {
+    const val = (x) => attr(x == null ? '' : String(x));
+    const who = r ? r.who : conWho === 'all' ? 'me' : conWho;
+    const whoOpts = people().map((x) => `<option value="${attr(x.id)}"${x.id === who ? ' selected' : ''}>${esc(x.name)}</option>`).join('');
+    openSheet(`<form>
+      <h3>${r ? '렌탈 수정' : '렌탈 추가'}</h3>
+      <label>명의 · 사용자</label><select name="who">${whoOpts}</select>
+      <label>렌탈 업체 (선택)</label><input name="company" maxlength="20" placeholder="예: OO렌탈" value="${val(r && r.company)}">
+      <label>품목</label><input name="name" required maxlength="40" placeholder="예: 정수기, 안마의자, 공기청정기" value="${val(r && r.name)}">
+      <label>월 렌탈료 (원)</label><input name="fee" type="number" min="1" inputmode="numeric" required value="${val(r && r.fee)}">
+      <label>결제일 (매월 며칠)</label><input name="payDay" type="number" min="1" max="31" inputmode="numeric" value="${val(r && r.payDay ? r.payDay : '')}">
+      <label>결제수단</label><select name="card">${cardSelectOptions(r && r.cardId)}</select>
+      <label>계약 시작일 (선택)</label><input name="start" type="date" value="${val(r && r.start)}">
+      <label>약정 기간 (개월, 선택)</label><input name="termMonths" type="number" min="0" inputmode="numeric" placeholder="예: 36, 60" value="${val(r && r.termMonths ? r.termMonths : '')}">
+      <label>방문 관리 주기 (개월, 선택)</label><input name="visitEvery" type="number" min="0" inputmode="numeric" placeholder="예: 4" value="${val(r && r.visitEvery ? r.visitEvery : '')}">
+      <label>다음 방문 관리일 (선택)</label><input name="nextVisit" type="date" value="${val(r && r.nextVisit)}">
+      <label>상태</label>
+      <select name="status"><option value="active"${r && r.status === 'ended' ? '' : ' selected'}>이용 중</option><option value="ended"${r && r.status === 'ended' ? ' selected' : ''}>해지·종료</option></select>
+      <label>메모 (선택)</label><input name="note" maxlength="80" placeholder="예: 위약금 있음, 설치 위치" value="${val(r && r.note)}">
+      <label class="check"><input type="checkbox" name="auto"${!r || r.auto ? ' checked' : ''}> 가계부에 렌탈료를 고정비로 자동 기록</label>
+      <p class="goal-hint">계약번호 같은 식별 번호는 입력하지 않아요. 약정이 끝나기 전에 만료일을 알려 드려요.</p>
+      <div class="sheet-actions"><button type="button" data-cancel>취소</button>${r ? '<button type="button" data-delete>삭제</button>' : ''}<button type="submit">저장</button></div>
+    </form>`, (fd) => {
+      const name = String(fd.get('name')).trim();
+      const fee = parseInt(fd.get('fee'), 10);
+      if (!name || !(fee > 0)) { showToast('품목과 월 렌탈료를 확인해 주세요'); return false; }
+      const date = (k) => (validDate(String(fd.get(k))) ? String(fd.get(k)) : '');
+      const rec = {
+        who: String(fd.get('who')), company: String(fd.get('company')).trim(), name, fee,
+        payDay: Math.min(31, Math.max(0, parseInt(fd.get('payDay'), 10) || 0)), cardId: String(fd.get('card')) || '',
+        start: date('start'), termMonths: Math.max(0, parseInt(fd.get('termMonths'), 10) || 0),
+        visitEvery: Math.max(0, parseInt(fd.get('visitEvery'), 10) || 0), nextVisit: date('nextVisit'),
+        status: fd.get('status') === 'ended' ? 'ended' : 'active', auto: fd.get('auto') === 'on', note: String(fd.get('note')).trim()
+      };
+      let item = r;
+      if (r) Object.assign(r, rec); else { item = { id: newId(), recurId: '', ...rec }; rentals.push(item); }
+      syncRecur(item, rec.auto && rec.status !== 'ended', {
+        cardId: rec.cardId || null, name: (rec.company ? rec.company + ' ' : '') + name, amount: fee, day: rec.payDay || (validDate(rec.start) ? +rec.start.slice(8, 10) : 1), category: '렌탈', auto: true
+      });
+      saveRentals();
+      applyRecurs();
+      renderAll();
+      renderRental();
+      showToast(r ? '수정했어요' : '추가했어요');
+    });
+    const del = sheetBody.querySelector('[data-delete]');
+    if (del) del.addEventListener('click', () => {
+      syncRecur(r, false, null);
+      tomb(r.id);
+      rentals = rentals.filter((x) => x.id !== r.id);
+      saveRentals();
+      closeSheet();
+      renderAll();
+      renderRental();
+      showToast('삭제했어요 (이미 기록된 가계부 내역은 남아요)');
+    });
+  }
+
+  [el('ins-who'), el('rent-who')].forEach((whoEl) => whoEl.addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-cw]');
+    if (!b) return;
+    conWho = b.dataset.cw;
+    renderInsurance();
+    renderRental();
+  }));
+  el('add-ins-btn').addEventListener('click', () => openInsSheet(null));
+  el('add-rent-btn').addEventListener('click', () => openRentSheet(null));
+  el('ins-member-btn').addEventListener('click', () => openMemberManager());
+  el('rent-member-btn').addEventListener('click', () => openMemberManager());
+  el('ins-body').addEventListener('click', (e) => {
+    const ins = e.target.closest('[data-ins]');
+    if (ins) openInsSheet(insurance.find((x) => x.id === ins.dataset.ins));
+  });
+  el('rent-body').addEventListener('click', (e) => {
+    const vd = e.target.closest('[data-visitdone]');
+    if (vd) {
+      const r = rentals.find((x) => x.id === vd.dataset.visitdone);
+      if (r && validDate(r.nextVisit) && +r.visitEvery > 0) {
+        r.nextVisit = addMonthsTo(r.nextVisit > todayStr() ? r.nextVisit : todayStr(), +r.visitEvery);
+        saveRentals();
+        renderRental();
+        showToast('방문 완료! 다음 방문일은 ' + mdOf(r.nextVisit) + '로 옮겼어요');
+      }
+      return;
+    }
+    const rent = e.target.closest('[data-rent]');
+    if (rent) openRentSheet(rentals.find((x) => x.id === rent.dataset.rent));
+  });
+
   /* ---------- 동기화 (GitHub 비공개 저장소) ---------- */
   // 모든 데이터를 비공개 저장소의 파일 하나(dadari-data.json)에 모은다. 토큰은 이 기기에만 저장하고 백업에는 넣지 않는다.
   const GH_API = 'https://api.github.com';
@@ -2649,7 +3119,7 @@
   const defaultCats = () => ({ expense: [...CATEGORIES.expense], income: [...CATEGORIES.income] });
   const sameCats = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   const hasData = () => transactions.length || cards.length || recurs.length || schedule.members.length
-    || health.visits.length || health.periods.length || health.vaccines.length || health.meds.length || goal > 0 || !sameCats(categories, defaultCats());
+    || health.visits.length || health.periods.length || health.vaccines.length || health.meds.length || insurance.length || rentals.length || goal > 0 || !sameCats(categories, defaultCats());
 
   function markDirty() {
     if (applying) return;
@@ -2665,7 +3135,7 @@
 
   const snapshot = () => ({
     app: 'dadari', version: 3, updatedAt: new Date().toISOString(),
-    transactions, categories, cards, recurs, recurDone: [...recurDone], goal, schedule, health, tombs: [...tombs]
+    transactions, categories, cards, recurs, recurDone: [...recurDone], goal, schedule, health, insurance, rentals, tombs: [...tombs]
   });
 
   // 두 기기가 따로 고친 내용을 합친다. 같은 id가 양쪽에 있으면 이 기기 것을 쓰고, 지운 항목(tombs)은 되살리지 않는다.
@@ -2688,6 +3158,8 @@
       recurDone: [...new Set([...(local.recurDone || []), ...(remote.recurDone || [])])],
       schedule: { members, items: union(local.schedule && local.schedule.items, remote.schedule && remote.schedule.items).filter((i) => ids.has(i.memberId)) },
       health: { visits: union(lh.visits, rh.visits), periods: union(lh.periods, rh.periods), vaccines: union(lh.vaccines, rh.vaccines), meds: union(lh.meds, rh.meds) },
+      insurance: union(local.insurance, remote.insurance),
+      rentals: union(local.rentals, remote.rentals),
       categories: remote.categories && sameCats(local.categories, defaultCats()) ? remote.categories : local.categories,
       goal: local.goal || remote.goal || 0,
       tombs: [...dead]
@@ -2704,6 +3176,8 @@
       if (s.goal !== undefined) goal = Math.max(0, parseInt(s.goal, 10) || 0);
       if (s.schedule) schedule = { members: s.schedule.members || [], items: s.schedule.items || [] };
       if (s.health) health = normalizeHealth(s.health);
+      if (Array.isArray(s.insurance)) insurance = s.insurance;
+      if (Array.isArray(s.rentals)) rentals = s.rentals;
       if (s.categories) { saveJson(CAT_KEY, s.categories); categories = loadCategories(); }
       if (Array.isArray(s.tombs)) tombs = new Set([...tombs, ...s.tombs]);
       save();
@@ -2714,6 +3188,8 @@
       saveJson(TOMB_KEY, [...tombs]);
       saveSchedule();
       saveHealth();
+      saveInsurance();
+      saveRentals();
     } finally {
       applying = false;
     }
@@ -2722,6 +3198,8 @@
     renderAll();
     renderSchedule();
     renderHealth();
+    renderInsurance();
+    renderRental();
     if (applyRecurs()) renderAll();
   }
 
@@ -3046,7 +3524,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v19'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v20'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').textContent = '다다리 가계부 ' + APP_VERSION;
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
@@ -3093,7 +3571,7 @@
   updatePayVisibility();
   renderAll();
   const savedView = loadJson(VIEW_KEY, 'ledger');
-  setView(savedView === 'schedule' || savedView === 'health' ? savedView : 'ledger');
+  setView(['schedule', 'health', 'insurance', 'rental'].includes(savedView) ? savedView : 'ledger');
   showSync();
   syncNow();
 })();
