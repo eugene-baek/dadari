@@ -421,6 +421,18 @@
   .sheet-actions [data-cancel] { background: var(--bg); color: var(--text); }
   .sheet-actions [type="submit"] { background: var(--accent); color: white; flex: 2; }
   main[hidden], .day-tabs[hidden], .member-chips[hidden] { display: none; }
+  label.chk { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 13px; color: var(--text); cursor: pointer; }
+  label.chk input { width: auto; margin: 0; }
+  .list-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .list-head .section-title { margin: 0; }
+  .list-head label.chk { color: var(--text-muted); font-size: 12px; }
+  .fx-sum { font-weight: 400; font-size: 12px; margin-left: 6px; }
+  .fx-row { display: flex; justify-content: space-between; gap: 10px; padding: 7px 0; border-top: 1px solid var(--border); font-size: 13px; }
+  .fx-row:first-child { border-top: none; }
+  .fx-row span { color: var(--text-muted); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fx-row span em { font-style: normal; color: var(--text); }
+  .fix-btn { opacity: 0.3; }
+  .fix-btn.on { opacity: 1; }
   .viewtabs { display: flex; gap: 8px; max-width: 720px; margin: 0 auto 12px; padding: 0 20px; }
   .viewtabs button {
     flex: 1;
@@ -554,6 +566,11 @@
     </div>
   </section>
 
+  <section class="card" id="fixed-card">
+    <h2 class="section-title">이번 달 고정비<span class="fx-sum" id="fixed-sum"></span></h2>
+    <div id="fixed-list"></div>
+  </section>
+
   <section class="card" id="goal-card">
     <h2 class="section-title">월 지출 목표 · 주별 분배</h2>
     <div class="goal-row">
@@ -582,6 +599,9 @@
       <div class="full" id="pay-wrap">
         <label for="f-card">결제수단</label>
         <select id="f-card"></select>
+      </div>
+      <div class="full" id="fixed-wrap">
+        <label class="chk"><input type="checkbox" id="f-fixed"> 고정비 (월세·통신비처럼 매달 나가는 돈)</label>
       </div>
       <div class="full">
         <label for="f-amount">금액</label>
@@ -620,7 +640,10 @@
   </section>
 
   <section class="card">
-    <h2 class="section-title">내역</h2>
+    <div class="list-head">
+      <h2 class="section-title">내역</h2>
+      <label class="chk"><input type="checkbox" id="only-fixed"> 고정비만 보기</label>
+    </div>
     <div class="tx-list" id="tx-list"></div>
   </section>
 
@@ -674,6 +697,7 @@
   let recurs = loadJson(RECURS_KEY, []);     // {id, cardId|null, name, amount, day, category, auto, start}
   let recurDone = new Set(loadJson(DONE_KEY, [])); // 자동 기록을 이미 만든 "정기결제id:YYYY-MM"
   let currentType = 'expense';
+  let onlyFixed = false;
   let viewDate = new Date();
   viewDate.setDate(1);
 
@@ -771,6 +795,7 @@
       memo: el('f-memo').value.trim()
     };
     if (currentType === 'expense' && el('f-card').value) entry.cardId = el('f-card').value;
+    if (currentType === 'expense' && el('f-fixed').checked) entry.fixed = true;
     if (pendingBlob) {
       try {
         await putReceipt(entry.id, pendingBlob);
@@ -783,6 +808,7 @@
     save();
     clearReceipt();
     dateTouched = false;
+    el('f-fixed').checked = false;
     el('f-amount').value = '';
     el('f-memo').value = '';
     viewDate = new Date(entry.date);
@@ -823,7 +849,8 @@
     renderWeeks(monthTx.filter((t) => t.type === 'expense'));
     renderBreakdown(monthTx.filter((t) => t.type === 'expense'));
     renderCards(monthTx);
-    renderList(monthTx);
+    renderFixed(monthTx);
+    renderList(onlyFixed ? monthTx.filter(isFixed) : monthTx);
   }
 
   // 월 목표를 일요일 시작 주 단위로 나눈다. 1일이 주 중간이면 첫 주는 짧은 주이고, 목표는 일수에 비례해 배분한다.
@@ -923,16 +950,28 @@
         return `<div class="tx-item" data-id="${t.id}">
           <div class="tx-main">
             <div class="tx-cat">${t.category}${t.memo ? ' · ' + escapeHtml(t.memo) : ''}</div>
-            <div class="tx-meta">${day}${cardName(t) ? ' · ' + escapeHtml(cardName(t)) : ''}${t.recurId ? ' · 자동' : ''}</div>
+            <div class="tx-meta">${day}${cardName(t) ? ' · ' + escapeHtml(cardName(t)) : ''}${t.recurId ? ' · 자동' : ''}${isFixed(t) ? ' · 고정' : ''}</div>
           </div>
           <div class="tx-amt ${t.type}">${sign}${formatWon(t.amount)}</div>
           <div class="tx-actions">
+            ${t.type === 'expense' ? `<button class="fix-btn${isFixed(t) ? ' on' : ''}" title="고정비 표시" aria-label="고정비 표시">📌</button>` : ''}
             ${t.receipt ? '<button class="rc-btn" title="영수증 보기" aria-label="영수증 보기">📷</button>' : ''}
             <button class="del-btn" title="삭제" aria-label="삭제">🗑</button>
           </div>
         </div>`;
       })
       .join('');
+
+    wrap.querySelectorAll('.fix-btn').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        const t = transactions.find((x) => x.id === e.target.closest('.tx-item').dataset.id);
+        if (!t) return;
+        t.fixed = !isFixed(t);
+        save();
+        renderAll();
+        showToast(t.fixed ? '고정비로 표시했어요' : '고정비 표시를 뺐어요');
+      });
+    });
 
     wrap.querySelectorAll('.rc-btn').forEach((btn) => {
       btn.addEventListener('click', (e) => showReceipt(e.target.closest('.tx-item').dataset.id));
@@ -1054,7 +1093,30 @@
 
   function updatePayVisibility() {
     el('pay-wrap').hidden = currentType !== 'expense';
+    el('fixed-wrap').hidden = currentType !== 'expense';
   }
+
+  // 고정비: 직접 체크한 지출. 체크한 적 없는 자동이체 내역은 고정비로 본다.
+  const isFixed = (t) => t.type === 'expense' && (t.fixed === undefined ? !!t.recurId : t.fixed);
+
+  function renderFixed(monthTx) {
+    const list = monthTx.filter(isFixed).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+    const total = list.reduce((s, t) => s + t.amount, 0);
+    const spent = monthTx.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+    el('fixed-sum').textContent = list.length
+      ? `${formatWon(total)} · 지출의 ${spent ? Math.round((total / spent) * 100) : 0}%`
+      : '';
+    el('fixed-list').innerHTML = list.length
+      ? list.map((t) => `<div class="fx-row">
+          <span>${t.date.slice(5).replace('-', '/')} <em>${escapeHtml(t.memo || t.category)}</em>${cardName(t) ? ' · ' + escapeHtml(cardName(t)) : ''}</span>
+          <b>${formatWon(t.amount)}</b></div>`).join('')
+      : '<div class="empty-msg">고정비로 표시한 지출이 없어요<br>기록할 때 “고정비”에 체크하거나, 내역의 📌를 눌러 표시하세요</div>';
+  }
+
+  el('only-fixed').addEventListener('change', (e) => {
+    onlyFixed = e.target.checked;
+    renderAll();
+  });
 
   function recRows(list) {
     return list.map((r) => `<div class="rec">
@@ -1589,7 +1651,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v6'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v7'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').textContent = '다다리 가계부 ' + APP_VERSION;
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
