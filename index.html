@@ -533,8 +533,8 @@
   .dc-cell.sel { box-shadow: inset 0 0 0 2px var(--accent); }
   .dc-n { pointer-events: none; justify-self: start; align-self: start; min-width: 20px; height: 20px; line-height: 20px; margin: 2px 0 0 2px; padding: 0 4px; border-radius: 99px; font-size: 12px; font-weight: 700; text-align: center; }
   .dc-n.today { background: var(--accent); color: #fff; }
-  .dc-chip { display: block; pointer-events: none; white-space: normal; word-break: keep-all; overflow-wrap: anywhere; font-size: 10px; line-height: 1.35; padding: 1px 3px; border-left: 2px solid transparent; border-radius: 3px; color: var(--text); }
-  .dc-chip b.tm { display: block; white-space: nowrap; font-size: 9px; font-weight: 700; letter-spacing: -0.4px; color: var(--text-muted); }
+  .dc-chip { display: block; pointer-events: none; white-space: normal; word-break: keep-all; overflow-wrap: anywhere; font-size: 10px; line-height: 1.35; padding: 1px 3px; border-radius: 3px; color: #1c1e21; }
+  .dc-chip b.tm { display: block; white-space: nowrap; font-size: 9px; font-weight: 700; letter-spacing: -0.4px; color: #4b5563; }
   .dc-chip.bar { margin: 1px 2px; align-self: start; font-weight: 600; }
   .dc-chip.nl { border-top-left-radius: 0; border-bottom-left-radius: 0; margin-left: 0; }
   .dc-chip.nr { border-top-right-radius: 0; border-bottom-right-radius: 0; margin-right: 0; }
@@ -543,8 +543,9 @@
   .dc-stack.out { opacity: .55; }
   .dc-sp { font-size: 10px; line-height: 1.2; color: var(--expense); padding-left: 3px; white-space: nowrap; }
   .dc-sp.inc { color: var(--income); }
-  .dc-item { display: flex; justify-content: space-between; align-items: center; gap: 8px; width: 100%; padding: 8px 10px; margin: 0 0 4px; border: 0; border-left: 4px solid var(--c, var(--accent)); border-radius: 8px; background: var(--bg); color: var(--text); font-size: 13px; text-align: left; cursor: pointer; }
-  .dc-item.hol { color: var(--expense); font-weight: 600; }
+  .dc-item { display: flex; justify-content: space-between; align-items: center; gap: 8px; width: 100%; padding: 8px 10px; margin: 0 0 4px; border: 0; border-radius: 8px; background: var(--bg); color: #1c1e21; font-size: 13px; text-align: left; cursor: pointer; }
+  .dc-item.hol { color: var(--expense); font-weight: 600; background: var(--bg); }
+  .dc-item .a { color: #4b5563; }
   .dc-item .a { color: var(--text-muted); font-size: 12px; white-space: nowrap; }
   .dc-week { display: flex; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); }
   .dc-week.today { background: var(--accent-soft); border-radius: 10px; padding-left: 6px; }
@@ -779,12 +780,13 @@
   table.week th.today { color: var(--accent); background: var(--accent-soft); }
   table.week td.today { background: var(--accent-soft); }
   table.week td { padding: 3px; }
-  table.week button { display: block; width: 100%; margin: 0 0 3px; border: none; border-left: 3px solid transparent; border-radius: 4px; background: none; color: var(--text); font-size: 11px; font-weight: 600; cursor: pointer; padding: 3px 4px; line-height: 1.35; text-align: left; }
+  table.week button { display: block; width: 100%; margin: 0 0 3px; border: none; border-radius: 4px; background: none; color: #1c1e21; font-size: 11px; font-weight: 600; cursor: pointer; padding: 3px 4px; line-height: 1.35; text-align: left; }
   table.week button:last-child { margin-bottom: 0; }
-  table.week button small { font-weight: 400; color: var(--text-muted); }
+  table.week button small { font-weight: 400; color: #4b5563; }
   .sch-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 10px; font-size: 11px; color: var(--text-muted); }
   .sch-legend i { display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 4px; }
-  .sch-item { border-left: 4px solid var(--c, transparent); padding-left: 10px; }
+  .sch-item[style] { border-radius: 8px; margin: 0 0 4px; padding-left: 10px; border-top: none; color: #1c1e21; }
+  .sch-item[style] .sch-time, .sch-item[style] .sch-note { color: #4b5563; }
   .cal-sw.auto span { display: block; height: 32px; line-height: 26px; padding: 0 10px; border-radius: 99px; border: 3px solid transparent; box-shadow: 0 0 0 1px var(--border); font-size: 12px; cursor: pointer; }
   .cal-sw.auto input:checked + span { border-color: var(--card-bg); box-shadow: 0 0 0 3px var(--text); }
   .days-check { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
@@ -2542,6 +2544,25 @@
     if (b) setView(b.dataset.view);
   });
 
+  // 칸 색: 기본 색(#rrggbb)을 윤곽선 없는 부드러운 단색으로 바꾼다. 같은 종류(같은 기본 색)는 비슷한 계열이고,
+  // 항목 이름(key)에 따라 밝기와 색조를 조금씩 달리해 칸마다 약간씩 다르게 보인다. 글씨는 어두운 고정색(#1c1e21)을 쓴다.
+  function tone(hex, key) {
+    const n = parseInt(String(hex).slice(1), 16) || 0;
+    const r = ((n >> 16) & 255) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
+    const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+    let h = 0;
+    if (d) h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+    h = (h * 60 + 360) % 360;
+    let k = 5381;
+    for (const ch of String(key || '')) k = (k * 33 + ch.charCodeAt(0)) % 100003;
+    const l0 = (mx + mn) / 2, s0 = d ? d / (1 - Math.abs(2 * l0 - 1)) : 0;   // 회색 계열은 회색 그대로 둔다
+    const hue = (h + ((k % 7) - 3) * 3 + 360) % 360, light = 0.8 + (((k >> 3) % 5) - 2) * 0.03, sat = s0 < 0.2 ? 0.08 : 0.62;
+    const c = (1 - Math.abs(2 * light - 1)) * sat, x = c * (1 - Math.abs(((hue / 60) % 2) - 1)), m = light - c / 2;
+    const [rr, gg, bb] = hue < 60 ? [c, x, 0] : hue < 120 ? [x, c, 0] : hue < 180 ? [0, c, x] : hue < 240 ? [0, x, c] : hue < 300 ? [x, 0, c] : [c, 0, x];
+    const to = (v) => Math.round((v + m) * 255).toString(16).padStart(2, '0');
+    return '#' + to(rr) + to(gg) + to(bb);
+  }
+
   // 시간표 색: 일정마다 직접 고른 색(color)이 있으면 그것, 없으면 이름으로 자동 정한다.
   // 학교(등교·수업·하교)=파랑, 이동·대기=회색, 집=청록, 그 밖의 학원·활동은 이름(괄호 앞)에 따라 주황·분홍·보라·노랑 중 하나(같은 이름은 늘 같은 색).
   const SCH_COLORS = ['#2a78d6', '#eb6834', '#1baf7a', '#e87ba4', '#6250d6', '#eda100', '#8b93a1'];
@@ -2565,7 +2586,7 @@
   const schColor = (i) => schFixedColor(i) || schOtherMap()[schKey(i.title)] || '#eb6834';
 
   function itemButton(i, now) {
-    return `<button type="button" class="sch-item${now ? ' now' : ''}" data-item="${i.id}" style="--c:${schColor(i)}">
+    return `<button type="button" class="sch-item${now ? ' now' : ''}" data-item="${i.id}" style="background:${tone(schColor(i), schKey(i.title))}">
       <span class="sch-time">${fmtTime(i.time)}</span>
       <span class="sch-title">${escapeHtml(i.title)}${now ? '<span class="sch-tag">지금</span>' : ''}${i.note ? `<span class="sch-note">${escapeHtml(i.note)}</span>` : ''}</span>
     </button>`;
@@ -2612,13 +2633,13 @@
     const head = '<th>시간</th>' + days.map((d) => `<th class="${d === today ? 'today' : ''}">${DAYS[d]}</th>`).join('');
     const rows = times.map((t) => '<tr><td class="t">' + fmtTime(t) + '</td>' + days.map((d) => {
       const cell = mine.filter((i) => i.day === d && i.time === t);
-      return `<td class="${d === today ? 'today' : ''}">` + cell.map((i) => { const c = schColor(i); return `<button type="button" data-item="${i.id}" style="background:${c}26;border-left-color:${c}">${escapeHtml(i.title)}${i.note ? '<br><small>' + escapeHtml(i.note) + '</small>' : ''}</button>`; }).join('') + '</td>';
+      return `<td class="${d === today ? 'today' : ''}">` + cell.map((i) => { const c = schColor(i); return `<button type="button" data-item="${i.id}" style="background:${tone(c, schKey(i.title))}">${escapeHtml(i.title)}${i.note ? '<br><small>' + escapeHtml(i.note) + '</small>' : ''}</button>`; }).join('') + '</td>';
     }).join('') + '</tr>').join('');
     // 범례: 시간표에 나온 일정 이름(괄호 앞)과 색
     const legend = new Map();
     mine.forEach((i) => { const k = schKey(i.title); if (k && !legend.has(k)) legend.set(k, schColor(i)); });
     el('sch-body').innerHTML = `<div class="week-wrap"><table class="week"><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table></div>`
-      + `<div class="sch-legend">${[...legend].slice(0, 14).map(([k, c]) => `<span><i style="background:${c}"></i>${escapeHtml(k)}</span>`).join('')}</div>`;
+      + `<div class="sch-legend">${[...legend].slice(0, 14).map(([k, c]) => `<span><i style="background:${tone(c, k)}"></i>${escapeHtml(k)}</span>`).join('')}</div>`;
   }
 
   el('sch-modes').addEventListener('click', (e) => {
@@ -5392,7 +5413,7 @@
     if (e.kind === 'hol') return `<span class="dc-chip hol">${esc(e.text)}</span>`;
     const c = e.color || CAL_COLORS[0], ranged = e.time && e.endTime && e.endTime > e.time;
     // 좁은 칸에서도 안 잘리게 시작·끝 시간을 두 줄로 나눠 쓴다(10:00 / ~11:00)
-    return `<span class="dc-chip" style="background:${hexA(c, '2e')};border-left-color:${c}">${e.time ? `<b class="tm">${e.time}${ranged ? '<br>~' + e.endTime : ''}</b>` : ''}${esc(e.text)}</span>`;
+    return `<span class="dc-chip" style="background:${tone(c, e.text)}">${e.time ? `<b class="tm">${e.time}${ranged ? '<br>~' + e.endTime : ''}</b>` : ''}${esc(e.text)}</span>`;
   }
   function calFilterHtml(cal) {
     return CAL_CHIPS[cal].map(([k, n]) => `<button type="button" data-cf="${k}" class="${calOff[cal].has(k) ? '' : 'on'}">${n}</button>`).join('');
@@ -5423,7 +5444,7 @@
       });
       list.forEach((g) => {
         const col = g.e.color || CAL_COLORS[0];
-        h += `<span class="dc-chip bar${g.contL ? ' nl' : ''}${g.contR ? ' nr' : ''}" style="grid-column:${g.s0 + 1} / span ${g.s1 - g.s0 + 1};grid-row:${g.lane + 2};background:${hexA(col, '2e')};border-left-color:${col}">${esc(g.e.text)}</span>`;
+        h += `<span class="dc-chip bar${g.contL ? ' nl' : ''}${g.contR ? ' nr' : ''}" style="grid-column:${g.s0 + 1} / span ${g.s1 - g.s0 + 1};grid-row:${g.lane + 2};background:${tone(col, g.e.text)}">${esc(g.e.text)}</span>`;
       });
       days.forEach((x, c) => {
         const mo = money && money[x.date], single = x.evs.filter((e) => !(e.kind === 'mine' && e.multi));
@@ -5440,7 +5461,7 @@
   };
   function calItemHtml(e) {
     const c = e.color || CAL_COLORS[0], tm = calTime(e), md = (d) => d.slice(5).replace('-', '/');
-    return `<button type="button" class="dc-item${e.kind === 'hol' ? ' hol' : ''}" style="--c:${c}"${e.id ? ` data-cid="${attr(e.id)}"` : e.view ? ` data-cv="${e.view}"` : ''}${e.sub ? ` data-csub="${e.sub}"` : ''}>`
+    return `<button type="button" class="dc-item${e.kind === 'hol' ? ' hol' : ''}"${e.kind === 'hol' ? '' : ` style="background:${tone(c, e.text)}"`}${e.id ? ` data-cid="${attr(e.id)}"` : e.view ? ` data-cv="${e.view}"` : ''}${e.sub ? ` data-csub="${e.sub}"` : ''}>`
       + `<span class="t">${tm ? `<b>${tm}</b> ` : ''}${e.icon ? e.icon + ' ' : ''}${esc(e.text)}${e.repeat ? ' <small>↻</small>' : ''}${e.multi ? ` <small>(${md(e.occ)} ~ ${md(e.occEnd)})</small>` : ''}</span>${e.amt ? `<span class="a">${formatWon(e.amt)}</span>` : ''}</button>`;
   }
   function calDayHtml(cal, date, map) {
@@ -6658,7 +6679,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v46'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v47'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span style="display:block;margin-bottom:4px">다달이, 매일의 기록이 모여 더 나은 생활이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
