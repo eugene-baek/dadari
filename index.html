@@ -6,12 +6,12 @@
 <meta name="theme-color" content="#00cdbe">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="다다리">
+<meta name="apple-mobile-web-app-title" content="다달이">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<title>다다리 — 나의 생활을 한눈에</title>
-<meta name="description" content="돈 관리부터 시간 관리까지, 일상의 모든 기록을 다다리에서 간편하게 관리하세요.">
+<title>다달이 — 나의 생활을 한눈에</title>
+<meta name="description" content="돈 관리부터 시간 관리까지, 일상의 모든 기록을 다달이에서 간편하게 관리하세요.">
 <style>
   :root {
     --bg: #f5f6f8;
@@ -744,7 +744,7 @@
 <div class="lock-screen" id="lock-screen" data-mode="pin" hidden>
   <div class="lock-box">
     <div class="lock-ic">🔒</div>
-    <div class="lock-title">다다리</div>
+    <div class="lock-title">다달이</div>
     <div class="lock-sub" id="lock-sub">비밀번호를 입력하세요</div>
     <div class="lock-dots" id="lock-dots"></div>
     <div class="lock-pad" id="lock-pad"></div>
@@ -771,7 +771,7 @@
 
 <header>
   <button class="refresh-btn" id="refresh-btn" type="button" aria-label="새로고침">🔄 새로고침</button>
-  <h1><img class="logo" src="icon-192.png" alt="" width="32" height="32">다다리</h1>
+  <h1><img class="logo" src="icon-192.png" alt="" width="32" height="32">다달이</h1>
   <p>나의 생활을 한눈에 · 돈 관리부터 시간 관리까지</p>
 </header>
 
@@ -1617,7 +1617,7 @@
     const a = document.createElement('a');
     const stamp = todayStr();
     a.href = url;
-    a.download = `다다리_백업_${stamp}.json`;
+    a.download = `다달이_백업_${stamp}.json`;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -4657,12 +4657,12 @@
       <p class="goal-hint">“메일로 보내 두기”는 이 폰의 메일 앱을 열어 코드를 본문에 넣어 줘요. 받는 사람을 <b>내 메일 주소</b>로 직접 적어 보내세요(앱은 메일 주소를 알지 못하고 대신 보내지도 않아요). 메일함이 남에게 열리면 코드도 보이니 주의하세요.</p>
       <div class="sheet-actions"><button type="button" data-cancel>적어 두었어요</button></div>
     </form>`, () => false);
-    const body = '다다리 앱 복구 코드: ' + code + '\n\n비밀번호를 잊었을 때: 다다리 잠금 화면의 “비밀번호를 잊었어요”에서 이 코드를 입력하면 데이터를 지우지 않고 비밀번호를 다시 정할 수 있어요.';
+    const body = '다달이 앱 복구 코드: ' + code + '\n\n비밀번호를 잊었을 때: 다달이 잠금 화면의 “비밀번호를 잊었어요”에서 이 코드를 입력하면 데이터를 지우지 않고 비밀번호를 다시 정할 수 있어요.';
     sheetBody.querySelector('[data-rc=copy]').addEventListener('click', async () => {
       try { await navigator.clipboard.writeText(code); showToast('복구 코드를 복사했어요'); } catch (e) { showToast('복사하지 못했어요. 코드를 직접 적어 두세요'); }
     });
     sheetBody.querySelector('[data-rc=mail]').addEventListener('click', () => {
-      location.href = 'mailto:?subject=' + encodeURIComponent('다다리 복구 코드') + '&body=' + encodeURIComponent(body);
+      location.href = 'mailto:?subject=' + encodeURIComponent('다달이 복구 코드') + '&body=' + encodeURIComponent(body);
     });
   }
 
@@ -4711,9 +4711,9 @@
     } catch (err) { msg('다시 정하지 못했어요. 잠시 뒤 다시 시도해 주세요'); }
   });
 
-  // 복구 코드도 없을 때: 이 기기의 다다리 데이터를 지우고 처음 상태로 되돌린다(두 번 확인).
+  // 복구 코드도 없을 때: 이 기기의 다달이 데이터를 지우고 처음 상태로 되돌린다(두 번 확인).
   el('lr-wipe').addEventListener('click', () => {
-    if (!confirm('이 기기의 다다리 데이터(가계부·건강·시간표·사진 등)를 모두 지우고 처음 상태로 되돌려요. 되돌릴 수 없어요.\n\nGitHub 동기화를 연결해 두었다면 다시 연결해서 데이터를 되찾을 수 있어요.\n\n계속할까요?')) return;
+    if (!confirm('이 기기의 다달이 데이터(가계부·건강·시간표·사진 등)를 모두 지우고 처음 상태로 되돌려요. 되돌릴 수 없어요.\n\nGitHub 동기화를 연결해 두었다면 다시 연결해서 데이터를 되찾을 수 있어요.\n\n계속할까요?')) return;
     if ((prompt('정말 지우려면 “초기화”라고 입력하세요') || '').trim() !== '초기화') { alert('입력이 달라 취소했어요'); return; }
     try { Object.keys(localStorage).filter((k) => k.startsWith('dadari_')).forEach((k) => localStorage.removeItem(k)); } catch (err) { /* 지우지 못하면 아래 새로고침 후에도 잠금이 남는다 */ }
     try { indexedDB.deleteDatabase('dadari'); indexedDB.deleteDatabase('dadari_dishes'); } catch (err) { /* 사진 저장소가 없어도 계속 */ }
@@ -5208,7 +5208,7 @@
 
   function buildIcs(events) {
     const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
-    const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//dadari//KO', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', 'X-WR-CALNAME:다다리', 'X-WR-TIMEZONE:Asia/Seoul'];
+    const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//dadari//KO', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', 'X-WR-CALNAME:다달이', 'X-WR-TIMEZONE:Asia/Seoul'];
     events.forEach((e) => {
       lines.push('BEGIN:VEVENT', `UID:${e.uid}@dadari`, `DTSTAMP:${stamp}`);
       if (e.time) lines.push(`DTSTART:${icsTime(e.date, e.time)}`, `DTEND:${icsTime(e.date, addMinutes(e.time, 15))}`);
@@ -5227,7 +5227,7 @@
     const file = new File([text], name, { type: 'text/calendar' });
     // 휴대폰에서는 공유 시트로 열어 "캘린더"로 바로 넣게 하고, 안 되면 파일로 내려받는다.
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      try { await navigator.share({ files: [file], title: '다다리 알람' }); return 'share'; } catch (e) { if (e && e.name === 'AbortError') return 'cancel'; }
+      try { await navigator.share({ files: [file], title: '다달이 알람' }); return 'share'; } catch (e) { if (e && e.name === 'AbortError') return 'cancel'; }
     }
     const a = document.createElement('a');
     a.href = URL.createObjectURL(file);
@@ -5245,7 +5245,7 @@
     if (!events.length) { el('alarm-result').textContent = '내보낼 일정이 없어요. 병원 예약·납부일·갱신일 같은 날짜를 먼저 등록해 주세요.'; return; }
     const n = (p) => events.filter((e) => e.uid.startsWith(p)).length;
     el('alarm-result').textContent = `일정 ${events.length}개를 만들었어요 (예약·접종 ${n('visit-') - n('visit-rent-') + n('vac-')}, 납부일 ${n('pay-')}, 갱신·만기 ${n('ins-') + n('end-rent-')}, 렌탈 방문 ${n('visit-rent-')}, 복약 ${n('med-')}).`;
-    const how = await deliverIcs(buildIcs(events), '다다리_알람.ics');
+    const how = await deliverIcs(buildIcs(events), '다달이_알람.ics');
     if (how === 'download') el('alarm-result').textContent += ' 내려받은 파일을 열면 캘린더에 추가돼요.';
     if (how === 'share') el('alarm-result').textContent += ' 공유 창에서 “캘린더”를 고르세요.';
   });
@@ -5852,8 +5852,8 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v32'; // deploy.sh가 sw.js 버전과 함께 올린다
-  el('ver').innerHTML = '<span style="display:block;margin-bottom:4px">다다리, 매일의 기록이 모여 더 나은 생활이 됩니다.</span>다다리 ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
+  const APP_VERSION = 'v33'; // deploy.sh가 sw.js 버전과 함께 올린다
+  el('ver').innerHTML = '<span style="display:block;margin-bottom:4px">다달이, 매일의 기록이 모여 더 나은 생활이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
     try {
