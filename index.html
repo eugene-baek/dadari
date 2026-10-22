@@ -381,7 +381,11 @@
   .cardsub { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
   .icon-btn { border: none; background: none; color: var(--text-muted); font-size: 15px; cursor: pointer; padding: 4px; flex-shrink: 0; }
   .rec { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-top: 1px solid var(--border); margin-top: 8px; }
-  .rec > div:first-child { flex: 1; min-width: 0; }
+  .rec > div:first-of-type { flex: 1; min-width: 0; }
+  /* 끌어서 순서 바꾸기: ☰를 잡고 끈다. touch-action: none이 있어야 폰에서 끄는 동안 화면이 같이 스크롤되지 않는다. */
+  .grip { touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; font-size: 20px; line-height: 1; padding: 10px 12px 10px 4px; color: var(--text-muted); flex-shrink: 0; }
+  .rec.dragging { position: relative; z-index: 30; background: var(--card-bg); box-shadow: 0 8px 22px rgba(0, 0, 0, 0.25); border-radius: 12px; cursor: grabbing; }
+  .rec.dragging .grip { cursor: grabbing; color: var(--accent); }
   .rec-name { font-size: 13px; font-weight: 600; }
   .rec-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
   .rec-amt { font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -1690,7 +1694,53 @@
     sheetBody.innerHTML = '';
     sheetBody.onclick = null;
     sheetBody.onsubmit = null;
+    sheetBody.onpointerdown = sheetBody.onpointermove = sheetBody.onpointerup = sheetBody.onpointercancel = null;
     selectNewCard = false;
+  }
+
+  // 줄을 잡고 끌어서 순서를 바꾼다(터치·마우스 공용). 잡는 곳은 handleSel(☰), 끌면 다른 줄이 비켜 주고, 놓으면 onDone(바뀐 id 순서)을 부른다.
+  function makeSortable(container, rowSel, handleSel, onDone) {
+    let drag = null;
+    const place = (clientY) => {
+      const row = drag.row;
+      row.style.transform = '';
+      const top = row.getBoundingClientRect().top;
+      const dy = clientY - drag.grab - top;
+      row.style.transform = `translateY(${dy}px)`;
+      const mid = top + dy + row.offsetHeight / 2;
+      for (const r of container.querySelectorAll(rowSel)) {
+        if (r === row) continue;
+        const rr = r.getBoundingClientRect();
+        if (mid > rr.top && mid < rr.bottom) {
+          // 지나친 줄의 앞/뒤로 끼워 넣고, 바뀐 자리 기준으로 위치를 다시 맞춘다
+          if (r.compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING) r.parentNode.insertBefore(row, r);
+          else r.parentNode.insertBefore(row, r.nextSibling);
+          place(clientY);
+          return;
+        }
+      }
+    };
+    container.onpointerdown = (e) => {
+      const h = e.target.closest(handleSel);
+      const row = h && h.closest(rowSel);
+      if (!row || !container.contains(row)) return;
+      e.preventDefault();
+      drag = { row, id: e.pointerId, grab: e.clientY - row.getBoundingClientRect().top, handle: h };
+      row.classList.add('dragging');
+      try { h.setPointerCapture(e.pointerId); } catch (err) { /* 캡처 못 해도 컨테이너로 이벤트가 온다 */ }
+    };
+    container.onpointermove = (e) => { if (drag && e.pointerId === drag.id) place(e.clientY); };
+    const end = (e) => {
+      if (!drag || e.pointerId !== drag.id) return;
+      const { row, handle } = drag;
+      drag = null;
+      row.style.transform = '';
+      row.classList.remove('dragging');
+      try { handle.releasePointerCapture(e.pointerId); } catch (err) { /* 이미 풀림 */ }
+      onDone([...container.querySelectorAll(rowSel)].map((r) => r.dataset.id));
+    };
+    container.onpointerup = end;
+    container.onpointercancel = end;
   }
   function openSheet(html, onSubmit) {
     sheetBody.innerHTML = html;
@@ -2133,17 +2183,15 @@
     const draw = () => {
       sheetBody.innerHTML = `<form>
         <h3>구성원 관리</h3>
-        ${schedule.members.length ? schedule.members.map((m, i, all) => `<div class="rec"><div><div class="rec-name">${escapeHtml(m.name)}</div>
+        ${schedule.members.length ? schedule.members.map((m) => `<div class="rec" data-id="${m.id}"><span class="grip" aria-label="끌어서 순서 바꾸기">☰</span><div><div class="rec-name">${escapeHtml(m.name)}</div>
           <div class="rec-sub">${validDate(m.birth) ? m.birth.replace(/-/g, '.') + ' · ' + ageText(monthsBetween(m.birth, todayStr())) : '생년월일 미입력'}</div></div>
           <button type="button" class="icon-btn" data-mbirth="${m.id}" aria-label="생년월일">🎂</button>
-          <button type="button" class="icon-btn" data-mup="${m.id}" aria-label="위로"${i === 0 ? ' disabled style="opacity:.25"' : ''}>▲</button>
-          <button type="button" class="icon-btn" data-mdown="${m.id}" aria-label="아래로"${i === all.length - 1 ? ' disabled style="opacity:.25"' : ''}>▼</button>
           <button type="button" class="icon-btn" data-mren="${m.id}" aria-label="이름 바꾸기">✎</button>
           <button type="button" class="icon-btn" data-mdel="${m.id}" aria-label="삭제">🗑</button></div>`).join('')
           : '<div class="empty-msg" style="padding:10px 0">아직 구성원이 없어요</div>'}
         <label>새 구성원</label>
         <div class="goal-row"><input id="mem-new" maxlength="20" placeholder="이름 입력" autocomplete="off"><button type="button" data-madd>추가</button></div>
-        <p class="goal-hint">구성원은 시간표와 건강관리에서 함께 써요. “나”는 항상 있어요.</p>
+        <p class="goal-hint">☰를 누른 채 끌어서 순서를 바꿀 수 있어요. 구성원은 시간표와 건강관리 등에서 함께 써요. “나”는 항상 맨 앞이에요.</p>
         <div class="sheet-actions"><button type="button" data-cancel>닫기</button></div>
       </form>`;
     };
@@ -2173,17 +2221,20 @@
       draw();
       showToast('이름을 바꿨어요');
     };
-    // 위·아래로 한 칸 옮긴다. 시간표의 구성원 칸, 건강관리의 사람 선택이 이 순서를 따른다("나"는 늘 맨 앞).
-    const move = (id, step) => {
-      const i = schedule.members.findIndex((m) => m.id === id);
-      const j = i + step;
-      if (i < 0 || j < 0 || j >= schedule.members.length) return;
-      [schedule.members[i], schedule.members[j]] = [schedule.members[j], schedule.members[i]];
+    // 끌어서 놓은 순서대로 구성원을 다시 늘어놓는다. 시간표의 구성원 칸, 건강관리의 사람 선택이 이 순서를 따른다("나"는 늘 맨 앞).
+    makeSortable(sheetBody, '.rec[data-id]', '.grip', (ids) => {
+      const byId = new Map(schedule.members.map((m) => [m.id, m]));
+      const next = ids.map((id) => byId.get(id)).filter(Boolean);
+      schedule.members.forEach((m) => { if (!next.includes(m)) next.push(m); });
+      schedule.members = next;
       saveSchedule();
       renderSchedule();
       renderHealth();
+      renderInsurance();
+      renderRental();
+      renderAcademy();
       draw();
-    };
+    });
     sheetBody.onsubmit = (e) => { e.preventDefault(); add(); };
     sheetBody.onclick = (e) => {
       const b = e.target.closest('button');
@@ -2193,8 +2244,6 @@
       else if (b.dataset.mdel) { if (removeMember(b.dataset.mdel)) draw(); }
       else if (b.dataset.mren) rename(b.dataset.mren);
       else if (b.dataset.mbirth) openBirthSheet(schedule.members.find((m) => m.id === b.dataset.mbirth), true);
-      else if (b.dataset.mup) move(b.dataset.mup, -1);
-      else if (b.dataset.mdown) move(b.dataset.mdown, 1);
     };
     draw();
     sheet.hidden = false;
@@ -3816,26 +3865,21 @@
   function openTabOrderSheet() {
     const draw = () => {
       sheetBody.innerHTML = `<form><h3>메뉴 순서 바꾸기</h3>
-        <p class="goal-hint" style="margin:0 0 6px">▲▼로 순서를 바꾸면 바로 적용돼요. 한 줄에 4개씩 위에서부터 채워져요.</p>
-        ${tabOrder().map((id, i, all) => `<div class="rec"><div class="rec-name">${i + 1}. ${TAB_LABELS[id]}</div>
-          <button type="button" class="icon-btn" data-tup="${id}"${i === 0 ? ' disabled style="opacity:.25"' : ''} aria-label="위로">▲</button>
-          <button type="button" class="icon-btn" data-tdown="${id}"${i === all.length - 1 ? ' disabled style="opacity:.25"' : ''} aria-label="아래로">▼</button></div>`).join('')}
+        <p class="goal-hint" style="margin:0 0 6px">☰를 누른 채 끌어서 옮기세요. 놓으면 바로 적용돼요. 한 줄에 4개씩 위에서부터 채워져요.</p>
+        ${tabOrder().map((id, i) => `<div class="rec" data-id="${id}"><span class="grip" aria-label="끌어서 순서 바꾸기">☰</span><div class="rec-name">${i + 1}. ${TAB_LABELS[id]}</div></div>`).join('')}
         <div class="sheet-actions"><button type="button" data-cancel>닫기</button><button type="button" data-treset>기본 순서로</button></div></form>`;
     };
-    const move = (id, step) => {
-      const o = tabOrder(), i = o.indexOf(id), j = i + step;
-      if (i < 0 || j < 0 || j >= o.length) return;
-      [o[i], o[j]] = [o[j], o[i]];
-      try { localStorage.setItem(TAB_KEY, JSON.stringify(o)); } catch (e) { /* 저장 못 해도 이번 화면에서는 적용 */ }
+    makeSortable(sheetBody, '.rec[data-id]', '.grip', (ids) => {
+      const base = Object.keys(TAB_LABELS);
+      const next = ids.filter((id) => base.includes(id));
+      try { localStorage.setItem(TAB_KEY, JSON.stringify(next)); } catch (e) { /* 저장 못 해도 이번 화면에서는 적용 */ }
       applyTabOrder();
       draw();
-    };
+    });
     sheetBody.onclick = (e) => {
       const b = e.target.closest('button');
-      if (!b || b.disabled) return;
-      if (b.dataset.tup) move(b.dataset.tup, -1);
-      else if (b.dataset.tdown) move(b.dataset.tdown, 1);
-      else if (b.dataset.treset !== undefined) { try { localStorage.removeItem(TAB_KEY); } catch (e2) { /* 무시 */ } applyTabOrder(); draw(); }
+      if (!b) return;
+      if (b.dataset.treset !== undefined) { try { localStorage.removeItem(TAB_KEY); } catch (e2) { /* 무시 */ } applyTabOrder(); draw(); }
       else if (b.dataset.cancel !== undefined) closeSheet();
     };
     draw();
@@ -4540,7 +4584,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v23'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v24'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span style="display:block;margin-bottom:4px">다다리, 매일의 기록이 모여 더 나은 생활이 됩니다.</span>다다리 ' + APP_VERSION;
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
