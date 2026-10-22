@@ -440,7 +440,13 @@
   .fx-row span em { font-style: normal; color: var(--text); }
   .viewtabs-foot { max-width: 720px; margin: 0 auto 10px; padding: 0 20px; text-align: right; }
   .tab-order-btn { background: none; border: 0; color: var(--text-muted); font-size: 12px; cursor: pointer; padding: 4px 0; }
-  .rcp { padding: 12px 0; border-top: 1px solid var(--border); font-size: 13px; line-height: 1.6; }
+  .rcp { padding: 12px 0; border-top: 1px solid var(--border); font-size: 13px; line-height: 1.6; display: flex; gap: 12px; align-items: flex-start; }
+  .rcp .rb { flex: 1; min-width: 0; }
+  .dish { flex: none; position: relative; width: 64px; height: 64px; border: none; border-radius: 16px; padding: 0; overflow: hidden; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .dish span { font-size: 34px; line-height: 1; }
+  .dish img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .dish:not(.has)::after { content: '📷'; position: absolute; right: 3px; bottom: 2px; font-size: 11px; opacity: .55; }
+  .dish-big { display: block; width: 100%; max-height: 260px; object-fit: cover; border-radius: 14px; margin-top: 4px; }
   .rcp:first-of-type { border-top: none; }
   .rcp .rn { font-size: 15px; font-weight: 700; }
   .rcp .rt { font-size: 10px; background: var(--accent-soft); color: var(--accent); border-radius: 99px; padding: 1px 7px; margin-left: 6px; vertical-align: 1px; }
@@ -452,6 +458,15 @@
   .dd-chip { font-size: 10px; border-radius: 99px; padding: 1px 6px; margin-left: 5px; border: 1px solid var(--border); color: var(--text-muted); }
   .dd-chip.soon { color: var(--expense); border-color: var(--expense); font-weight: 700; }
   .vcheck.on { background: var(--accent); color: #fff; }
+  .biz-shops { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+  .biz-shops button { padding: 7px 13px; border: 1px solid var(--border); border-radius: 999px; background: var(--card-bg); color: var(--text-muted); font-size: 13px; font-weight: 600; cursor: pointer; }
+  .biz-shops button.active { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+  .shop-row { display: flex; gap: 6px; margin-bottom: 6px; align-items: center; }
+  .shop-row input { min-width: 0; margin: 0; }
+  .shop-row input[data-f=name] { flex: 3; }
+  .shop-row input[data-f=target] { flex: 2; }
+  .shop-row button { border: 1px solid var(--border); background: var(--card-bg); border-radius: 8px; padding: 8px; cursor: pointer; }
+  #biz-body tr[data-bsel] { cursor: pointer; }
   .biz-trend { display: flex; align-items: flex-end; gap: 8px; height: 120px; margin-top: 8px; }
   .biz-trend .col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 3px; font-size: 10px; color: var(--text-muted); }
   .biz-trend .pair { display: flex; align-items: flex-end; gap: 2px; flex: 1; width: 100%; justify-content: center; }
@@ -702,6 +717,7 @@
 
 <main id="view-biz" hidden>
   <section class="card">
+    <div class="biz-shops" id="biz-shops"></div>
     <div class="month-nav">
       <button id="biz-prev" aria-label="이전 달">◀</button>
       <div class="label" id="biz-label"></div>
@@ -711,7 +727,7 @@
     <div class="cards-actions" style="flex-wrap:wrap">
       <button type="button" class="mini-btn" id="add-sale-btn">＋ 매출 입력</button>
       <button type="button" class="mini-btn" id="add-cost-btn">＋ 비용 입력</button>
-      <button type="button" class="mini-btn" id="biz-target-btn">🎯 월 목표</button>
+      <button type="button" class="mini-btn" id="biz-target-btn">🏢 사업·목표 관리</button>
     </div>
   </section>
 </main>
@@ -1390,7 +1406,9 @@
           }
           if (data.biz && Array.isArray(data.biz.entries)) {
             mergeById(biz.entries, data.biz.entries, (e) => validDate(e.date) && (e.kind === 'sale' || e.kind === 'cost') && e.amount > 0);
+            if (Array.isArray(data.biz.shops)) mergeById(biz.shops, data.biz.shops, (s) => typeof s.name === 'string' && s.name);
             if (!biz.target && data.biz.target > 0) biz.target = Math.round(data.biz.target);
+            normalizeBiz();
             saveBiz();
             renderBiz();
           }
@@ -3489,12 +3507,28 @@
 
   /* ---------- 사업매출 ---------- */
   // 사업의 매출과 비용을 달별로 입력해 순이익·마진·목표 달성을 본다. 개인 가계부와는 따로 계산한다.
+  // 사업은 여러 개일 수 있다: shops[{id, name, target(월 목표 매출)}], 내역(entries)은 bid로 어느 사업인지 가진다.
+  // 예전 형식(사업 구분 없이 entries·target만 있음)은 normalizeBiz가 기본 사업 'bz_main'으로 옮긴다.
   const BIZ_KEY = 'dadari_biz_v1';
-  let biz = loadJson(BIZ_KEY, { entries: [], target: 0 });   // entries: {id, date, kind 'sale'|'cost', name(채널·항목), amount, memo}, target: 월 목표 매출
-  if (!biz || !Array.isArray(biz.entries)) biz = { entries: [], target: 0 };
-  biz.target = Math.max(0, +biz.target || 0);
+  let biz = loadJson(BIZ_KEY, { entries: [], shops: [], target: 0 });   // entries: {id, bid, date, kind 'sale'|'cost', name(채널·항목), amount, memo}
+  if (!biz || !Array.isArray(biz.entries)) biz = { entries: [], shops: [], target: 0 };
+  function normalizeBiz() {
+    if (!Array.isArray(biz.shops)) biz.shops = [];
+    biz.shops = biz.shops.filter((s) => s && s.id && typeof s.name === 'string');
+    if (!biz.shops.length) biz.shops.push({ id: 'bz_main', name: '내 사업', target: 0 });
+    const legacy = Math.max(0, +biz.target || 0);
+    if (legacy && !biz.shops[0].target) biz.shops[0].target = legacy;
+    biz.target = 0;
+    biz.shops.forEach((s) => { s.target = Math.max(0, +s.target || 0); });
+    biz.entries.forEach((e) => { if (!biz.shops.some((s) => s.id === e.bid)) e.bid = biz.shops[0].id; });
+  }
+  normalizeBiz();
   let bizView = { y: new Date().getFullYear(), m: new Date().getMonth() };
+  let bizSel = 'all';   // 'all' 또는 사업 id (화면에서 보고 있는 사업)
   const saveBiz = () => saveJson(BIZ_KEY, biz);
+  const bizShopName = (id) => (biz.shops.find((s) => s.id === id) || {}).name || '';
+  const bizSelEntries = () => (bizSel === 'all' ? biz.entries : biz.entries.filter((e) => e.bid === bizSel));
+  const bizSelTarget = () => (bizSel === 'all' ? biz.shops : biz.shops.filter((s) => s.id === bizSel)).reduce((s, x) => s + x.target, 0);
   const BIZ_SALE_NAMES = ['자사몰', '스마트스토어', '쿠팡', '오픈마켓', '도매', '오프라인', '기타'];
   const BIZ_COST_NAMES = ['매입·원가', '광고비', '수수료', '배송비', '포장재', '인건비', '임대료', '세금·공과', '기타'];
 
@@ -3507,12 +3541,19 @@
   const pct = (a, b) => (b ? Math.round((a / b) * 1000) / 10 : 0);
 
   function renderBiz() {
+    if (bizSel !== 'all' && !biz.shops.some((s) => s.id === bizSel)) bizSel = 'all';
+    const multi = biz.shops.length > 1;
+    if (!multi) bizSel = biz.shops[0].id;
+    el('biz-shops').innerHTML = (multi ? `<button type="button" data-bsel="all" class="${bizSel === 'all' ? 'active' : ''}">전체</button>` : '')
+      + biz.shops.map((s) => `<button type="button" data-bsel="${attr(s.id)}" class="${bizSel === s.id ? 'active' : ''}">${esc(s.name)}</button>`).join('')
+      + '<button type="button" data-bsel="+">＋ 사업</button>';
     el('biz-label').textContent = bizView.y + '년 ' + (bizView.m + 1) + '월';
     const ym = ymKey(bizView);
-    const list = biz.entries.filter((e) => e.date.startsWith(ym));
+    const pool = bizSelEntries(), target = bizSelTarget();
+    const list = pool.filter((e) => e.date.startsWith(ym));
     const sales = bizSum(list, 'sale'), costs = bizSum(list, 'cost'), profit = sales - costs;
     const prevD = new Date(bizView.y, bizView.m - 1, 1), prevYm = ymKey({ y: prevD.getFullYear(), m: prevD.getMonth() });
-    const prevList = biz.entries.filter((e) => e.date.startsWith(prevYm));
+    const prevList = pool.filter((e) => e.date.startsWith(prevYm));
     const prevSales = bizSum(prevList, 'sale');
     const diff = prevSales ? Math.round(((sales - prevSales) / prevSales) * 100) : null;
 
@@ -3522,10 +3563,19 @@
       <div class="summary-item balance"><div class="lbl">순이익</div><div class="val" style="${profit < 0 ? 'color:var(--expense)' : ''}">${profit < 0 ? '-' : ''}${formatWon(Math.abs(profit))}</div></div></div>
       <p class="goal-hint" style="margin:8px 0 0">${sales ? `마진 ${pct(profit, sales)}% · 비용률 ${pct(costs, sales)}%` : '아직 이 달 매출이 없어요'}${diff !== null ? ` · 전월 매출 대비 ${diff >= 0 ? '+' : ''}${diff}%` : ''}</p>`;
 
-    if (biz.target > 0) {
-      const p = Math.round((sales / biz.target) * 100);
-      html += `<div style="margin-top:12px"><div class="line" style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-muted);margin-bottom:5px"><span>월 목표 ${formatWon(biz.target)}</span><span>${p}% 달성${sales < biz.target ? ' · ' + formatWon(biz.target - sales) + ' 남음' : ' ✓'}</span></div>
+    if (target > 0) {
+      const p = Math.round((sales / target) * 100);
+      html += `<div style="margin-top:12px"><div class="line" style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-muted);margin-bottom:5px"><span>월 목표 ${formatWon(target)}</span><span>${p}% 달성${sales < target ? ' · ' + formatWon(target - sales) + ' 남음' : ' ✓'}</span></div>
         <div class="bar"><i class="${p >= 100 ? '' : p < 50 ? 'near' : ''}" style="width:${Math.min(100, p)}%"></i></div></div>`;
+    }
+
+    // 전체 보기에서는 사업별 이번 달 성적을 나란히 보여 주고, 누르면 그 사업으로 들어간다
+    if (multi && bizSel === 'all') {
+      html += `<h2 class="section-title" style="margin:16px 0 4px">사업별</h2><table class="st-table"><thead><tr><th>사업</th><th class="st-amt">매출</th><th class="st-amt">비용</th><th class="st-amt">순이익</th></tr></thead><tbody>`
+        + biz.shops.map((s) => {
+          const l = list.filter((e) => e.bid === s.id), sv = bizSum(l, 'sale'), cv = bizSum(l, 'cost'), pv = sv - cv;
+          return `<tr data-bsel="${attr(s.id)}"><td><span class="st-name">${esc(s.name)}</span>${s.target > 0 ? `<div class="st-sub">목표 ${Math.round((sv / s.target) * 100)}%</div>` : ''}</td><td class="st-amt">${sv ? formatWon(sv) : '-'}</td><td class="st-amt">${cv ? formatWon(cv) : '-'}</td><td class="st-amt" style="${pv < 0 ? 'color:var(--expense)' : ''}">${sv || cv ? (pv < 0 ? '-' : '') + formatWon(Math.abs(pv)) : '-'}</td></tr>`;
+        }).join('') + '</tbody></table>';
     }
 
     const group = (title, rows, base, color) => (rows.length ? `<h2 class="section-title" style="margin:16px 0 8px">${title}</h2>` + rows.map(([n, v]) =>
@@ -3537,7 +3587,7 @@
     // 최근 6개월 매출·비용 추이
     const months = [];
     for (let i = 5; i >= 0; i--) { const d = new Date(bizView.y, bizView.m - i, 1); months.push({ ym: ymKey({ y: d.getFullYear(), m: d.getMonth() }), m: d.getMonth() + 1 }); }
-    const trend = months.map((mo) => { const l = biz.entries.filter((e) => e.date.startsWith(mo.ym)); return { m: mo.m, s: bizSum(l, 'sale'), c: bizSum(l, 'cost') }; });
+    const trend = months.map((mo) => { const l = pool.filter((e) => e.date.startsWith(mo.ym)); return { m: mo.m, s: bizSum(l, 'sale'), c: bizSum(l, 'cost') }; });
     const max = Math.max(1, ...trend.map((t) => Math.max(t.s, t.c)));
     if (trend.some((t) => t.s || t.c)) {
       html += `<h2 class="section-title" style="margin:16px 0 0">최근 6개월</h2><div class="biz-trend">${trend.map((t) =>
@@ -3547,7 +3597,7 @@
 
     html += `<h2 class="section-title" style="margin:16px 0 4px">${bizView.m + 1}월 내역${list.length ? ' · ' + list.length + '건' : ''}</h2>`;
     html += list.length ? [...list].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : b.id.localeCompare(a.id))).map((e) =>
-      `<button type="button" class="visit" data-biz="${e.id}"><div class="v1"><span>${e.date.slice(5).replace('-', '/')} · ${esc(e.name || (e.kind === 'sale' ? '매출' : '비용'))}</span>
+      `<button type="button" class="visit" data-biz="${e.id}"><div class="v1"><span>${e.date.slice(5).replace('-', '/')} · ${multi && bizSel === 'all' ? esc(bizShopName(e.bid)) + ' · ' : ''}${esc(e.name || (e.kind === 'sale' ? '매출' : '비용'))}</span>
         <b style="color:var(--${e.kind === 'sale' ? 'income' : 'expense'})">${e.kind === 'sale' ? '+' : '-'}${formatWon(e.amount)}</b></div>${e.memo ? `<div class="v2">${esc(e.memo)}</div>` : ''}</button>`).join('')
       : '<div class="empty-msg">이 달 내역이 없어요<br>아래 “＋ 매출 입력” “＋ 비용 입력”으로 기록하세요</div>';
     el('biz-body').innerHTML = html;
@@ -3559,9 +3609,11 @@
     const used = (kk) => [...new Set(biz.entries.filter((e) => e.kind === kk).map((e) => e.name).filter(Boolean))];
     const names = (kk) => [...new Set([...used(kk), ...(kk === 'sale' ? BIZ_SALE_NAMES : BIZ_COST_NAMES)])];
     const dl = (kk) => names(kk).map((n) => `<option value="${attr(n)}">`).join('');
+    const defBid = entry ? entry.bid : bizSel !== 'all' ? bizSel : biz.shops[0].id;
     const defDate = entry ? entry.date : (ymKey(bizView) === todayStr().slice(0, 7) ? todayStr() : ymKey(bizView) + '-01');
     openSheet(`<form>
       <h3>${entry ? '내역 수정' : k === 'sale' ? '매출 입력' : '비용 입력'}</h3>
+      ${biz.shops.length > 1 ? `<label>사업</label><select name="bid">${biz.shops.map((s) => `<option value="${attr(s.id)}"${s.id === defBid ? ' selected' : ''}>${esc(s.name)}</option>`).join('')}</select>` : ''}
       <label>구분</label>
       <select name="kind"><option value="sale"${k === 'sale' ? ' selected' : ''}>매출</option><option value="cost"${k === 'cost' ? ' selected' : ''}>비용</option></select>
       <label>날짜</label><input name="date" type="date" required value="${val(defDate)}">
@@ -3576,9 +3628,11 @@
       const amount = parseInt(fd.get('amount'), 10);
       const date = String(fd.get('date'));
       if (!(amount > 0) || !validDate(date)) { showToast('날짜와 금액을 확인해 주세요'); return false; }
-      const rec = { date, kind: fd.get('kind') === 'cost' ? 'cost' : 'sale', name: String(fd.get('name')).trim(), amount, memo: String(fd.get('memo')).trim() };
+      const bid = biz.shops.some((s) => s.id === fd.get('bid')) ? fd.get('bid') : defBid;
+      const rec = { bid, date, kind: fd.get('kind') === 'cost' ? 'cost' : 'sale', name: String(fd.get('name')).trim(), amount, memo: String(fd.get('memo')).trim() };
       if (entry) Object.assign(entry, rec); else biz.entries.push({ id: newId(), ...rec });
       saveBiz();
+      if (bizSel !== 'all') bizSel = bid;
       bizView = { y: +date.slice(0, 4), m: +date.slice(5, 7) - 1 };
       renderBiz();
       showToast(entry ? '수정했어요' : '추가했어요');
@@ -3605,20 +3659,62 @@
   el('biz-next').addEventListener('click', () => { const d = new Date(bizView.y, bizView.m + 1, 1); bizView = { y: d.getFullYear(), m: d.getMonth() }; renderBiz(); });
   el('add-sale-btn').addEventListener('click', () => openBizSheet(null, 'sale'));
   el('add-cost-btn').addEventListener('click', () => openBizSheet(null, 'cost'));
-  el('biz-target-btn').addEventListener('click', () => {
+  // 사업 관리: 사업 이름·월 목표 매출을 고치고, 사업을 더하거나 지운다(지우면 그 사업의 내역도 함께 지워진다)
+  function openShopsSheet(addNew) {
+    const rowHtml = (s, isNew) => `<div class="shop-row" data-id="${attr(s.id)}"${isNew ? ' data-new="1"' : ''}>
+      <input data-f="name" maxlength="20" placeholder="사업 이름" value="${attr(s.name)}" autocomplete="off">
+      <input data-f="target" type="number" min="0" inputmode="numeric" placeholder="월 목표 매출" value="${s.target || ''}">
+      <button type="button" data-delshop aria-label="사업 삭제">🗑</button></div>`;
     openSheet(`<form>
-      <h3>월 목표 매출</h3>
-      <label>한 달 목표 매출 (원)</label>
-      <input name="target" type="number" min="0" inputmode="numeric" value="${biz.target || ''}" placeholder="0이면 목표 해제">
+      <h3>사업 관리</h3>
+      <p class="goal-hint" style="margin:0 0 8px">사업마다 이름과 한 달 목표 매출(0이면 목표 없음)을 정해요.</p>
+      <div id="shop-rows">${biz.shops.map((s) => rowHtml(s, false)).join('')}</div>
+      <button type="button" class="mini-btn" id="shop-add" style="margin-top:8px">＋ 사업 추가</button>
       <div class="sheet-actions"><button type="button" data-cancel>취소</button><button type="submit">저장</button></div>
-    </form>`, (fd) => {
-      biz.target = Math.max(0, parseInt(fd.get('target'), 10) || 0);
+    </form>`, () => {
+      const rows = [...sheetBody.querySelectorAll('.shop-row')];
+      if (!rows.length) { showToast('사업이 하나는 있어야 해요'); return false; }
+      const next = rows.map((r) => ({ id: r.dataset.id, name: r.querySelector('[data-f=name]').value.trim(), target: Math.max(0, parseInt(r.querySelector('[data-f=target]').value, 10) || 0) }));
+      if (next.some((s) => !s.name)) { showToast('사업 이름을 입력해 주세요'); return false; }
+      const keep = new Set(next.map((s) => s.id));
+      biz.shops.filter((s) => !keep.has(s.id)).forEach((s) => {
+        tomb(s.id);
+        biz.entries.filter((e) => e.bid === s.id).forEach((e) => tomb(e.id));
+        biz.entries = biz.entries.filter((e) => e.bid !== s.id);
+      });
+      biz.shops = next;
       saveBiz();
       renderBiz();
-      showToast(biz.target ? '목표를 저장했어요' : '목표를 해제했어요');
+      showToast('저장했어요');
     });
+    const box = sheetBody.querySelector('#shop-rows');
+    const addRow = () => {
+      box.insertAdjacentHTML('beforeend', rowHtml({ id: newId(), name: '', target: 0 }, true));
+      box.lastElementChild.querySelector('[data-f=name]').focus();
+    };
+    sheetBody.querySelector('#shop-add').addEventListener('click', addRow);
+    box.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-delshop]');
+      if (!btn) return;
+      const row = btn.closest('.shop-row');
+      const n = biz.entries.filter((x) => x.bid === row.dataset.id).length;
+      if (box.children.length <= 1) { showToast('사업이 하나는 있어야 해요'); return; }
+      if (n && !confirm(`이 사업의 내역 ${n}건도 저장하면 함께 지워져요. 삭제할까요?`)) return;
+      row.remove();
+    });
+    if (addNew) addRow();
+  }
+  el('biz-target-btn').addEventListener('click', () => openShopsSheet(false));
+  el('biz-shops').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-bsel]');
+    if (!b) return;
+    if (b.dataset.bsel === '+') { openShopsSheet(true); return; }
+    bizSel = b.dataset.bsel;
+    renderBiz();
   });
   el('biz-body').addEventListener('click', (e) => {
+    const sh = e.target.closest('[data-bsel]');
+    if (sh) { bizSel = sh.dataset.bsel; renderBiz(); return; }
     const row = e.target.closest('[data-biz]');
     if (row) openBizSheet(biz.entries.find((x) => x.id === row.dataset.biz));
   });
@@ -3730,10 +3826,80 @@
     }).filter((r) => r.used.length > 0);
   }
 
+  // 메뉴 그림: 기본은 음식 이모지 타일이고, 사용자가 직접 찍은 사진을 넣으면 그 사진을 보여 준다.
+  // 사진은 IndexedDB(`dadari_dishes`)에만 두고 동기화·백업에 넣지 않는다(영수증 사진과 같다). 저작권이 있는 음식 사진은 앱에 넣지 않는다.
+  const DISH_EMOJI = {
+    김치찌개: '🍲', 된장찌개: '🍲', 순두부찌개: '🍲', 부대찌개: '🍲', 계란국: '🥣', 콩나물국: '🥣', 미역국: '🥣', 감자국: '🥣', 북엇국: '🥣', 어묵탕: '🍢',
+    계란말이: '🍳', 계란찜: '🥚', 감자볶음: '🥔', 애호박볶음: '🥒', 어묵볶음: '🍢', 소시지야채볶음: '🌭', 콩나물무침: '🌱', 시금치나물: '🥬',
+    두부조림: '🍱', 두부부침: '🍱', 두부김치: '🍱', 멸치볶음: '🐟', 고등어조림: '🐟', 제육볶음: '🥩', 불고기: '🥩', 닭볶음탕: '🍗', 오징어볶음: '🦑',
+    계란볶음밥: '🍳', 김치볶음밥: '🍛', 참치마요덮밥: '🍚', 간장계란밥: '🍚', 주먹밥: '🍙', 카레라이스: '🍛', 비빔밥: '🍚', 오므라이스: '🍳', 김밥: '🍙',
+    라면: '🍜', 잔치국수: '🍜', 비빔국수: '🍜', 토마토파스타: '🍝', 크림파스타: '🍝', 떡볶이: '🌶️', 만두국: '🥟', 계란토스트: '🥪', 감자전: '🥔', 김치전: '🥞', 파전: '🥞', 샐러드: '🥗'
+  };
+  const DISH_TAG_EMOJI = { '국·찌개': '🍲', 반찬: '🍱', '한 그릇': '🍚', 면: '🍜', 분식: '🥟' };
+  const DISH_TAG_BG = { '국·찌개': '#ffe4d6', 반찬: '#e3f4d8', '한 그릇': '#fff1c9', 면: '#fde0e6', 분식: '#e2e6ff' };
+  const dishPhotos = new Map();   // 메뉴 이름 → 사진 blob 주소
+
+  function dishTx(mode, fn) {
+    return new Promise((resolve, reject) => {
+      const open = indexedDB.open('dadari_dishes', 1);
+      open.onupgradeneeded = () => open.result.createObjectStore('p');
+      open.onerror = () => reject(open.error);
+      open.onsuccess = () => {
+        const db = open.result, tx = db.transaction('p', mode), req = fn(tx.objectStore('p'));
+        tx.oncomplete = () => { db.close(); resolve(req); };
+        tx.onerror = tx.onabort = () => { db.close(); reject(tx.error); };
+      };
+    });
+  }
+  async function loadDishPhotos() {
+    try {
+      const keys = (await dishTx('readonly', (s) => s.getAllKeys())).result;
+      const vals = (await dishTx('readonly', (s) => s.getAll())).result;
+      keys.forEach((k, i) => { if (vals[i]) dishPhotos.set(k, URL.createObjectURL(vals[i])); });
+      if (keys.length) renderFood();
+    } catch (err) { /* 사진 저장소를 못 열어도 이모지 타일로 보인다 */ }
+  }
+  function dishThumb(name, tag) {
+    const p = dishPhotos.get(name);
+    return `<button type="button" class="dish${p ? ' has' : ''}" data-dish="${attr(name)}" aria-label="${attr(name)} 사진" style="background:${DISH_TAG_BG[tag] || 'var(--accent-soft)'}">${p ? `<img src="${attr(p)}" alt="">` : `<span>${DISH_EMOJI[name] || DISH_TAG_EMOJI[tag] || '🍽️'}</span>`}</button>`;
+  }
+  function openDishSheet(name) {
+    const has = dishPhotos.has(name);
+    openSheet(`<form>
+      <h3>${esc(name)}</h3>
+      ${has ? `<img class="dish-big" src="${attr(dishPhotos.get(name))}" alt="">` : ''}
+      <label class="mini-btn" style="display:block;text-align:center;margin-top:10px;cursor:pointer">📷 ${has ? '사진 바꾸기' : '내 사진 넣기'}<input type="file" accept="image/*" id="dish-file" hidden></label>
+      <p class="goal-hint">직접 만든 요리 사진을 넣으면 이 메뉴 카드에 보여요. 사진은 이 기기에만 저장돼요.</p>
+      <div class="sheet-actions"><button type="button" data-cancel>닫기</button>${has ? '<button type="button" data-delete>사진 지우기</button>' : ''}</div>
+    </form>`, () => false);
+    sheetBody.querySelector('#dish-file').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      try {
+        const blob = await shrinkImage(file, 800);
+        await dishTx('readwrite', (s) => s.put(blob, name));
+        if (dishPhotos.has(name)) URL.revokeObjectURL(dishPhotos.get(name));
+        dishPhotos.set(name, URL.createObjectURL(blob));
+        closeSheet();
+        renderFood();
+        showToast('사진을 넣었어요');
+      } catch (err) { showToast('사진을 저장하지 못했어요'); }
+    });
+    const del = sheetBody.querySelector('[data-delete]');
+    if (del) del.addEventListener('click', async () => {
+      try { await dishTx('readwrite', (s) => s.delete(name)); } catch (err) { /* 이미 없으면 무시 */ }
+      URL.revokeObjectURL(dishPhotos.get(name));
+      dishPhotos.delete(name);
+      closeSheet();
+      renderFood();
+      showToast('사진을 지웠어요');
+    });
+  }
+
   function rcpHtml(r) {
     const mats = [...r.used, ...r.extra].map((x) => `${esc(x.label)}${x.dd !== null && x.dd <= 3 ? ddChip(x.dd) : ''}`).join(' · ');
-    return `<div class="rcp"><div><span class="rn">${esc(r.name)}</span><span class="rt">${esc(r.tag)}</span></div>
-      <div class="rm">내 재료: ${mats}</div>${r.missing.length ? `<div class="rw">부족: ${esc(r.missing.join(', '))}</div>` : ''}<div class="rk">${esc(r.tip)}</div></div>`;
+    return `<div class="rcp">${dishThumb(r.name, r.tag)}<div class="rb"><div><span class="rn">${esc(r.name)}</span><span class="rt">${esc(r.tag)}</span></div>
+      <div class="rm">내 재료: ${mats}</div>${r.missing.length ? `<div class="rw">부족: ${esc(r.missing.join(', '))}</div>` : ''}<div class="rk">${esc(r.tip)}</div></div></div>`;
   }
 
   function renderFood() {
@@ -3857,6 +4023,8 @@
     else if (b.dataset.fa === 'pick') { pickMenu(); renderFood(); }
   });
   el('food-body').addEventListener('click', (e) => {
+    const dish = e.target.closest('[data-dish]');
+    if (dish) { openDishSheet(dish.dataset.dish); return; }
     const done = e.target.closest('[data-fdone]');
     if (done) {
       const f = fridge.find((x) => x.id === done.dataset.fdone);
@@ -3866,6 +4034,7 @@
     const row = e.target.closest('[data-fr]');
     if (row) openFridgeSheet(fridge.find((x) => x.id === row.dataset.fr));
   });
+  loadDishPhotos();
 
   /* ---------- 메뉴(탭) 순서 ---------- */
   const TAB_KEY = 'dadari_tab_order_v1';   // 이 기기의 설정(동기화하지 않는다)
@@ -4215,6 +4384,7 @@
     const medsLeft = health.meds.filter((m) => medActive(m, today) && (m.times || []).some((t) => !((m.taken && m.taken[today]) || []).includes(t))).length;
     const bizMonth = biz.entries.filter((e) => e.date.startsWith(ym));
     const bizSales = bizSum(bizMonth, 'sale'), bizCost = bizSum(bizMonth, 'cost');
+    const bizTarget = biz.shops.reduce((s, x) => s + x.target, 0);
     const soonFood = fridge.filter((f) => { const d = ddOf(f); return d !== null && d <= 3; });
     const expiredFood = soonFood.filter((f) => ddOf(f) < 0).length;
 
@@ -4231,7 +4401,7 @@
       row('📚', '학원비', `수강 ${liveAca.length}건 · 납부 ${liveAca.length - acaUnpaid.length}/${liveAca.length}`, acaUnpaid.length ? `미납 ${acaUnpaid.length}건 ${formatWon(sum(acaUnpaid, (a) => +a.fee || 0))}` : '', acaTotal ? formatWon(acaTotal) : '-', 'academy'),
       row('🩺', '건강', `접종 예정 ${planned.length} · 병원 예약 ${visitsNext}${medsLeft ? ` · 오늘 복약 ${medsLeft}개 남음` : ''}`, [overdueVac ? `접종 ${overdueVac}건 지남` : '', claimTodo ? `실비 청구 필요 ${claimTodo}건` : ''].filter(Boolean).join(' · '), '-', 'health'),
       row('🗓', '시간표', `오늘 일정 ${todaySch}개 · 구성원 ${schedule.members.length}명`, '', '-', 'schedule'),
-      row('📈', '사업매출', bizMonth.length ? `매출 ${formatWon(bizSales)} · 비용 ${formatWon(bizCost)}` : '이번 달 입력 없음', biz.target > 0 && bizSales < biz.target ? `목표 ${formatWon(biz.target)} 중 ${Math.round((bizSales / biz.target) * 100)}%` : '', bizMonth.length ? `${bizSales - bizCost < 0 ? '-' : ''}${formatWon(Math.abs(bizSales - bizCost))}` : '-', 'biz'),
+      row('📈', '사업매출', (biz.shops.length > 1 ? `사업 ${biz.shops.length}개 · ` : '') + (bizMonth.length ? `매출 ${formatWon(bizSales)} · 비용 ${formatWon(bizCost)}` : '이번 달 입력 없음'), bizTarget > 0 && bizSales < bizTarget ? `목표 ${formatWon(bizTarget)} 중 ${Math.round((bizSales / bizTarget) * 100)}%` : '', bizMonth.length ? `${bizSales - bizCost < 0 ? '-' : ''}${formatWon(Math.abs(bizSales - bizCost))}` : '-', 'biz'),
       row('🍳', '냉장고', `재료 ${fridge.length}개 · 임박 ${soonFood.length - expiredFood}개`, expiredFood ? `기한 지남 ${expiredFood}개` : '', '-', 'food')
     ].join('');
 
@@ -4288,7 +4458,7 @@
   const defaultCats = () => ({ expense: [...CATEGORIES.expense], income: [...CATEGORIES.income] });
   const sameCats = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   const hasData = () => transactions.length || cards.length || recurs.length || schedule.members.length
-    || health.visits.length || health.periods.length || health.vaccines.length || health.meds.length || insurance.length || rentals.length || academies.length || biz.entries.length || biz.target > 0 || fridge.length || goal > 0 || !sameCats(categories, defaultCats());
+    || health.visits.length || health.periods.length || health.vaccines.length || health.meds.length || insurance.length || rentals.length || academies.length || biz.entries.length || biz.shops.length > 1 || biz.shops.some((s) => s.target > 0 || s.id !== 'bz_main') || fridge.length || goal > 0 || !sameCats(categories, defaultCats());
 
   function markDirty() {
     if (applying) return;
@@ -4333,6 +4503,7 @@
       fridge: union(local.fridge, remote.fridge),
       biz: {
         entries: union(local.biz && local.biz.entries, remote.biz && remote.biz.entries),
+        shops: union(local.biz && local.biz.shops, remote.biz && remote.biz.shops),
         target: (local.biz && local.biz.target) || (remote.biz && remote.biz.target) || 0
       },
       categories: remote.categories && sameCats(local.categories, defaultCats()) ? remote.categories : local.categories,
@@ -4355,7 +4526,7 @@
       if (Array.isArray(s.rentals)) rentals = s.rentals;
       if (Array.isArray(s.academies)) academies = s.academies;
       if (Array.isArray(s.fridge)) fridge = s.fridge;
-      if (s.biz && Array.isArray(s.biz.entries)) biz = { entries: s.biz.entries, target: Math.max(0, +s.biz.target || 0) };
+      if (s.biz && Array.isArray(s.biz.entries)) { biz = { entries: s.biz.entries, shops: s.biz.shops, target: Math.max(0, +s.biz.target || 0) }; normalizeBiz(); }
       if (s.categories) { saveJson(CAT_KEY, s.categories); categories = loadCategories(); }
       if (Array.isArray(s.tombs)) tombs = new Set([...tombs, ...s.tombs]);
       save();
@@ -4708,7 +4879,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v25'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v26'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span style="display:block;margin-bottom:4px">다다리, 매일의 기록이 모여 더 나은 생활이 됩니다.</span>다다리 ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
