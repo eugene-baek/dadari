@@ -840,6 +840,7 @@
   <button type="button" data-view="rental"><span class="ic">🧰</span>렌탈·구독</button>
   <button type="button" data-view="academy"><span class="ic">📚</span>학원비</button>
   <button type="button" data-view="biz"><span class="ic">📈</span>나는CEO</button>
+  <button type="button" data-view="side"><span class="ic">💼</span>N잡·부수입</button>
   <button type="button" data-view="food"><span class="ic">🍳</span>오늘뭐먹지</button>
 </nav>
 <div class="viewtabs-foot"><button type="button" class="tab-order-btn" id="tab-order-btn">⚙ 메뉴 관리 (순서·사용 여부)</button></div>
@@ -897,6 +898,24 @@
       <button type="button" class="mini-btn" id="add-sav-btn">＋ 저축 통장·목표</button>
       <button type="button" class="mini-btn" id="add-dep-btn">＋ 입금·출금 기록</button>
       <button type="button" class="mini-btn" id="sav-member-btn">👥 구성원 관리</button>
+    </div>
+  </section>
+</main>
+
+<main id="view-side" hidden>
+  <section class="card">
+    <div class="member-chips" id="side-who" hidden></div>
+    <div class="biz-shops" id="side-status" hidden></div>
+    <div class="month-nav">
+      <button id="side-prev" type="button" aria-label="이전 달">◀</button>
+      <div class="label" id="side-label"></div>
+      <button id="side-next" type="button" aria-label="다음 달">▶</button>
+    </div>
+    <div id="side-body"></div>
+    <div class="cards-actions" style="flex-wrap:wrap">
+      <button type="button" class="mini-btn" id="add-side-btn">＋ 부업 추가</button>
+      <button type="button" class="mini-btn" id="add-sidelog-btn">＋ 수입·비용 기록</button>
+      <button type="button" class="mini-btn" id="side-member-btn">👥 구성원 관리</button>
     </div>
   </section>
 </main>
@@ -1685,7 +1704,7 @@
 
   el('export-btn').addEventListener('click', () => {
     // 예전 백업은 내역 배열만 있었다. 지금은 카드·자동이체·월 목표까지 한 파일에 담고, 불러올 때 두 형식을 모두 받는다.
-    const backup = { app: 'dadari', version: 2, transactions, categories, cards, recurs, recurDone: [...recurDone], goal, schedule, health, insurance, rentals, academies, biz, fridge, calendar: calItems, savings };
+    const backup = { app: 'dadari', version: 2, transactions, categories, cards, recurs, recurDone: [...recurDone], goal, schedule, health, insurance, rentals, academies, biz, fridge, calendar: calItems, savings, side };
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -1769,6 +1788,12 @@
             mergeById(fridge, data.fridge, (f) => typeof f.name === 'string' && f.name);
             saveFridge();
             renderFood();
+          }
+          if (data.side && Array.isArray(data.side.jobs)) {
+            mergeById(side.jobs, data.side.jobs, (j) => typeof j.name === 'string' && j.name);
+            mergeById(side.log, data.side.log, (l) => validDate(l.date) && side.jobs.some((j) => j.id === l.jid));
+            saveSide();
+            renderSide();
           }
           if (data.savings && Array.isArray(data.savings.accounts)) {
             mergeById(savings.accounts, data.savings.accounts, (a) => typeof a.name === 'string' && a.name);
@@ -2422,6 +2447,7 @@
     el('view-status').hidden = v !== 'status';
     el('view-calendar').hidden = v !== 'calendar';
     el('view-savings').hidden = v !== 'savings';
+    el('view-side').hidden = v !== 'side';
     document.querySelectorAll('#viewtabs button').forEach((b) => b.classList.toggle('active', b.dataset.view === v));
     saveJson(VIEW_KEY, v);
     if (v === 'schedule') renderSchedule();
@@ -2433,6 +2459,7 @@
     if (v === 'food') renderFood();
     if (v === 'calendar') renderCal();
     if (v === 'savings') renderSavings();
+    if (v === 'side') renderSide();
     if (SUBS[v]) applySub(v);
     renderTodo();   // 현황 탭이면 확인할 일 배너와 현황표를 그리고, 아니면 배너를 숨긴다
   }
@@ -2547,6 +2574,8 @@
     if (acas.length) parts.push(`학원 ${acas.length}건`);
     const savs = savings.accounts.filter((a) => savWho(a) === id);
     if (savs.length) parts.push(`저축 ${savs.length}개`);
+    const sides = side.jobs.filter((j) => sideWho(j) === id);
+    if (sides.length) parts.push(`부업 ${sides.length}개`);
     if (!confirm(`“${m.name}”을(를) 삭제할까요?` + (parts.length ? `\n${parts.join(', ')}도 함께 지워져요.` : ''))) return false;
     // 보험·렌탈·학원에 연결된 가계부 자동 기록 항목도 함께 지운다(이미 기록된 내역은 남는다).
     policies.forEach((p) => syncRecur(p, false, null));
@@ -2562,6 +2591,12 @@
     savings.accounts = savings.accounts.filter((a) => savWho(a) !== id);
     saveSav();
     renderSavings();
+    // 이 사람의 부업과 기록도 지운다(가계부에 함께 기록한 수입은 남는다)
+    tomb(...sides.map((j) => j.id), ...side.log.filter((l) => sides.some((j) => j.id === l.jid)).map((l) => l.id));
+    side.log = side.log.filter((l) => !sides.some((j) => j.id === l.jid));
+    side.jobs = side.jobs.filter((j) => sideWho(j) !== id);
+    saveSide();
+    renderSide();
     schedule.members = schedule.members.filter((x) => x.id !== id);
     schedule.items = schedule.items.filter((i) => i.memberId !== id);
     health.visits = health.visits.filter((v) => v.who !== id);
@@ -4886,6 +4921,207 @@
   renderLockCard();
   if (lockCfg()) { lockDraw(); lockCooldown(); } else hideLock();
 
+  /* ---------- N잡·부수입 ---------- */
+  // 부업(배달·프리랜서·온라인 판매·콘텐츠 등)마다 달별 수입·비용·투자 시간을 기록해 순수익·시급·월 목표 달성을 본다. 정식 사업 관리("나는CEO")와는 따로다.
+  // 수입을 기록할 때 "가계부에도 수입(부수입)으로 기록"을 고르면 가계부 수입에도 넣고(`txId`), 기본은 가계부와 따로 둔다.
+  const SIDE_KEY = 'dadari_side_v1';
+  let side = loadJson(SIDE_KEY, { jobs: [], log: [] });   // jobs: {id,name,kind,status,goal(월 목표 순수익),who,start,note}, log: {id,jid,date,income,expense,hours,memo,txId}
+  if (!side || !Array.isArray(side.jobs) || !Array.isArray(side.log)) side = { jobs: [], log: [] };
+  const saveSide = () => saveJson(SIDE_KEY, side);
+  const SIDE_KINDS = ['배달·운전', '알바·단기', '프리랜서', '온라인 판매', '콘텐츠', '재능·강의', '투자·재테크', '기타'];
+  const SIDE_STATUS = [['on', '진행 중'], ['pause', '쉬는 중'], ['end', '종료']];
+  const sideWho = (j) => j.who || 'me';   // 구성원이 없던 항목은 "나"의 것으로 본다
+  let sideSt = 'all';   // 상태 필터. 구성원 필터는 보험·렌탈·저축과 같은 conWho를 쓴다
+  let sideView = { y: new Date().getFullYear(), m: new Date().getMonth() };
+  const sideVisible = () => side.jobs.filter((j) => (conWho === 'all' || sideWho(j) === conWho) && (sideSt === 'all' || (j.status || 'on') === sideSt));
+  const sideNet = (l) => (+l.income || 0) - (+l.expense || 0);
+  const hoursTxt = (h) => (Math.round(h * 10) / 10) + '시간';
+  const wageTxt = (net, h) => (h > 0 ? formatWon(Math.round(net / h)) + '/시간' : '');
+
+  function sideStats(logs) {
+    const income = logs.reduce((a, l) => a + (+l.income || 0), 0), expense = logs.reduce((a, l) => a + (+l.expense || 0), 0), hours = logs.reduce((a, l) => a + (+l.hours || 0), 0);
+    return { income, expense, hours, net: income - expense };
+  }
+
+  function sideHtml() {
+    const ppl = people(), ym = ymKey(sideView), yr = String(sideView.y);
+    const jobs = sideVisible(), ids = new Set(jobs.map((j) => j.id));
+    if (!side.jobs.length) return '<div class="empty-msg">등록한 부업이 없어요<br>아래 “＋ 부업 추가”로 배달·프리랜서·온라인 판매 같은 부업을 만들고<br>수입·비용·일한 시간을 기록하면 순수익과 시급이 계산돼요</div>';
+    if (!jobs.length) return '<div class="empty-msg">이 조건에 맞는 부업이 없어요<br>위의 구성원·상태 선택을 “전체”로 바꿔 보세요</div>';
+    const logs = side.log.filter((l) => ids.has(l.jid));
+    const month = sideStats(logs.filter((l) => l.date.startsWith(ym))), year = sideStats(logs.filter((l) => l.date.startsWith(yr)));
+    const goalSum = jobs.filter((j) => (j.status || 'on') === 'on').reduce((a, j) => a + (+j.goal || 0), 0);
+    const pct = goalSum ? Math.round((month.net / goalSum) * 100) : 0;
+    const net = (n) => (n < 0 ? '-' : '') + formatWon(Math.abs(n));
+    let html = `<div class="summary-grid">
+      <div class="summary-item income"><div class="lbl">수입</div><div class="val">${formatWon(month.income)}</div></div>
+      <div class="summary-item expense"><div class="lbl">비용</div><div class="val">${formatWon(month.expense)}</div></div>
+      <div class="summary-item balance"><div class="lbl">순수익</div><div class="val" style="${month.net < 0 ? 'color:var(--expense)' : ''}">${net(month.net)}</div></div></div>
+      <p class="goal-hint" style="margin:8px 0 0">${month.hours > 0 ? `일한 시간 ${hoursTxt(month.hours)} · 시급 ${wageTxt(month.net, month.hours)} · ` : ''}올해 순수익 ${net(year.net)}</p>`;
+    if (goalSum > 0) {
+      html += `<div style="margin-top:12px"><div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-muted);margin-bottom:5px"><span>월 목표 순수익 ${formatWon(goalSum)}</span><span>${pct}% 달성${month.net < goalSum ? ' · ' + formatWon(goalSum - Math.max(0, month.net)) + ' 남음' : ' 👑'}</span></div>
+        <div class="bar"><i class="${pct >= 100 ? '' : pct < 50 ? 'near' : ''}" style="width:${Math.max(0, Math.min(100, pct))}%"></i></div></div>`;
+    }
+
+    // 최근 6개월 수입·비용 막대(파랑=수입, 주황=비용)
+    const months = [];
+    for (let i = 5; i >= 0; i--) { const d = new Date(sideView.y, sideView.m - i, 1); months.push({ ym: monthKey(d), m: d.getMonth() + 1 }); }
+    months.forEach((mo) => Object.assign(mo, sideStats(logs.filter((l) => l.date.startsWith(mo.ym)))));
+    if (months.some((x) => x.income || x.expense)) {
+      const max = Math.max(1, ...months.map((x) => Math.max(x.income, x.expense))), hp = (v) => (v > 0 ? Math.max(3, Math.round((v / max) * 100)) : 0);
+      html += `<h2 class="section-title" style="margin:18px 0 6px">최근 6개월</h2>
+        <div class="vz-key"><span><i class="c1"></i>수입</span><span><i class="c2"></i>비용</span><span class="vz-max">최대 ${shortWon(max)}</span></div>
+        <div class="vz-plot" role="img" aria-label="최근 6개월 부업 수입과 비용 막대그래프">${months.map((mo) => `<div class="vz-col${mo.ym === ym ? ' sel' : ''}" aria-label="${mo.m}월 수입 ${formatWon(mo.income)}, 비용 ${formatWon(mo.expense)}"><i class="c1" style="height:${hp(mo.income)}%"></i><i class="c2" style="height:${hp(mo.expense)}%"></i></div>`).join('')}</div>
+        <div class="vz-labels">${months.map((mo) => `<span class="${mo.ym === ym ? 'sel' : ''}">${mo.m}월</span>`).join('')}</div>`;
+    }
+
+    // 부업별(이번 달 순수익이 큰 순서)
+    const rows = jobs.map((j) => ({ j, mo: sideStats(logs.filter((l) => l.jid === j.id && l.date.startsWith(ym))), all: sideStats(logs.filter((l) => l.jid === j.id)) })).sort((a, b) => b.mo.net - a.mo.net);
+    html += '<h2 class="section-title" style="margin:18px 0 4px">부업별 · ' + (sideView.m + 1) + '월</h2>' + rows.map(({ j, mo }, i) => {
+      const gp = j.goal > 0 ? Math.round((mo.net / j.goal) * 100) : 0, st = SIDE_STATUS.find((x) => x[0] === (j.status || 'on')) || SIDE_STATUS[0];
+      const sub = [`수입 ${formatWon(mo.income)}`, `비용 ${formatWon(mo.expense)}`, mo.hours > 0 ? hoursTxt(mo.hours) : '', mo.hours > 0 ? wageTxt(mo.net, mo.hours) : ''].filter(Boolean).join(' · ');
+      const who = conWho === 'all' && ppl.length > 1 ? `<span class="who-tag">${esc(whoName(sideWho(j)))}</span>` : '';
+      return `<button type="button" class="visit" data-sj="${attr(j.id)}"><div class="v1"><span>${rows.length > 1 && i === 0 && mo.net > 0 ? '👑 ' : ''}${who}${esc(j.name)} <span class="rt" style="font-size:10px;background:var(--accent-soft);color:var(--accent);border-radius:99px;padding:1px 7px">${esc(j.kind || '')}</span>${st[0] !== 'on' ? ` <span class="rt" style="font-size:10px;background:var(--bg);color:var(--text-muted);border:1px solid var(--border);border-radius:99px;padding:1px 7px">${st[1]}</span>` : ''}</span><b style="${mo.net < 0 ? 'color:var(--expense)' : ''}">${net(mo.net)}</b></div>`
+        + (j.goal > 0 ? `<div class="bar" style="margin:6px 0 4px"><i class="${gp >= 100 ? '' : gp < 50 ? 'near' : ''}" style="width:${Math.max(0, Math.min(100, gp))}%"></i></div><div class="v2">월 목표 ${formatWon(j.goal)} · ${gp}%</div>` : '')
+        + `<div class="v2">${sub}</div></button>`;
+    }).join('');
+
+    // 이번 달 기록
+    const list = logs.filter((l) => l.date.startsWith(ym)).sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+    html += `<h2 class="section-title" style="margin:18px 0 4px">${sideView.m + 1}월 기록${list.length ? ' · ' + list.length + '건' : ''}</h2>`
+      + (list.length ? list.map((l) => { const j = side.jobs.find((x) => x.id === l.jid); return `<button type="button" class="visit" data-sl="${attr(l.id)}"><div class="v1"><span>${l.date.slice(5).replace('-', '/')} · ${esc(j ? j.name : '')}</span><b style="color:var(--${sideNet(l) < 0 ? 'expense' : 'income'})">${sideNet(l) < 0 ? '-' : '+'}${formatWon(Math.abs(sideNet(l)))}</b></div><div class="v2">${[l.income ? '수입 ' + formatWon(l.income) : '', l.expense ? '비용 ' + formatWon(l.expense) : '', l.hours ? hoursTxt(l.hours) : '', l.memo || ''].filter(Boolean).map(esc).join(' · ')}</div></button>`; }).join('')
+        : '<div class="empty-msg" style="padding:12px 0">이 달 기록이 없어요<br>아래 “＋ 수입·비용 기록”으로 적어 보세요</div>');
+    return html;
+  }
+
+  function renderSide() {
+    drawContractWho(el('side-who'));
+    const inWho = side.jobs.filter((j) => conWho === 'all' || sideWho(j) === conWho);
+    const sts = SIDE_STATUS.filter(([k]) => inWho.some((j) => (j.status || 'on') === k));
+    if (sideSt !== 'all' && !sts.some((x) => x[0] === sideSt)) sideSt = 'all';
+    el('side-status').hidden = sts.length < 2;
+    el('side-status').innerHTML = [['all', '전체 ' + inWho.length], ...sts.map(([k, n]) => [k, n + ' ' + inWho.filter((j) => (j.status || 'on') === k).length])].map(([k, n]) => `<button type="button" data-ss="${k}" class="${k === sideSt ? 'active' : ''}">${n}</button>`).join('');
+    el('side-label').textContent = sideView.y + '년 ' + (sideView.m + 1) + '월';
+    el('side-body').innerHTML = sideHtml();
+  }
+
+  function openSideJobSheet(j) {
+    const val = (x) => attr(x == null ? '' : String(x));
+    const who = j ? sideWho(j) : conWho === 'all' ? 'me' : conWho;
+    const kinds = j && j.kind && !SIDE_KINDS.includes(j.kind) ? [...SIDE_KINDS, j.kind] : SIDE_KINDS;
+    openSheet(`<form>
+      <h3>${j ? '부업 수정' : '부업 추가'}</h3>
+      <label>누구의 부업인가요</label><select name="who">${people().map((x) => `<option value="${attr(x.id)}"${x.id === who ? ' selected' : ''}>${esc(x.name)}</option>`).join('')}</select>
+      <label>부업 이름</label><input name="name" required maxlength="30" placeholder="예: 주말 배달, 스마트스토어, 블로그 광고" value="${val(j && j.name)}" autocomplete="off">
+      <label>종류</label><select name="kind">${kinds.map((k) => `<option${k === (j ? j.kind : '프리랜서') ? ' selected' : ''}>${esc(k)}</option>`).join('')}</select>
+      <label>상태</label><select name="status">${SIDE_STATUS.map(([k, n]) => `<option value="${k}"${(j ? j.status || 'on' : 'on') === k ? ' selected' : ''}>${n}</option>`).join('')}</select>
+      <label>월 목표 순수익 (선택)</label><input name="goal" type="number" min="0" inputmode="numeric" value="${val(j && j.goal ? j.goal : '')}" placeholder="0이면 목표 없음">
+      <label>시작일 (선택)</label><input name="start" type="date" value="${val(j && j.start)}">
+      <label>메모 (선택)</label><input name="note" maxlength="60" value="${val(j && j.note)}" placeholder="예: 플랫폼, 정산일">
+      <div class="sheet-actions"><button type="button" data-cancel>취소</button>${j ? '<button type="button" data-delete>삭제</button>' : ''}<button type="submit">저장</button></div>
+    </form>`, (fd) => {
+      const name = String(fd.get('name')).trim();
+      if (!name) { showToast('부업 이름을 입력해 주세요'); return false; }
+      const rec = { who: String(fd.get('who')), name, kind: String(fd.get('kind')), status: String(fd.get('status')), goal: Math.max(0, parseInt(fd.get('goal'), 10) || 0), start: validDate(String(fd.get('start'))) ? String(fd.get('start')) : '', note: String(fd.get('note')).trim() };
+      if (j) Object.assign(j, rec); else side.jobs.push({ id: newId(), ...rec });
+      saveSide();
+      renderSide();
+      showToast(j ? '수정했어요' : '부업을 추가했어요');
+    });
+    const del = sheetBody.querySelector('[data-delete]');
+    if (del) del.addEventListener('click', () => {
+      const logs = side.log.filter((l) => l.jid === j.id);
+      if (!confirm(`“${j.name}”와 기록 ${logs.length}건을 지울까요? (가계부에 함께 기록한 수입은 그대로 남아요)`)) return;
+      tomb(j.id, ...logs.map((l) => l.id));
+      side.log = side.log.filter((l) => l.jid !== j.id);
+      side.jobs = side.jobs.filter((x) => x.id !== j.id);
+      saveSide();
+      closeSheet();
+      renderSide();
+      showToast('삭제했어요');
+    });
+  }
+
+  function openSideLogSheet(l, jid) {
+    if (!side.jobs.length) { showToast('먼저 부업을 추가해 주세요'); return; }
+    const val = (x) => attr(x == null ? '' : String(x));
+    const sel = l ? l.jid : jid || (sideVisible()[0] || side.jobs[0]).id;
+    const defDate = l ? l.date : (ymKey(sideView) === todayStr().slice(0, 7) ? todayStr() : ymKey(sideView) + '-01');
+    openSheet(`<form>
+      <h3>${l ? '기록 수정' : '수입·비용 기록'}</h3>
+      <label>부업</label><select name="jid">${side.jobs.map((j) => `<option value="${attr(j.id)}"${j.id === sel ? ' selected' : ''}>${esc(j.name)}${people().length > 1 ? ' · ' + esc(whoName(sideWho(j))) : ''}</option>`).join('')}</select>
+      <label>날짜</label><input name="date" type="date" required value="${val(defDate)}">
+      <label>수입 (원)</label><input name="income" type="number" min="0" inputmode="numeric" value="${val(l && l.income ? l.income : '')}" placeholder="0">
+      <label>비용 (원)</label><input name="expense" type="number" min="0" inputmode="numeric" value="${val(l && l.expense ? l.expense : '')}" placeholder="재료비·수수료·기름값 등">
+      <label>일한 시간 (선택)</label><input name="hours" type="number" min="0" step="0.5" inputmode="decimal" value="${val(l && l.hours ? l.hours : '')}" placeholder="예: 3.5 (시급 계산에 써요)">
+      <label>메모 (선택)</label><input name="memo" maxlength="60" value="${val(l && l.memo)}" placeholder="예: 10월 1주차 정산">
+      ${l ? '' : '<label class="check"><input type="checkbox" name="ledger"> 수입이면 가계부에도 수입(부수입)으로 기록</label>'}
+      <div class="sheet-actions"><button type="button" data-cancel>취소</button>${l ? '<button type="button" data-delete>삭제</button>' : ''}<button type="submit">저장</button></div>
+    </form>`, (fd) => {
+      const income = Math.max(0, parseInt(fd.get('income'), 10) || 0), expense = Math.max(0, parseInt(fd.get('expense'), 10) || 0), hours = Math.max(0, parseFloat(fd.get('hours')) || 0), date = String(fd.get('date'));
+      const job = side.jobs.find((j) => j.id === fd.get('jid'));
+      if (!job || !validDate(date) || (!income && !expense && !hours)) { showToast('날짜와 수입·비용·시간 중 하나는 입력해 주세요'); return false; }
+      const rec = { jid: job.id, date, income, expense, hours, memo: String(fd.get('memo')).trim() };
+      if (l) {
+        Object.assign(l, rec);
+        const t = l.txId && transactions.find((x) => x.id === l.txId);
+        if (t) { t.date = date; t.amount = income || t.amount; t.memo = `${job.name} 수입`; save(); renderAll(); }
+      } else {
+        const log = { id: newId(), ...rec };
+        if (income > 0 && fd.get('ledger') === 'on') {
+          if (!categories.income.includes('부수입')) { categories.income.push('부수입'); saveJson(CAT_KEY, categories); renderCategoryOptions(); }
+          log.txId = newId();
+          transactions.push({ id: log.txId, type: 'income', date, category: '부수입', amount: income, memo: `${job.name} 수입` });
+          save();
+          renderAll();
+        }
+        side.log.push(log);
+      }
+      saveSide();
+      sideView = { y: +date.slice(0, 4), m: +date.slice(5, 7) - 1 };
+      renderSide();
+      showToast(l ? '수정했어요' : '기록했어요');
+    });
+    const del = sheetBody.querySelector('[data-delete]');
+    if (del) del.addEventListener('click', () => {
+      tomb(l.id);
+      side.log = side.log.filter((x) => x.id !== l.id);
+      if (l.txId) { tomb(l.txId); transactions = transactions.filter((t) => t.id !== l.txId); save(); renderAll(); }
+      saveSide();
+      closeSheet();
+      renderSide();
+      showToast('삭제했어요');
+    });
+  }
+
+  function openSideDetail(j) {
+    const logs = side.log.filter((l) => l.jid === j.id).sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0)), all = sideStats(logs);
+    openSheet(`<form>
+      <h3>${esc(j.name)}</h3>
+      <div class="ins-sum">지금까지 수입 <b>${formatWon(all.income)}</b> · 비용 ${formatWon(all.expense)}<br>순수익 <b class="inc">${all.net < 0 ? '-' : ''}${formatWon(Math.abs(all.net))}</b>${all.hours > 0 ? `<br>일한 시간 ${hoursTxt(all.hours)} · 시급 ${wageTxt(all.net, all.hours)}` : ''}</div>
+      <div class="sheet-actions" style="margin:10px 0"><button type="button" data-sd="add">＋ 기록</button><button type="button" data-sd="edit">✏️ 수정</button></div>
+      ${logs.length ? '<div class="h-sec">기록</div>' + logs.slice(0, 30).map((l) => `<button type="button" class="visit" data-sd-log="${attr(l.id)}"><div class="v1"><span>${l.date.slice(2).replace(/-/g, '.')}${l.memo ? ' · ' + esc(l.memo) : ''}</span><b style="color:var(--${sideNet(l) < 0 ? 'expense' : 'income'})">${sideNet(l) < 0 ? '-' : '+'}${formatWon(Math.abs(sideNet(l)))}</b></div></button>`).join('') + (logs.length > 30 ? `<p class="goal-hint">최근 30건만 보여요 (전체 ${logs.length}건)</p>` : '') : '<div class="empty-msg" style="padding:12px 0">아직 기록이 없어요</div>'}
+      <div class="sheet-actions"><button type="button" data-cancel>닫기</button></div>
+    </form>`, () => false);
+    sheetBody.querySelector('[data-sd=add]').addEventListener('click', () => { closeSheet(); openSideLogSheet(null, j.id); });
+    sheetBody.querySelector('[data-sd=edit]').addEventListener('click', () => { closeSheet(); openSideJobSheet(j); });
+    sheetBody.querySelectorAll('[data-sd-log]').forEach((b) => b.addEventListener('click', () => { const l = side.log.find((x) => x.id === b.dataset.sdLog); closeSheet(); openSideLogSheet(l); }));
+  }
+
+  el('add-side-btn').addEventListener('click', () => openSideJobSheet(null));
+  el('add-sidelog-btn').addEventListener('click', () => openSideLogSheet(null));
+  el('side-member-btn').addEventListener('click', () => openMemberManager());
+  el('side-prev').addEventListener('click', () => { const d = new Date(sideView.y, sideView.m - 1, 1); sideView = { y: d.getFullYear(), m: d.getMonth() }; renderSide(); });
+  el('side-next').addEventListener('click', () => { const d = new Date(sideView.y, sideView.m + 1, 1); sideView = { y: d.getFullYear(), m: d.getMonth() }; renderSide(); });
+  el('side-who').addEventListener('click', (e) => { const b = e.target.closest('button[data-cw]'); if (b) { conWho = b.dataset.cw; renderSide(); } });
+  el('side-status').addEventListener('click', (e) => { const b = e.target.closest('button[data-ss]'); if (b) { sideSt = b.dataset.ss; renderSide(); } });
+  el('side-body').addEventListener('click', (e) => {
+    const sj = e.target.closest('[data-sj]');
+    if (sj) { openSideDetail(side.jobs.find((x) => x.id === sj.dataset.sj)); return; }
+    const sl = e.target.closest('[data-sl]');
+    if (sl) openSideLogSheet(side.log.find((x) => x.id === sl.dataset.sl));
+  });
+
   /* ---------- 캘린더 (일정 다이어리) · 금융 캘린더(가계부 안) ---------- */
   // 캘린더 메뉴는 내 일정(기간·반복·색)과 건강·냉장고 소비기한·공휴일을 다이어리처럼 보여 준다.
   // 돈과 관련된 날짜(납부일·결제일·수입 예정·보험 갱신·저축일과 날짜별 실제 수입·지출)는 가계부의 "금융캘린더" 탭에 따로 모은다.
@@ -5232,7 +5468,7 @@
   // 대시보드는 설정(백업·동기화·앱 잠금)이 들어 있어 항상 사용한다.
   const TAB_KEY = 'dadari_tab_order_v1';
   const TAB_HIDE_KEY = 'dadari_tab_hidden_v1';
-  const TAB_LABELS = { status: '📊 대시보드', calendar: '📅 캘린더', ledger: '💰 가계부', savings: '🐷 저축', schedule: '🗓 시간표', health: '🩺 건강', insurance: '🛡 보험', rental: '🧰 렌탈·구독', academy: '📚 학원비', biz: '📈 나는CEO', food: '🍳 오늘뭐먹지' };
+  const TAB_LABELS = { status: '📊 대시보드', calendar: '📅 캘린더', ledger: '💰 가계부', savings: '🐷 저축', schedule: '🗓 시간표', health: '🩺 건강', insurance: '🛡 보험', rental: '🧰 렌탈·구독', academy: '📚 학원비', biz: '📈 나는CEO', side: '💼 N잡·부수입', food: '🍳 오늘뭐먹지' };
   const TAB_FIXED = ['status'];
   var tabsReady = false;   // 처음 화면을 그리기 전에는 메뉴를 옮기지 않는다(아래 초기화에서 true)
   function tabOrder() {
@@ -5672,6 +5908,7 @@
     const savTotal = savings.accounts.reduce((a, x) => a + savBal(x.id), 0);
     const savMonthIn = savings.log.filter((l) => !l.start && l.date.startsWith(ym) && l.amount > 0).reduce((a, l) => a + l.amount, 0);
     const savMiss = savings.accounts.filter((a) => a.monthly > 0 && a.payDay >= 1 && now.getDate() >= a.payDay && savMonthOf(a.id, ym) < a.monthly).length;
+    const sideMonth = sideStats(side.log.filter((l) => l.date.startsWith(ym)));
     const soonFood = fridge.filter((f) => { const d = ddOf(f); return d !== null && d <= 3; });
     const expiredFood = soonFood.filter((f) => ddOf(f) < 0).length;
 
@@ -5688,6 +5925,7 @@
       row('📚', '학원비', `수강 ${liveAca.length}건 · 납부 ${liveAca.length - acaUnpaid.length}/${liveAca.length}`, acaUnpaid.length ? `미납 ${acaUnpaid.length}건 ${formatWon(sum(acaUnpaid, (a) => +a.fee || 0))}` : '', acaTotal ? formatWon(acaTotal) : '-', 'academy'),
       row('🩺', '건강', `접종 예정 ${planned.length} · 병원 예약 ${visitsNext}${medsLeft ? ` · 오늘 복약 ${medsLeft}개 남음` : ''}`, [overdueVac ? `접종 ${overdueVac}건 지남` : '', claimTodo ? `실비 청구 필요 ${claimTodo}건` : ''].filter(Boolean).join(' · '), '-', 'health'),
       row('🗓', '시간표', `오늘 일정 ${todaySch}개 · 구성원 ${schedule.members.length}명`, '', '-', 'schedule'),
+      row('💼', 'N잡·부수입', side.jobs.length ? `부업 ${side.jobs.length}개 · 이번 달 수입 ${money(sideMonth.income)}${sideMonth.hours > 0 ? ' · ' + hoursTxt(sideMonth.hours) : ''}` : '등록한 부업이 없어요', '', side.jobs.length ? `${sideMonth.net < 0 ? '-' : ''}${formatWon(Math.abs(sideMonth.net))}` : '-', 'side'),
       row('📈', '나는CEO', (biz.shops.length > 1 ? `사업 ${biz.shops.length}개 · ` : '') + (bizMonth.length ? `매출 ${formatWon(bizSales)} · 비용 ${formatWon(bizCost)}` : '이번 달 입력 없음'), bizTarget > 0 && bizSales < bizTarget ? `목표 ${formatWon(bizTarget)} 중 ${Math.round((bizSales / bizTarget) * 100)}%` : '', bizMonth.length ? `${bizSales - bizCost < 0 ? '-' : ''}${formatWon(Math.abs(bizSales - bizCost))}` : '-', 'biz'),
       row('🐷', '저축', savings.accounts.length ? `통장·목표 ${savings.accounts.length}개 · 이번 달 입금 ${money(savMonthIn)}` : '등록한 통장이 없어요', savMiss ? `이번 달 저축 계획 미달 ${savMiss}건` : '', savings.accounts.length ? formatWon(savTotal) : '-', 'savings'),
       row('🍳', '냉장고', `재료 ${fridge.length}개 · 임박 ${soonFood.length - expiredFood}개`, expiredFood ? `기한 지남 ${expiredFood}개` : '', '-', 'food')
@@ -5744,7 +5982,7 @@
   const defaultCats = () => ({ expense: [...CATEGORIES.expense], income: [...CATEGORIES.income] });
   const sameCats = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   const hasData = () => transactions.length || cards.length || recurs.length || schedule.members.length
-    || health.visits.length || health.periods.length || health.vaccines.length || health.meds.length || insurance.length || rentals.length || academies.length || biz.entries.length || biz.shops.length > 1 || biz.shops.some((s) => s.target > 0 || s.id !== 'bz_main') || fridge.length || calItems.length || savings.accounts.length || goal > 0 || !sameCats(categories, defaultCats());
+    || health.visits.length || health.periods.length || health.vaccines.length || health.meds.length || insurance.length || rentals.length || academies.length || biz.entries.length || biz.shops.length > 1 || biz.shops.some((s) => s.target > 0 || s.id !== 'bz_main') || fridge.length || calItems.length || savings.accounts.length || side.jobs.length || goal > 0 || !sameCats(categories, defaultCats());
 
   function markDirty() {
     if (applying) return;
@@ -5760,7 +5998,7 @@
 
   const snapshot = () => ({
     app: 'dadari', version: 3, updatedAt: new Date().toISOString(),
-    transactions, categories, cards, recurs, recurDone: [...recurDone], goal, schedule, health, insurance, rentals, academies, biz, fridge, calendar: calItems, savings, tombs: [...tombs]
+    transactions, categories, cards, recurs, recurDone: [...recurDone], goal, schedule, health, insurance, rentals, academies, biz, fridge, calendar: calItems, savings, side, tombs: [...tombs]
   });
 
   // 두 기기가 따로 고친 내용을 합친다. 같은 id가 양쪽에 있으면 이 기기 것을 쓰고, 지운 항목(tombs)은 되살리지 않는다.
@@ -5788,6 +6026,11 @@
       academies: union(local.academies, remote.academies),
       fridge: union(local.fridge, remote.fridge),
       calendar: union(local.calendar, remote.calendar),
+      side: (() => {
+        const jobs = union(local.side && local.side.jobs, remote.side && remote.side.jobs);
+        const ids = new Set(jobs.map((x) => x.id));
+        return { jobs, log: union(local.side && local.side.log, remote.side && remote.side.log).filter((l) => ids.has(l.jid)) };
+      })(),
       savings: (() => {
         const accounts = union(local.savings && local.savings.accounts, remote.savings && remote.savings.accounts);
         const ids = new Set(accounts.map((a) => a.id));
@@ -5819,6 +6062,7 @@
       if (Array.isArray(s.academies)) academies = s.academies;
       if (Array.isArray(s.fridge)) fridge = s.fridge;
       if (Array.isArray(s.calendar)) calItems = s.calendar;
+      if (s.side && Array.isArray(s.side.jobs)) side = { jobs: s.side.jobs, log: Array.isArray(s.side.log) ? s.side.log : [] };
       if (s.savings && Array.isArray(s.savings.accounts)) savings = { accounts: s.savings.accounts, log: Array.isArray(s.savings.log) ? s.savings.log : [] };
       if (s.biz && Array.isArray(s.biz.entries)) { biz = { entries: s.biz.entries, shops: s.biz.shops, target: Math.max(0, +s.biz.target || 0) }; normalizeBiz(); }
       if (s.categories) { saveJson(CAT_KEY, s.categories); categories = loadCategories(); }
@@ -5838,6 +6082,7 @@
       saveFridge();
       saveCal();
       saveSav();
+      saveSide();
     } finally {
       applying = false;
     }
@@ -5854,6 +6099,7 @@
     renderCal();
     renderFin();
     renderSavings();
+    renderSide();
     if (applyRecurs()) renderAll();
   }
 
@@ -6178,7 +6424,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v41'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v42'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span style="display:block;margin-bottom:4px">다달이, 매일의 기록이 모여 더 나은 생활이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
@@ -6225,7 +6471,7 @@
   updatePayVisibility();
   renderAll();
   const savedView = loadJson(VIEW_KEY, 'ledger');
-  setView(['status', 'calendar', 'savings', 'schedule', 'health', 'insurance', 'rental', 'academy', 'biz', 'food'].includes(savedView) ? savedView : 'ledger');
+  setView(['status', 'calendar', 'savings', 'schedule', 'health', 'insurance', 'rental', 'academy', 'biz', 'side', 'food'].includes(savedView) ? savedView : 'ledger');
   if (tabHidden(savedView)) setView('status');   // 마지막에 보던 메뉴를 감춰 두었으면 대시보드로 연다
   tabsReady = true;
   applyTabOrder();
