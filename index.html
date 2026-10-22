@@ -446,6 +446,8 @@
   .med-slots { display: flex; gap: 6px; flex-wrap: wrap; }
   .slot { padding: 7px 12px; border-radius: 99px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 13px; cursor: pointer; }
   .slot.on { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .card-btns { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
+  .pill-btn { padding: 5px 10px; border-radius: 99px; border: 1px solid var(--accent); background: none; color: var(--accent); font-size: 12px; font-weight: 600; cursor: pointer; }
   .card-edit { background: none; border: 0; color: inherit; text-align: left; padding: 0; font: inherit; cursor: pointer; }
   .perf { margin-top: 10px; padding: 10px 12px; border-radius: 10px; background: var(--accent-soft); font-size: 12px; line-height: 1.6; }
   .perf .bar { margin: 6px 0; }
@@ -1367,9 +1369,10 @@
       const info = [c.brand, c.fee ? '연회비 ' + formatWon(c.fee) : ''].filter(Boolean).map(escapeHtml).join(' · ');
       return `<div class="cardbox">
         <div class="cardhead">
-          <div><button type="button" class="card-edit" data-edit-card="${c.id}" aria-label="카드 정보 수정"><b>${escapeHtml(c.name)}</b><span class="tag">${c.kind === 'credit' ? '신용' : '체크'}</span> ✎</button>
+          <div><button type="button" class="card-edit" data-edit-card="${c.id}" aria-label="카드 정보 수정"><b>${escapeHtml(c.name)}</b><span class="tag">${c.kind === 'credit' ? '신용' : '체크'}</span></button>
           <div class="cardsub">${parts.join(' · ')}</div>${info ? `<div class="cardsub">${info}</div>` : ''}</div>
-          <button type="button" class="icon-btn" data-del-card="${c.id}" aria-label="카드 삭제">🗑</button>
+          <div class="card-btns"><button type="button" class="pill-btn" data-edit-card="${c.id}">✎ 수정</button>
+          <button type="button" class="icon-btn" data-del-card="${c.id}" aria-label="카드 삭제">🗑</button></div>
         </div>${perfHtml(c)}${recRows(mine)}</div>`;
     });
     const acct = recurs.filter((r) => !r.cardId || !cardById(r.cardId));
@@ -2931,7 +2934,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v13'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v14'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').textContent = '다다리 가계부 ' + APP_VERSION;
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
