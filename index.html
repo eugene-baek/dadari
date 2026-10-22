@@ -2194,7 +2194,8 @@
     });
     // 인플루엔자: 매년 접종(생후 6개월~12세). 최근 1년 안의 접종 기록이 있으면 완료로 본다.
     const flu = mine.filter((v) => /인플루엔자|독감/.test(v.name || '') && v.done && diffDays(today, v.date) >= 0 && diffDays(today, v.date) <= 365);
-    return { age, rows, flu: age >= 6 && age < 156 ? (flu.length ? 'done' : 'due') : null };
+    const fluPlanned = mine.find((v) => /인플루엔자|독감/.test(v.name || '') && !v.done) || null;
+    return { age, rows, flu: age >= 6 && age < 156 ? (flu.length ? 'done' : fluPlanned ? 'planned' : 'due') : null, fluRec: fluPlanned };
   }
 
   function standardHtml(today) {
@@ -2218,7 +2219,7 @@
           <div class="vx-doses">${r.doses.filter((d) => d.st !== 'later').map((d) =>
             `<button type="button" class="dose ${d.st}" data-vstd="${m.id}|${r.vi}|${d.n}" aria-label="${stLabel[d.st]}">${d.st === 'done' ? '✓ ' : ''}${r.x.doses.length > 1 ? d.n + '차 ' : ''}${d.label}</button>`).join('')}</div>
           ${r.x.note && r.doses.some((d) => d.st !== 'done' && d.st !== 'later') ? `<div class="vx-note">${escapeHtml(r.x.note)}</div>` : ''}</div>`).join('');
-      const flu = s.flu ? `<div class="vx"><div class="vx-name">인플루엔자(독감)</div><div class="vx-doses"><button type="button" class="dose ${s.flu}" data-vstd="${m.id}|flu|1">${s.flu === 'done' ? '✓ 최근 1년 내 접종' : '매년 접종 대상'}</button></div></div>` : '';
+      const flu = s.flu ? `<div class="vx"><div class="vx-name">인플루엔자(독감)</div><div class="vx-doses"><button type="button" class="dose ${s.flu}" data-vstd="${m.id}|flu|1">${s.flu === 'done' ? '✓ 최근 1년 내 접종' : s.flu === 'planned' ? '독감 접종 예정' : '매년 접종 대상'}</button></div></div>` : '';
       html += `<div class="h-sec">${escapeHtml(m.name)} · ${ageText(s.age)} · 표준 접종 일정</div>${lines}${flu}`;
     });
     if (html) {
@@ -2250,12 +2251,32 @@
         <button type="button" class="vcheck" data-vdone="${v.id}" aria-label="접종 완료로 표시">✓ 완료</button></div>`;
     }).join('') : '<div class="empty-msg" style="padding:14px 0">예정된 접종이 없어요</div>';
     html += `<div class="h-sec">맞은 접종${done.length ? ` · ${done.length}건` : ''}</div>`;
-    html += done.length ? done.map((v) => `<button type="button" class="visit" data-vaccine="${v.id}">
+    html += done.length ? done.map((v) => `<div class="vrow"><button type="button" class="visit" data-vaccine="${v.id}">
         <div class="v1"><span>${title(v)}</span><span>${v.date.slice(2).replace(/-/g, '.')}</span></div>
-        ${detail(v) ? `<div class="v2">${detail(v)}</div>` : ''}</button>`).join('')
+        ${detail(v) ? `<div class="v2">${detail(v)}</div>` : ''}</button>
+        <button type="button" class="vcheck" data-vundo="${v.id}" aria-label="해야 할 접종으로 되돌리기">↩ 예정으로</button></div>`).join('')
       : '<div class="empty-msg" style="padding:14px 0">아직 기록이 없어요</div>';
     html += '<p class="cyc-note">접종 시기와 횟수는 소아과·보건소에서 안내받은 일정대로 입력하세요. 국가예방접종 일정은 질병관리청 예방접종도우미(nip.kdca.go.kr)에서 확인할 수 있어요.</p>';
     el('health-body').innerHTML = html;
+  }
+
+  // 표준 일정 칸을 눌렀을 때 먼저 "앞으로 맞을 건지, 이미 맞은 건지"를 고르게 한다(실수로 완료 기록이 만들어지지 않게).
+  function chooseVaccineState(title, onPick) {
+    sheetBody.innerHTML = `<form>
+      <h3>${escapeHtml(title)}</h3>
+      <p class="goal-hint" style="margin:0 0 14px">이 접종을 어떻게 기록할까요?</p>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <button type="button" data-pick="planned" class="mini-btn" style="background:var(--accent);color:#fff;border-color:var(--accent);padding:14px;font-weight:700">맞아야 해요 (해야 할 접종에 등록)</button>
+        <button type="button" data-pick="done" class="mini-btn" style="padding:14px">이미 맞았어요 (완료로 기록)</button>
+        <button type="button" data-cancel class="mini-btn" style="padding:12px">취소</button>
+      </div></form>`;
+    sheet.hidden = false;
+    sheetBody.onclick = (e) => {
+      const b = e.target.closest('button');
+      if (!b) return;
+      if (b.dataset.pick) { closeSheet(); setTimeout(() => onPick(b.dataset.pick), 0); }
+      else if (b.dataset.cancel !== undefined) closeSheet();
+    };
   }
 
   function openVaccineSheet(v, preset) {
@@ -2530,8 +2551,10 @@
       if (!m || !validDate(m.birth)) return;
       const today = todayStr();
       if (key === 'flu') {
-        if (vaxStates(m, today).flu === 'done') { showToast('최근 1년 안에 접종한 기록이 있어요'); return; }
-        openVaccineSheet(null, { who: mid, name: '인플루엔자(독감)', state: 'done', date: today });
+        const fs = vaxStates(m, today);
+        if (fs.flu === 'done') { showToast('최근 1년 안에 접종한 기록이 있어요'); return; }
+        if (fs.flu === 'planned' && fs.fluRec) { openVaccineSheet(fs.fluRec); return; }
+        chooseVaccineState('인플루엔자(독감)', (pick) => openVaccineSheet(null, { who: mid, name: '인플루엔자(독감)', state: pick, date: today }));
         return;
       }
       const row = vaxStates(m, today).rows.find((r) => r.vi === +key);
@@ -2540,11 +2563,28 @@
       if (d.st === 'done') { showToast('이미 완료로 기록돼 있어요'); return; }
       if (d.st === 'planned' && d.rec) { openVaccineSheet(d.rec); return; }
       const est = addMonthsTo(m.birth, d.from);
-      openVaccineSheet(null, {
-        who: mid, name: row.x.name, dose: row.x.doses.length > 1 ? `${d.n}차` : '',
-        state: d.st === 'due' ? 'done' : 'planned', date: d.st === 'due' && est > today ? today : est,
-        note: d.st === 'due' ? '날짜는 표준 시기로 추정(맞았다면 실제 날짜로 고쳐 주세요)' : ''
+      const preset = (state) => ({
+        who: mid, name: row.x.name, dose: row.x.doses.length > 1 ? `${d.n}차` : '', state,
+        // 예정이면 접종할 날(기본 오늘), 완료면 맞은 날(모르면 표준 시기로 추정)
+        date: state === 'planned' ? (d.st === 'soon' ? est : today) : (est > today ? today : est),
+        note: state === 'done' ? '날짜는 표준 시기로 추정(맞았다면 실제 날짜로 고쳐 주세요)' : ''
       });
+      // 아직 시기가 안 된 칸은 "맞을 예정"이 분명하므로 바로 예정으로, 시기가 된 칸은 예정인지 이미 맞은 것인지 먼저 묻는다.
+      if (d.st === 'soon') openVaccineSheet(null, preset('planned'));
+      else chooseVaccineState(`${row.x.short || row.x.name}${row.x.doses.length > 1 ? ' ' + d.n + '차' : ''}`, (pick) => openVaccineSheet(null, preset(pick)));
+      return;
+    }
+    const vundo = e.target.closest('[data-vundo]');
+    if (vundo) {
+      const v = health.vaccines.find((x) => x.id === vundo.dataset.vundo);
+      if (v) {
+        v.done = false;
+        v.date = todayStr();
+        if ((v.note || '').startsWith('날짜는 표준 시기로 추정')) v.note = '';
+        saveHealth();
+        renderHealth();
+        showToast('해야 할 접종으로 되돌렸어요 (날짜는 오늘)');
+      }
       return;
     }
     const take = e.target.closest('[data-take]');
@@ -2974,7 +3014,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v17'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v18'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').textContent = '다다리 가계부 ' + APP_VERSION;
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
