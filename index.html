@@ -458,6 +458,18 @@
   .dd-chip { font-size: 10px; border-radius: 99px; padding: 1px 6px; margin-left: 5px; border: 1px solid var(--border); color: var(--text-muted); }
   .dd-chip.soon { color: var(--expense); border-color: var(--expense); font-weight: 700; }
   .vcheck.on { background: var(--accent); color: #fff; }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; }
+  .cal-dow { text-align: center; font-size: 11px; color: var(--text-muted); padding: 4px 0; }
+  .cal-dow.sun { color: var(--expense); }
+  .cal-dow.sat { color: var(--accent); }
+  .cal-day { min-height: 62px; border: 1px solid transparent; border-radius: 10px; padding: 3px 1px; background: none; color: var(--text); font-size: 12px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 1px; overflow: hidden; }
+  .cal-day .n { min-width: 22px; height: 22px; line-height: 22px; border-radius: 99px; font-weight: 600; }
+  .cal-day.today .n { background: var(--accent); color: #fff; }
+  .cal-day.sel { border-color: var(--accent); background: var(--accent-soft); }
+  .cal-day .ic { font-size: 11px; line-height: 1.2; letter-spacing: -1px; white-space: nowrap; }
+  .cal-day .sp { font-size: 9px; line-height: 1.2; color: var(--expense); white-space: nowrap; }
+  .cal-day .sp.inc { color: var(--income); }
+  .cal-tx { display: flex; justify-content: space-between; gap: 8px; padding: 6px 2px; font-size: 13px; border-top: 1px solid var(--border); }
   .biz-shops { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
   .biz-shops button { padding: 7px 13px; border: 1px solid var(--border); border-radius: 999px; background: var(--card-bg); color: var(--text-muted); font-size: 13px; font-weight: 600; cursor: pointer; }
   .biz-shops button.active { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
@@ -677,6 +689,7 @@
 
 <nav class="viewtabs" id="viewtabs">
   <button type="button" data-view="status"><span class="ic">📊</span>현황</button>
+  <button type="button" data-view="calendar"><span class="ic">📅</span>캘린더</button>
   <button type="button" data-view="ledger" class="active"><span class="ic">💰</span>가계부</button>
   <button type="button" data-view="schedule"><span class="ic">🗓</span>시간표</button>
   <button type="button" data-view="health"><span class="ic">🩺</span>건강</button>
@@ -728,6 +741,21 @@
       <button type="button" class="mini-btn" id="add-sale-btn">＋ 매출 입력</button>
       <button type="button" class="mini-btn" id="add-cost-btn">＋ 비용 입력</button>
       <button type="button" class="mini-btn" id="biz-target-btn">🏢 사업·목표 관리</button>
+    </div>
+  </section>
+</main>
+
+<main id="view-calendar" hidden>
+  <section class="card">
+    <div class="month-nav">
+      <button id="cal-prev" aria-label="이전 달">◀</button>
+      <div class="label" id="cal-label"></div>
+      <button id="cal-next" aria-label="다음 달">▶</button>
+    </div>
+    <div id="cal-body"></div>
+    <div class="cards-actions" style="flex-wrap:wrap">
+      <button type="button" class="mini-btn" id="cal-add">＋ 일정 추가</button>
+      <button type="button" class="mini-btn" id="cal-today">오늘로</button>
     </div>
   </section>
 </main>
@@ -1319,7 +1347,7 @@
 
   el('export-btn').addEventListener('click', () => {
     // 예전 백업은 내역 배열만 있었다. 지금은 카드·자동이체·월 목표까지 한 파일에 담고, 불러올 때 두 형식을 모두 받는다.
-    const backup = { app: 'dadari', version: 2, transactions, categories, cards, recurs, recurDone: [...recurDone], goal, schedule, health, insurance, rentals, academies, biz, fridge };
+    const backup = { app: 'dadari', version: 2, transactions, categories, cards, recurs, recurDone: [...recurDone], goal, schedule, health, insurance, rentals, academies, biz, fridge, calendar: calItems };
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -1403,6 +1431,11 @@
             mergeById(fridge, data.fridge, (f) => typeof f.name === 'string' && f.name);
             saveFridge();
             renderFood();
+          }
+          if (Array.isArray(data.calendar)) {
+            mergeById(calItems, data.calendar, (c) => typeof c.title === 'string' && c.title && validDate(c.date));
+            saveCal();
+            renderCal();
           }
           if (data.biz && Array.isArray(data.biz.entries)) {
             mergeById(biz.entries, data.biz.entries, (e) => validDate(e.date) && (e.kind === 'sale' || e.kind === 'cost') && e.amount > 0);
@@ -2043,6 +2076,7 @@
     el('view-biz').hidden = v !== 'biz';
     el('view-food').hidden = v !== 'food';
     el('view-status').hidden = v !== 'status';
+    el('view-calendar').hidden = v !== 'calendar';
     document.querySelectorAll('#viewtabs button').forEach((b) => b.classList.toggle('active', b.dataset.view === v));
     saveJson(VIEW_KEY, v);
     if (v === 'schedule') renderSchedule();
@@ -2052,7 +2086,8 @@
     if (v === 'academy') renderAcademy();
     if (v === 'biz') renderBiz();
     if (v === 'food') renderFood();
-    if (v === 'status') renderStatus();
+    if (v === 'calendar') renderCal();
+    renderTodo();   // 현황 탭이면 확인할 일 배너와 현황표를 그리고, 아니면 배너를 숨긴다
   }
   el('viewtabs').addEventListener('click', (e) => {
     const b = e.target.closest('button[data-view]');
@@ -4036,9 +4071,138 @@
   });
   loadDishPhotos();
 
+  /* ---------- 캘린더 ---------- */
+  // 병원·접종·납부일·보험·렌탈·학원비·카드 결제일·소비기한처럼 날짜가 있는 기록을 한 달력에 모아 보여 주고, 내 일정도 적는다.
+  // 가계부 지출·수입은 날짜별 합계로 함께 보인다. 내 일정만 이 탭에 저장하고(`dadari_calendar_v1`), 나머지는 각 탭의 기록에서 계산한다.
+  const CAL_KEY = 'dadari_calendar_v1';
+  let calItems = loadJson(CAL_KEY, []);   // {id, date, time(선택 HH:MM), title, memo}
+  if (!Array.isArray(calItems)) calItems = [];
+  const saveCal = () => saveJson(CAL_KEY, calItems);
+  const CAL_DAYN = ['일', '월', '화', '수', '목', '금', '토'];
+  let calView = { y: new Date().getFullYear(), m: new Date().getMonth() };
+  let calSel = todayStr();
+  const shortWon = (n) => (n >= 10000 ? Math.round(n / 1000) / 10 + '만' : n.toLocaleString('ko-KR'));
+
+  function calMonth(y, m) {
+    const ym = y + '-' + pad2(m + 1), map = {}, money = {};
+    const add = (date, icon, text, view, extra) => { if (typeof date === 'string' && date.startsWith(ym) && validDate(date)) (map[date] = map[date] || []).push({ icon, text, view, ...extra }); };
+    health.visits.forEach((v) => {
+      add(v.date, '🏥', `${whoName(v.who)} · ${v.hospital} 진료`, 'health');
+      add(v.next, '🏥', `${whoName(v.who)} · ${v.hospital} 예약`, 'health');
+    });
+    health.vaccines.forEach((v) => add(v.date, '💉', `${whoName(v.who)} · ${v.name}${v.dose ? ' ' + v.dose : ''} 접종${v.done ? ' 완료' : ' 예정'}`, 'health'));
+    insurance.forEach((p) => {
+      if (p.status === 'ended') return;
+      const end = insEnd(p);
+      if (p.payDay >= 1 && (p.freq !== 'year' || m + 1 === (p.payMonth >= 1 ? p.payMonth : 1))) {
+        const d = ymdOf(y, m, p.payDay);
+        if ((!validDate(p.start) || d >= p.start) && (!end || d <= end)) add(d, '🛡', `보험료 ${p.name} ${formatWon(+p.premium || 0)}`, 'insurance');
+      }
+      [['갱신', p.renewal], ['보장 만기', p.expiry], ['납입 만기', end]].forEach(([label, d]) => add(d, '🛡', `${p.name} ${label}`, 'insurance'));
+    });
+    rentals.forEach((r) => {
+      if (r.status === 'ended') return;
+      const end = rentEnd(r);
+      if (r.payDay >= 1) {
+        const d = ymdOf(y, m, r.payDay);
+        if ((!validDate(r.start) || d >= r.start) && (!end || d <= end)) add(d, '🧰', `렌탈료 ${r.name} ${formatWon(+r.fee || 0)}`, 'rental');
+      }
+      add(r.nextVisit, '🧰', `${r.name} 방문 관리`, 'rental');
+      add(end, '🧰', `${r.name} 약정 만료`, 'rental');
+    });
+    academies.filter((a) => a.status === 'active' && a.payDay >= 1 && acaInMonth(a, ym)).forEach((a) => add(ymdOf(y, m, a.payDay), '📚', `${whoName(a.who)} · ${a.name} 학원비 ${formatWon(+a.fee || 0)}`, 'academy'));
+    cards.filter((c) => c.kind === 'credit' && c.payDay >= 1).forEach((c) => add(ymdOf(y, m, c.payDay), '💳', `${c.name} 결제일`, 'ledger'));
+    fridge.forEach((f) => add(f.expiry, '🧊', `냉장고 · ${f.name} 소비기한`, 'food'));
+    calItems.forEach((c) => add(c.date, '📅', (c.time ? c.time + ' ' : '') + c.title, 'cal', { id: c.id, time: c.time || '' }));
+    Object.values(map).forEach((list) => list.sort((a, b) => (a.time || '99').localeCompare(b.time || '99')));
+    transactions.forEach((t) => {
+      if (!t.date || !t.date.startsWith(ym)) return;
+      const o = money[t.date] = money[t.date] || { inc: 0, exp: 0 };
+      if (t.type === 'income') o.inc += t.amount; else o.exp += t.amount;
+    });
+    return { map, money };
+  }
+
+  function renderCal() {
+    const { y, m } = calView, today = todayStr();
+    const { map, money } = calMonth(y, m);
+    el('cal-label').textContent = y + '년 ' + (m + 1) + '월';
+    let cells = CAL_DAYN.map((d, i) => `<div class="cal-dow${i === 0 ? ' sun' : i === 6 ? ' sat' : ''}">${d}</div>`).join('');
+    const first = new Date(y, m, 1).getDay(), days = new Date(y, m + 1, 0).getDate();
+    for (let i = 0; i < first; i++) cells += '<div></div>';
+    for (let d = 1; d <= days; d++) {
+      const date = ymdOf(y, m, d), evs = map[date] || [], mo = money[date];
+      const icons = [...new Set(evs.map((e) => e.icon))].slice(0, 3).join('');
+      cells += `<button type="button" class="cal-day${date === today ? ' today' : ''}${date === calSel ? ' sel' : ''}" data-cd="${date}"><span class="n">${d}</span><span class="ic">${icons || '&nbsp;'}</span>`
+        + (mo && mo.exp ? `<span class="sp">-${shortWon(mo.exp)}</span>` : '') + (mo && mo.inc ? `<span class="sp inc">+${shortWon(mo.inc)}</span>` : '') + '</button>';
+    }
+    const sd = new Date(+calSel.slice(0, 4), +calSel.slice(5, 7) - 1, +calSel.slice(8, 10));
+    const evs = map[calSel] || [], txs = transactions.filter((t) => t.date === calSel);
+    let html = `<div class="cal-grid">${cells}</div><h2 class="section-title" style="margin:16px 0 4px">${sd.getMonth() + 1}월 ${sd.getDate()}일 (${CAL_DAYN[sd.getDay()]})</h2>`;
+    html += evs.length ? evs.map((e) => `<button type="button" class="todo-item" data-cv="${e.view}"${e.id ? ` data-cid="${attr(e.id)}"` : ''}><span>${e.icon}</span><span class="td-text">${esc(e.text)}</span></button>`).join('')
+      : '<div class="empty-msg" style="padding:10px 0">이 날 일정이 없어요</div>';
+    if (txs.length) {
+      html += '<div class="h-sec">💰 가계부</div>' + txs.slice(0, 8).map((t) => `<div class="cal-tx"><span>${esc(t.category || '')}${t.memo ? ' · ' + esc(t.memo) : ''}</span><b style="color:var(--${t.type === 'income' ? 'income' : 'expense'})">${t.type === 'income' ? '+' : '-'}${formatWon(t.amount)}</b></div>`).join('')
+        + (txs.length > 8 ? `<p class="goal-hint" style="margin:4px 0 0">그 밖에 ${txs.length - 8}건</p>` : '');
+    }
+    el('cal-body').innerHTML = html;
+  }
+
+  function openCalSheet(item) {
+    const val = (x) => attr(x == null ? '' : String(x));
+    openSheet(`<form>
+      <h3>${item ? '일정 수정' : '일정 추가'}</h3>
+      <label>제목</label><input name="title" required maxlength="40" placeholder="예: 학부모 상담, 가족 모임" value="${val(item && item.title)}" autocomplete="off">
+      <label>날짜</label><input name="date" type="date" required value="${val(item ? item.date : calSel)}">
+      <label>시간 (선택)</label><input name="time" type="time" value="${val(item && item.time)}">
+      <label>메모 (선택)</label><input name="memo" maxlength="80" value="${val(item && item.memo)}">
+      <div class="sheet-actions"><button type="button" data-cancel>취소</button>${item ? '<button type="button" data-delete>삭제</button>' : ''}<button type="submit">저장</button></div>
+    </form>`, (fd) => {
+      const title = String(fd.get('title')).trim(), date = String(fd.get('date'));
+      if (!title || !validDate(date)) { showToast('제목과 날짜를 확인해 주세요'); return false; }
+      const time = /^\d{2}:\d{2}$/.test(String(fd.get('time'))) ? String(fd.get('time')) : '';
+      const rec = { title, date, time, memo: String(fd.get('memo')).trim() };
+      if (item) Object.assign(item, rec); else calItems.push({ id: newId(), ...rec });
+      saveCal();
+      calView = { y: +date.slice(0, 4), m: +date.slice(5, 7) - 1 };
+      calSel = date;
+      renderCal();
+      showToast(item ? '수정했어요' : '일정을 추가했어요');
+    });
+    const del = sheetBody.querySelector('[data-delete]');
+    if (del) del.addEventListener('click', () => {
+      tomb(item.id);
+      calItems = calItems.filter((x) => x.id !== item.id);
+      saveCal();
+      closeSheet();
+      renderCal();
+      showToast('삭제했어요');
+    });
+  }
+
+  // 달을 옮기면 선택한 날도 그 달 안으로 옮긴다(이번 달이면 오늘, 아니면 1일)
+  function calGo(y, m) {
+    calView = { y: new Date(y, m, 1).getFullYear(), m: new Date(y, m, 1).getMonth() };
+    const t = todayStr();
+    calSel = t.startsWith(ymKey(calView)) ? t : ymKey(calView) + '-01';
+    renderCal();
+  }
+  el('cal-prev').addEventListener('click', () => calGo(calView.y, calView.m - 1));
+  el('cal-next').addEventListener('click', () => calGo(calView.y, calView.m + 1));
+  el('cal-today').addEventListener('click', () => { const d = new Date(); calGo(d.getFullYear(), d.getMonth()); });
+  el('cal-add').addEventListener('click', () => openCalSheet(null));
+  el('cal-body').addEventListener('click', (e) => {
+    const day = e.target.closest('[data-cd]');
+    if (day) { calSel = day.dataset.cd; renderCal(); return; }
+    const row = e.target.closest('[data-cv]');
+    if (!row) return;
+    if (row.dataset.cid) openCalSheet(calItems.find((x) => x.id === row.dataset.cid));
+    else { setView(row.dataset.cv); window.scrollTo(0, 0); }
+  });
+
   /* ---------- 메뉴(탭) 순서 ---------- */
   const TAB_KEY = 'dadari_tab_order_v1';   // 이 기기의 설정(동기화하지 않는다)
-  const TAB_LABELS = { status: '📊 현황', ledger: '💰 가계부', schedule: '🗓 시간표', health: '🩺 건강', insurance: '🛡 보험', rental: '🧰 렌탈', academy: '📚 학원비', biz: '📈 사업매출', food: '🍳 오늘뭐먹지' };
+  const TAB_LABELS = { status: '📊 현황', calendar: '📅 캘린더', ledger: '💰 가계부', schedule: '🗓 시간표', health: '🩺 건강', insurance: '🛡 보험', rental: '🧰 렌탈', academy: '📚 학원비', biz: '📈 사업매출', food: '🍳 오늘뭐먹지' };
   function tabOrder() {
     const base = Object.keys(TAB_LABELS);
     let saved = [];
@@ -4161,7 +4325,8 @@
     const wrap = el('todo-wrap');
     const items = todoItems();
     if (!el('view-status').hidden) renderStatus();   // 현황 탭을 보고 있으면 같이 갱신한다
-    if (!items.length) { wrap.hidden = true; return; }
+    // 확인할 일 배너는 현황 탭에서만 보여 준다(다른 메뉴 화면에서는 숨김)
+    if (!items.length || el('view-status').hidden) { wrap.hidden = true; return; }
     wrap.hidden = false;
     let open = true;
     try { open = localStorage.getItem('dadari_todo_closed') !== '1'; } catch (e) { /* 기억 못 해도 펼친 채로 */ }
@@ -4186,7 +4351,7 @@
   /* 캘린더 알람 내보내기 */
   const ALARM_KEY = 'dadari_alarm_v1';   // 이 기기의 설정(동기화하지 않는다)
   const ALARM_GROUPS = [['visit', '🏥 병원 예약'], ['vaccine', '💉 접종 예정'], ['pay', '💳 납부일 (보험·렌탈·학원비·카드 결제일)'],
-    ['renew', '🛡 보험 갱신·만기'], ['rent', '🧰 렌탈 방문·약정 만료'], ['med', '💊 복약 시간'], ['food', '🧊 냉장고 소비기한']];
+    ['renew', '🛡 보험 갱신·만기'], ['rent', '🧰 렌탈 방문·약정 만료'], ['med', '💊 복약 시간'], ['food', '🧊 냉장고 소비기한'], ['mine', '📅 캘린더에 적은 내 일정']];
   const ALARM_LEADS = [['day0', '당일 오전 9시'], ['day1', '하루 전 오전 9시'], ['day3', '3일 전 오전 9시'], ['day1+0', '하루 전 + 당일 오전 9시']];
   function loadAlarm() {
     let v = null;
@@ -4280,6 +4445,10 @@
       if (validDate(r.nextVisit) && r.nextVisit >= today) ev({ uid: 'visit-rent-' + r.id, summary: `🧰 ${r.name} 방문 관리`, date: r.nextVisit, rrule: +r.visitEvery > 0 ? `FREQ=MONTHLY;INTERVAL=${+r.visitEvery}` : '' });
       const end = rentEnd(r);
       if (end && end >= today) ev({ uid: 'end-rent-' + r.id, summary: `🧰 ${r.name} 약정 만료 (해지·재약정 확인)`, date: end, alarms: ['-P29DT15H', ...alarms] });
+    });
+    if (on('mine')) calItems.forEach((c) => {
+      if (!validDate(c.date) || c.date < today) return;
+      ev({ uid: 'cal-' + c.id, summary: '📅 ' + c.title, desc: c.memo || '', date: c.date, ...(c.time ? { time: c.time, alarms: ['-PT30M'] } : {}) });
     });
     if (on('food')) fridge.forEach((f) => { if (validDate(f.expiry) && f.expiry >= today) ev({ uid: 'food-' + f.id, summary: `🧊 ${f.name} 소비기한`, date: f.expiry, alarms: ['-PT15H', 'PT9H'] }); });
     if (on('med')) health.meds.forEach((m) => {
@@ -4421,14 +4590,6 @@
         + cards.map((c) => `<tr data-sv="ledger"><td><span class="st-name">${esc(c.name)}</span>${c.fixedDefault ? '<div class="st-sub">고정비 기본</div>' : ''}</td><td>${esc(cardPerfLabel(c, ym, prevYm)) || '<span class="st-sub">-</span>'}</td><td class="st-amt">${formatWon(cardUse(c.id, ym))}</td></tr>`).join('')
         + `<tr><td><span class="st-name">합계</span></td><td></td><td class="st-amt">${formatWon(cardTotal)}</td></tr></tbody></table>` : '';
 
-    // 다가오는 일정(배너와 같은 기준)
-    const next = todoItems();
-    const todoHtml = next.length
-      ? `<h2 class="section-title" style="margin:18px 0 0">다가오는 일정 · 확인할 일</h2>` + next.slice(0, 8).map((i) => {
-        const dd = i.dd === null ? '' : i.dd === 0 ? '오늘' : i.dd > 0 ? 'D-' + i.dd : -i.dd + '일 지남';
-        return `<button type="button" class="todo-item" data-tv="${i.view}"><span>${i.icon}</span><span class="td-text">${esc(i.text)}</span><span class="td-dd${i.dd !== null && i.dd <= 0 ? ' today' : ''}">${dd}</span></button>`;
-      }).join('') + (next.length > 8 ? `<p class="goal-hint" style="margin:6px 0 0">그 밖에 ${next.length - 8}건이 더 있어요</p>` : '') : '';
-
     const DAYN = ['일', '월', '화', '수', '목', '금', '토'];
     el('status-body').innerHTML = `<div class="month-nav" style="margin-bottom:10px"><div class="label">${now.getFullYear()}년 ${now.getMonth() + 1}월 ${now.getDate()}일 (${DAYN[dow]})</div></div>
       <div class="summary-grid">
@@ -4437,7 +4598,7 @@
         <div class="summary-item balance"><div class="lbl">잔액</div><div class="val">${bal < 0 ? '-' : ''}${formatWon(Math.abs(bal))}</div></div></div>
       <h2 class="section-title" style="margin:18px 0 0">관리 현황표</h2>
       <table class="st-table"><thead><tr><th>영역</th><th>현황</th><th>금액</th></tr></thead><tbody>${rows}</tbody></table>
-      <p class="goal-hint" style="margin:6px 0 0">행을 누르면 해당 메뉴로 이동해요.</p>${fixedHtml}${cardHtml}${todoHtml}`;
+      <p class="goal-hint" style="margin:6px 0 0">행을 누르면 해당 메뉴로 이동해요.</p>${fixedHtml}${cardHtml}`;
   }
   el('status-body').addEventListener('click', (e) => {
     const t = e.target.closest('[data-sv], [data-tv]');
@@ -4458,7 +4619,7 @@
   const defaultCats = () => ({ expense: [...CATEGORIES.expense], income: [...CATEGORIES.income] });
   const sameCats = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   const hasData = () => transactions.length || cards.length || recurs.length || schedule.members.length
-    || health.visits.length || health.periods.length || health.vaccines.length || health.meds.length || insurance.length || rentals.length || academies.length || biz.entries.length || biz.shops.length > 1 || biz.shops.some((s) => s.target > 0 || s.id !== 'bz_main') || fridge.length || goal > 0 || !sameCats(categories, defaultCats());
+    || health.visits.length || health.periods.length || health.vaccines.length || health.meds.length || insurance.length || rentals.length || academies.length || biz.entries.length || biz.shops.length > 1 || biz.shops.some((s) => s.target > 0 || s.id !== 'bz_main') || fridge.length || calItems.length || goal > 0 || !sameCats(categories, defaultCats());
 
   function markDirty() {
     if (applying) return;
@@ -4474,7 +4635,7 @@
 
   const snapshot = () => ({
     app: 'dadari', version: 3, updatedAt: new Date().toISOString(),
-    transactions, categories, cards, recurs, recurDone: [...recurDone], goal, schedule, health, insurance, rentals, academies, biz, fridge, tombs: [...tombs]
+    transactions, categories, cards, recurs, recurDone: [...recurDone], goal, schedule, health, insurance, rentals, academies, biz, fridge, calendar: calItems, tombs: [...tombs]
   });
 
   // 두 기기가 따로 고친 내용을 합친다. 같은 id가 양쪽에 있으면 이 기기 것을 쓰고, 지운 항목(tombs)은 되살리지 않는다.
@@ -4501,6 +4662,7 @@
       rentals: union(local.rentals, remote.rentals),
       academies: union(local.academies, remote.academies),
       fridge: union(local.fridge, remote.fridge),
+      calendar: union(local.calendar, remote.calendar),
       biz: {
         entries: union(local.biz && local.biz.entries, remote.biz && remote.biz.entries),
         shops: union(local.biz && local.biz.shops, remote.biz && remote.biz.shops),
@@ -4526,6 +4688,7 @@
       if (Array.isArray(s.rentals)) rentals = s.rentals;
       if (Array.isArray(s.academies)) academies = s.academies;
       if (Array.isArray(s.fridge)) fridge = s.fridge;
+      if (Array.isArray(s.calendar)) calItems = s.calendar;
       if (s.biz && Array.isArray(s.biz.entries)) { biz = { entries: s.biz.entries, shops: s.biz.shops, target: Math.max(0, +s.biz.target || 0) }; normalizeBiz(); }
       if (s.categories) { saveJson(CAT_KEY, s.categories); categories = loadCategories(); }
       if (Array.isArray(s.tombs)) tombs = new Set([...tombs, ...s.tombs]);
@@ -4542,6 +4705,7 @@
       saveAcademies();
       saveBiz();
       saveFridge();
+      saveCal();
     } finally {
       applying = false;
     }
@@ -4555,6 +4719,7 @@
     renderAcademy();
     renderBiz();
     renderFood();
+    renderCal();
     if (applyRecurs()) renderAll();
   }
 
@@ -4879,7 +5044,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v26'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v27'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span style="display:block;margin-bottom:4px">다다리, 매일의 기록이 모여 더 나은 생활이 됩니다.</span>다다리 ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
@@ -4926,7 +5091,7 @@
   updatePayVisibility();
   renderAll();
   const savedView = loadJson(VIEW_KEY, 'ledger');
-  setView(['status', 'schedule', 'health', 'insurance', 'rental', 'academy', 'biz', 'food'].includes(savedView) ? savedView : 'ledger');
+  setView(['status', 'calendar', 'schedule', 'health', 'insurance', 'rental', 'academy', 'biz', 'food'].includes(savedView) ? savedView : 'ledger');
   applyTabOrder();
   renderAlarmOpts();
   renderTodo();
