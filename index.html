@@ -420,6 +420,75 @@
   .sheet-actions button { flex: 1; padding: 12px; border-radius: 10px; border: none; font-size: 14px; font-weight: 600; cursor: pointer; }
   .sheet-actions [data-cancel] { background: var(--bg); color: var(--text); }
   .sheet-actions [type="submit"] { background: var(--accent); color: white; flex: 2; }
+  main[hidden], .day-tabs[hidden], .member-chips[hidden] { display: none; }
+  .viewtabs { display: flex; gap: 8px; max-width: 720px; margin: 0 auto 12px; padding: 0 20px; }
+  .viewtabs button {
+    flex: 1;
+    padding: 10px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--card-bg);
+    color: var(--text-muted);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .viewtabs button.active { background: var(--accent); border-color: var(--accent); color: white; }
+  .day-tabs { display: flex; gap: 6px; margin-bottom: 12px; }
+  .day-tabs button {
+    flex: 1;
+    padding: 9px 0;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .day-tabs button.today { border-color: var(--accent); color: var(--accent); font-weight: 700; }
+  .day-tabs button.active { background: var(--accent); border-color: var(--accent); color: white; }
+  .sch-modes { display: flex; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin-bottom: 12px; }
+  .sch-modes button { flex: 1; padding: 9px; border: none; background: var(--card-bg); color: var(--text-muted); font-size: 13px; font-weight: 600; cursor: pointer; }
+  .sch-modes button.active { background: var(--accent-soft); color: var(--accent); }
+  .sch-member { margin-top: 14px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; }
+  .sch-member:first-of-type { margin-top: 0; }
+  .sch-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+  .sch-head b { font-size: 15px; }
+  .sch-item {
+    display: flex;
+    gap: 12px;
+    width: 100%;
+    text-align: left;
+    padding: 9px 4px;
+    border: none;
+    border-top: 1px solid var(--border);
+    background: none;
+    color: var(--text);
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .sch-item:first-of-type { border-top: none; }
+  .sch-time { width: 64px; flex-shrink: 0; color: var(--text-muted); font-size: 12px; padding-top: 2px; font-variant-numeric: tabular-nums; }
+  .sch-title { flex: 1; }
+  .sch-note { display: block; font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+  .sch-item.now { background: var(--accent-soft); border-radius: 8px; }
+  .sch-item.now .sch-time { color: var(--accent); font-weight: 700; }
+  .sch-tag { font-size: 10px; background: var(--accent); color: white; border-radius: 99px; padding: 1px 7px; margin-left: 6px; vertical-align: 1px; }
+  .member-chips { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
+  .member-chips button { padding: 7px 14px; border-radius: 99px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 13px; cursor: pointer; }
+  .member-chips button.active { background: var(--accent); border-color: var(--accent); color: white; }
+  .week-wrap { overflow-x: auto; }
+  table.week { border-collapse: collapse; width: 100%; font-size: 11px; min-width: 520px; }
+  table.week th, table.week td { border: 1px solid var(--border); padding: 5px 4px; vertical-align: top; text-align: center; }
+  table.week th { background: var(--bg); color: var(--text-muted); font-weight: 600; }
+  table.week td.t { white-space: nowrap; color: var(--text-muted); background: var(--bg); }
+  table.week th:first-child, table.week td.t { position: sticky; left: 0; z-index: 1; }
+  table.week th.today { color: var(--accent); }
+  table.week button { border: none; background: none; color: var(--text); font-size: 11px; cursor: pointer; padding: 0; line-height: 1.35; }
+  .days-check { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+  .days-check label.d { display: inline-flex; align-items: center; gap: 4px; margin: 0; padding: 7px 10px; border: 1px solid var(--border); border-radius: 99px; font-size: 13px; color: var(--text); }
+  .days-check input { width: auto; margin: 0; }
+  .sheet-actions [data-delete] { background: var(--expense-soft); color: var(--expense); flex: 1; }
   .install-btn {
     width: 100%;
     padding: 10px;
@@ -440,7 +509,28 @@
   <p>매일의 수입과 지출을 가볍게 기록해요</p>
 </header>
 
-<main>
+<nav class="viewtabs" id="viewtabs">
+  <button type="button" data-view="ledger" class="active">💰 가계부</button>
+  <button type="button" data-view="schedule">🗓 시간표</button>
+</nav>
+
+<main id="view-schedule" hidden>
+  <section class="card">
+    <div class="sch-modes" id="sch-modes">
+      <button type="button" data-mode="day" class="active">요일별</button>
+      <button type="button" data-mode="week">주간표</button>
+    </div>
+    <div class="day-tabs" id="day-tabs"></div>
+    <div class="member-chips" id="member-chips" hidden></div>
+    <div id="sch-body"></div>
+    <div class="cards-actions">
+      <button type="button" class="mini-btn" id="add-sch-btn">＋ 일정 추가</button>
+      <button type="button" class="mini-btn" id="add-member-btn">＋ 구성원 추가</button>
+    </div>
+  </section>
+</main>
+
+<main id="view-ledger">
 
   <section class="card">
     <div class="month-nav">
@@ -878,7 +968,7 @@
 
   el('export-btn').addEventListener('click', () => {
     // 예전 백업은 내역 배열만 있었다. 지금은 카드·자동이체·월 목표까지 한 파일에 담고, 불러올 때 두 형식을 모두 받는다.
-    const backup = { app: 'dadari', version: 2, transactions, cards, recurs, recurDone: [...recurDone], goal };
+    const backup = { app: 'dadari', version: 2, transactions, cards, recurs, recurDone: [...recurDone], goal, schedule };
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -899,7 +989,8 @@
     reader.onload = () => {
       try {
         const data = JSON.parse(reader.result);
-        const txs = Array.isArray(data) ? data : data && data.transactions;
+        // 객체 형식은 일부 항목만 담아도 된다(예: 시간표만 있는 파일).
+        const txs = Array.isArray(data) ? data : data && typeof data === 'object' ? data.transactions || [] : null;
         if (!Array.isArray(txs)) throw new Error('invalid format');
         const valid = txs.filter(
           (t) => t && t.id && t.date && t.category && typeof t.amount === 'number' && (t.type === 'income' || t.type === 'expense')
@@ -924,9 +1015,17 @@
             saveJson(GOAL_KEY, goal);
           }
           renderCardOptions();
+          if (data.schedule && typeof data.schedule === 'object') {
+            mergeById(schedule.members, data.schedule.members, (m) => typeof m.name === 'string');
+            const mids = new Set(schedule.members.map((m) => m.id));
+            mergeById(schedule.items, data.schedule.items, (i) => mids.has(i.memberId) && typeof i.title === 'string'
+              && /^\d{2}:\d{2}$/.test(i.time) && Number.isInteger(i.day) && i.day >= 0 && i.day <= 6);
+            saveSchedule();
+            renderSchedule();
+          }
         }
         renderAll();
-        showToast(`${added.length}건을 새로 불러왔어요`);
+        showToast(added.length || Array.isArray(data) ? `${added.length}건을 새로 불러왔어요` : '불러왔어요');
       } catch (err) {
         showToast('올바른 백업 파일이 아니에요');
       }
@@ -1150,6 +1249,189 @@
     if (document.visibilityState === 'visible' && applyRecurs()) renderAll();
   });
 
+  /* ---------- 시간표 ---------- */
+  // 구성원(아이 등)별 요일 일정. 폰 안에만 저장하고 코드에는 이름·일정을 넣지 않는다(저장소가 공개라서).
+  const SCH_KEY = 'dadari_schedule_v1';
+  const VIEW_KEY = 'dadari_view_v1';
+  const DAYS = ['일', '월', '화', '수', '목', '금', '토'];
+  const DAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
+  let schedule = loadJson(SCH_KEY, { members: [], items: [] }); // members {id, name}, items {id, memberId, day(0=일), time 'HH:MM', title, note}
+  let schDay = new Date().getDay();
+  let schMode = 'day';
+  let schMember = null;
+
+  const fmtTime = (t) => {
+    const [h, m] = t.split(':').map(Number);
+    return (h < 12 ? '오전 ' : '오후 ') + (h % 12 || 12) + ':' + pad2(m);
+  };
+  const byTime = (a, b) => (a.time < b.time ? -1 : a.time > b.time ? 1 : a.title.localeCompare(b.title));
+  const saveSchedule = () => saveJson(SCH_KEY, schedule);
+
+  function setView(v) {
+    el('view-ledger').hidden = v !== 'ledger';
+    el('view-schedule').hidden = v !== 'schedule';
+    document.querySelectorAll('#viewtabs button').forEach((b) => b.classList.toggle('active', b.dataset.view === v));
+    saveJson(VIEW_KEY, v);
+    if (v === 'schedule') renderSchedule();
+  }
+  el('viewtabs').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-view]');
+    if (b) setView(b.dataset.view);
+  });
+
+  function itemButton(i, now) {
+    return `<button type="button" class="sch-item${now ? ' now' : ''}" data-item="${i.id}">
+      <span class="sch-time">${fmtTime(i.time)}</span>
+      <span class="sch-title">${escapeHtml(i.title)}${now ? '<span class="sch-tag">지금</span>' : ''}${i.note ? `<span class="sch-note">${escapeHtml(i.note)}</span>` : ''}</span>
+    </button>`;
+  }
+
+  function renderSchedule() {
+    const { members, items } = schedule;
+    const today = new Date().getDay();
+    el('sch-modes').querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.dataset.mode === schMode));
+    el('day-tabs').hidden = schMode !== 'day';
+    el('member-chips').hidden = schMode !== 'week' || members.length < 2;
+    el('add-sch-btn').disabled = !members.length;
+
+    if (!members.length) {
+      el('sch-body').innerHTML = '<div class="empty-msg">아직 구성원이 없어요<br>아래 “＋ 구성원 추가”로 이름을 넣고 일정을 추가해 보세요<br>(백업 파일로 시간표를 불러올 수도 있어요)</div>';
+      return;
+    }
+
+    if (schMode === 'day') {
+      el('day-tabs').innerHTML = DAY_ORDER.map((d) =>
+        `<button type="button" data-day="${d}" class="${d === schDay ? 'active' : ''}${d === today ? ' today' : ''}">${DAYS[d]}</button>`).join('');
+      const nowStr = pad2(new Date().getHours()) + ':' + pad2(new Date().getMinutes());
+      el('sch-body').innerHTML = members.map((m) => {
+        const list = items.filter((i) => i.memberId === m.id && i.day === schDay).sort(byTime);
+        // 오늘이면 이미 시작한 마지막 일정을 "지금"으로 표시한다.
+        const cur = schDay === today ? list.filter((i) => i.time <= nowStr).pop() : null;
+        return `<div class="sch-member"><div class="sch-head"><b>${escapeHtml(m.name)}</b>
+          <button type="button" class="icon-btn" data-del-member="${m.id}" aria-label="구성원 삭제">🗑</button></div>
+          ${list.length ? list.map((i) => itemButton(i, cur && cur.id === i.id)).join('') : '<div class="empty-msg" style="padding:10px 0">이 요일 일정이 없어요</div>'}</div>`;
+      }).join('');
+      return;
+    }
+
+    if (!members.some((m) => m.id === schMember)) schMember = members[0].id;
+    el('member-chips').innerHTML = members.map((m) =>
+      `<button type="button" data-member="${m.id}" class="${m.id === schMember ? 'active' : ''}">${escapeHtml(m.name)}</button>`).join('');
+    const mine = items.filter((i) => i.memberId === schMember);
+    const days = DAY_ORDER.filter((d) => d !== 0 || mine.some((i) => i.day === 0));
+    const times = [...new Set(mine.map((i) => i.time))].sort();
+    if (!times.length) {
+      el('sch-body').innerHTML = '<div class="empty-msg">등록된 일정이 없어요</div>';
+      return;
+    }
+    const head = '<th>시간</th>' + days.map((d) => `<th class="${d === today ? 'today' : ''}">${DAYS[d]}</th>`).join('');
+    const rows = times.map((t) => '<tr><td class="t">' + fmtTime(t) + '</td>' + days.map((d) => {
+      const cell = mine.filter((i) => i.day === d && i.time === t);
+      return '<td>' + cell.map((i) => `<button type="button" data-item="${i.id}">${escapeHtml(i.title)}${i.note ? '<br><small>' + escapeHtml(i.note) + '</small>' : ''}</button>`).join('<br>') + '</td>';
+    }).join('') + '</tr>').join('');
+    el('sch-body').innerHTML = `<div class="week-wrap"><table class="week"><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table></div>`;
+  }
+
+  el('sch-modes').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-mode]');
+    if (b) { schMode = b.dataset.mode; renderSchedule(); }
+  });
+  el('day-tabs').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-day]');
+    if (b) { schDay = +b.dataset.day; renderSchedule(); }
+  });
+  el('member-chips').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-member]');
+    if (b) { schMember = b.dataset.member; renderSchedule(); }
+  });
+
+  el('add-member-btn').addEventListener('click', () => {
+    openSheet(`<form>
+      <h3>구성원 추가</h3>
+      <label>이름</label>
+      <input name="name" required maxlength="20" placeholder="예: 첫째, 나, 이름">
+      <div class="sheet-actions"><button type="button" data-cancel>취소</button><button type="submit">추가</button></div>
+    </form>`, (fd) => {
+      const name = String(fd.get('name')).trim();
+      if (!name) return false;
+      schedule.members.push({ id: newId(), name });
+      saveSchedule();
+      renderSchedule();
+      showToast('추가했어요');
+    });
+  });
+
+  // item이 있으면 수정(요일 하나), 없으면 추가(요일 여러 개를 한 번에 고를 수 있다).
+  function openItemSheet(item) {
+    const memberOpts = schedule.members.map((m) =>
+      `<option value="${m.id}"${(item ? item.memberId : schedule.members.some((x) => x.id === schMember) ? schMember : '') === m.id ? ' selected' : ''}>${escapeHtml(m.name)}</option>`).join('');
+    const dayField = item
+      ? `<select name="day">${DAY_ORDER.map((d) => `<option value="${d}"${d === item.day ? ' selected' : ''}>${DAYS[d]}요일</option>`).join('')}</select>`
+      : `<div class="days-check">${DAY_ORDER.map((d) => `<label class="d"><input type="checkbox" name="days" value="${d}"${d === schDay ? ' checked' : ''}>${DAYS[d]}</label>`).join('')}</div>`;
+    openSheet(`<form>
+      <h3>${item ? '일정 수정' : '일정 추가'}</h3>
+      <label>구성원</label>
+      <select name="member">${memberOpts}</select>
+      <label>${item ? '요일' : '요일 (여러 개 선택 가능)'}</label>
+      ${dayField}
+      <label>시작 시간</label>
+      <input name="time" type="time" required value="${item ? item.time : ''}">
+      <label>일정</label>
+      <input name="title" required maxlength="30" placeholder="예: 영어, 수영, 하교" value="${item ? escapeHtml(item.title).replace(/"/g, '&quot;') : ''}">
+      <label>메모 (장소 등, 선택)</label>
+      <input name="note" maxlength="30" placeholder="예: 5층음악실" value="${item ? escapeHtml(item.note || '').replace(/"/g, '&quot;') : ''}">
+      <div class="sheet-actions">
+        <button type="button" data-cancel>취소</button>
+        ${item ? '<button type="button" data-delete>삭제</button>' : ''}
+        <button type="submit">${item ? '저장' : '추가'}</button>
+      </div>
+    </form>`, (fd) => {
+      const title = String(fd.get('title')).trim();
+      const time = String(fd.get('time'));
+      if (!title || !/^\d{2}:\d{2}$/.test(time)) { showToast('일정 이름과 시간을 확인해 주세요'); return false; }
+      const base = { memberId: String(fd.get('member')), time, title, note: String(fd.get('note')).trim() };
+      if (item) {
+        Object.assign(item, base, { day: +fd.get('day') });
+      } else {
+        const days = fd.getAll('days').map(Number);
+        if (!days.length) { showToast('요일을 하나 이상 골라 주세요'); return false; }
+        days.forEach((d) => schedule.items.push({ id: newId(), day: d, ...base }));
+        schDay = days[0];
+        schMember = base.memberId;
+      }
+      saveSchedule();
+      renderSchedule();
+      showToast(item ? '수정했어요' : '추가했어요');
+    });
+    const del = sheetBody.querySelector('[data-delete]');
+    if (del) {
+      del.addEventListener('click', () => {
+        schedule.items = schedule.items.filter((i) => i.id !== item.id);
+        saveSchedule();
+        closeSheet();
+        renderSchedule();
+        showToast('삭제했어요');
+      });
+    }
+  }
+  el('add-sch-btn').addEventListener('click', () => openItemSheet(null));
+  el('sch-body').addEventListener('click', (e) => {
+    const it = e.target.closest('[data-item]');
+    if (it) { openItemSheet(schedule.items.find((i) => i.id === it.dataset.item)); return; }
+    const dm = e.target.closest('[data-del-member]');
+    if (dm) {
+      const m = schedule.members.find((x) => x.id === dm.dataset.delMember);
+      if (!m || !confirm(`“${m.name}”을(를) 삭제할까요?\n등록한 시간표 일정도 함께 지워져요.`)) return;
+      schedule.members = schedule.members.filter((x) => x.id !== m.id);
+      schedule.items = schedule.items.filter((i) => i.memberId !== m.id);
+      saveSchedule();
+      renderSchedule();
+      showToast('삭제했어요');
+    }
+  });
+  // 켜 둔 채 시간이 흘러도 "지금" 표시가 맞도록 1분마다 갱신한다.
+  setInterval(() => { if (!el('view-schedule').hidden && schMode === 'day') renderSchedule(); }, 60000);
+
   /* ---------- 영수증 사진 ---------- */
   // 사진은 localStorage에 들어가기엔 커서 IndexedDB에 기록 id로 저장한다. 백업 JSON에는 포함되지 않는다.
   let pendingBlob = null;
@@ -1307,7 +1589,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v5'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v6'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').textContent = '다다리 가계부 ' + APP_VERSION;
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
@@ -1353,6 +1635,7 @@
   renderCardOptions();
   updatePayVisibility();
   renderAll();
+  setView(loadJson(VIEW_KEY, 'ledger') === 'schedule' ? 'schedule' : 'ledger');
 })();
 </script>
 

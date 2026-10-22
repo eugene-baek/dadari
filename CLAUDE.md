@@ -13,5 +13,7 @@
 - 사용자 데이터는 폰 브라우저 localStorage에 있다. 저장 키(`dadari_transactions_v1`, `dadari_goal_v1`, `dadari_cards_v1`, `dadari_recurs_v1`, `dadari_recur_done_v1`)는 바꾸지 않는다. 바꿔야 하면 기존 데이터를 옮기는 코드를 같이 넣는다.
 - 백업 JSON은 두 형식을 모두 불러온다: 예전 형식(내역 배열)과 v2 형식(`{app, version, transactions, cards, recurs, recurDone, goal}`). 내보내기는 v2.
 - 카드는 이름·종류·결제일만 저장한다. 카드번호 등 민감한 정보는 받지 않는다.
+- 시간표(`dadari_schedule_v1`: members, items)는 백업 v2의 `schedule`에 들어간다. 시간표만 담은 파일도 불러올 수 있다.
+- **이 저장소는 공개다.** 가족 이름, 아이 시간표, 학원·장소 같은 개인 정보를 코드·커밋에 넣지 않는다. 시험 데이터도 저장소 폴더 밖에서 만들고, 배포 전에 `git status`와 grep으로 확인한다(`deploy.sh`가 `git add -A`를 쓴다).
 - 영수증 사진은 IndexedDB(`dadari`/`receipts`)에 있고 백업 JSON에는 들어가지 않는다.
 - 로컬 테스트용 데이터는 확인 후 지운다.
