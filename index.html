@@ -789,7 +789,7 @@
   <button type="button" data-view="schedule"><span class="ic">🗓</span>시간표</button>
   <button type="button" data-view="health"><span class="ic">🩺</span>건강</button>
   <button type="button" data-view="insurance"><span class="ic">🛡</span>보험</button>
-  <button type="button" data-view="rental"><span class="ic">🧰</span>렌탈</button>
+  <button type="button" data-view="rental"><span class="ic">🧰</span>렌탈·구독</button>
   <button type="button" data-view="academy"><span class="ic">📚</span>학원비</button>
   <button type="button" data-view="biz"><span class="ic">📈</span>사업매출</button>
   <button type="button" data-view="food"><span class="ic">🍳</span>오늘뭐먹지</button>
@@ -891,7 +891,7 @@
     <div class="member-chips" id="rent-who" hidden></div>
     <div id="rent-body"></div>
     <div class="cards-actions">
-      <button type="button" class="mini-btn" id="add-rent-btn">＋ 렌탈 추가</button>
+      <button type="button" class="mini-btn" id="add-rent-btn">＋ 렌탈·구독 추가</button>
       <button type="button" class="mini-btn" id="rent-member-btn">👥 구성원 관리</button>
     </div>
   </section>
@@ -2480,7 +2480,7 @@
     const rents = rentals.filter((r) => r.who === id);
     if (meds.length) parts.push(`복약 ${meds.length}개`);
     if (policies.length) parts.push(`보험 ${policies.length}건`);
-    if (rents.length) parts.push(`렌탈 ${rents.length}건`);
+    if (rents.length) parts.push(`렌탈·구독 ${rents.length}건`);
     const acas = academies.filter((a) => a.who === id);
     if (acas.length) parts.push(`학원 ${acas.length}건`);
     const savs = savings.accounts.filter((a) => savWho(a) === id);
@@ -3490,7 +3490,7 @@
     const today = todayStr();
     const ppl = people();
     const list = rentals.filter((r) => conWho === 'all' || r.who === conWho);
-    if (!list.length) return '<div class="empty-msg">등록한 렌탈이 없어요<br>아래 “＋ 렌탈 추가”로 정수기·안마의자 같은 렌탈 계약을 기록하세요</div>';
+    if (!list.length) return '<div class="empty-msg">등록한 렌탈·구독이 없어요<br>아래 “＋ 렌탈·구독 추가”로 정수기·안마의자 같은 렌탈 계약이나 넷플릭스·음악 같은 구독을 기록하세요</div>';
     const tag = (r) => (conWho === 'all' && ppl.length > 1 ? `<span class="who-tag">${esc(whoName(r.who))}</span>` : '');
     const live = list.filter((r) => rentState(r, today) !== 'ended');
     const ended = list.filter((r) => rentState(r, today) === 'ended');
@@ -3593,11 +3593,11 @@
     const who = r ? r.who : conWho === 'all' ? 'me' : conWho;
     const whoOpts = people().map((x) => `<option value="${attr(x.id)}"${x.id === who ? ' selected' : ''}>${esc(x.name)}</option>`).join('');
     openSheet(`<form>
-      <h3>${r ? '렌탈 수정' : '렌탈 추가'}</h3>
+      <h3>${r ? '렌탈·구독 수정' : '렌탈·구독 추가'}</h3>
       <label>명의 · 사용자</label><select name="who">${whoOpts}</select>
-      <label>렌탈 업체 (선택)</label><input name="company" maxlength="20" placeholder="예: OO렌탈" value="${val(r && r.company)}">
-      <label>품목</label><input name="name" required maxlength="40" placeholder="예: 정수기, 안마의자, 공기청정기" value="${val(r && r.name)}">
-      <label>월 렌탈료 (원)</label><input name="fee" type="number" min="1" inputmode="numeric" required value="${val(r && r.fee)}">
+      <label>업체·서비스 (선택)</label><input name="company" maxlength="20" placeholder="예: OO렌탈, 넷플릭스" value="${val(r && r.company)}">
+      <label>품목</label><input name="name" required maxlength="40" placeholder="예: 정수기, 안마의자, 넷플릭스 구독" value="${val(r && r.name)}">
+      <label>월 이용료 (원)</label><input name="fee" type="number" min="1" inputmode="numeric" required value="${val(r && r.fee)}">
       <label>결제일 (매월 며칠)</label><input name="payDay" type="number" min="1" max="31" inputmode="numeric" value="${val(r && r.payDay ? r.payDay : '')}">
       <label>결제수단</label><select name="card">${cardSelectOptions(r && r.cardId)}</select>
       <label>계약 시작일 (선택)</label><input name="start" type="date" value="${val(r && r.start)}">
@@ -3607,13 +3607,13 @@
       <label>상태</label>
       <select name="status"><option value="active"${r && r.status === 'ended' ? '' : ' selected'}>이용 중</option><option value="ended"${r && r.status === 'ended' ? ' selected' : ''}>해지·종료</option></select>
       <label>메모 (선택)</label><input name="note" maxlength="80" placeholder="예: 위약금 있음, 설치 위치" value="${val(r && r.note)}">
-      <label class="check"><input type="checkbox" name="auto"${!r || r.auto ? ' checked' : ''}> 가계부에 렌탈료를 고정비로 자동 기록</label>
+      <label class="check"><input type="checkbox" name="auto"${!r || r.auto ? ' checked' : ''}> 가계부에 이용료를 고정비로 자동 기록</label>
       <p class="goal-hint">계약번호 같은 식별 번호는 입력하지 않아요. 약정이 끝나기 전에 만료일을 알려 드려요.</p>
       <div class="sheet-actions"><button type="button" data-cancel>취소</button>${r ? '<button type="button" data-delete>삭제</button>' : ''}<button type="submit">저장</button></div>
     </form>`, (fd) => {
       const name = String(fd.get('name')).trim();
       const fee = parseInt(fd.get('fee'), 10);
-      if (!name || !(fee > 0)) { showToast('품목과 월 렌탈료를 확인해 주세요'); return false; }
+      if (!name || !(fee > 0)) { showToast('품목과 월 이용료를 확인해 주세요'); return false; }
       const date = (k) => (validDate(String(fd.get(k))) ? String(fd.get(k)) : '');
       const rec = {
         who: String(fd.get('who')), company: String(fd.get('company')).trim(), name, fee,
@@ -4856,7 +4856,7 @@
       const end = rentEnd(r);
       if (r.payDay >= 1) {
         const d = ymdOf(y, m, r.payDay);
-        if ((!validDate(r.start) || d >= r.start) && (!end || d <= end)) add(d, '🧰', `렌탈료 ${r.name} ${formatWon(+r.fee || 0)}`, 'rental');
+        if ((!validDate(r.start) || d >= r.start) && (!end || d <= end)) add(d, '🧰', `이용료 ${r.name} ${formatWon(+r.fee || 0)}`, 'rental');
       }
       add(r.nextVisit, '🧰', `${r.name} 방문 관리`, 'rental');
       add(end, '🧰', `${r.name} 약정 만료`, 'rental');
@@ -4989,7 +4989,7 @@
 
   /* ---------- 메뉴(탭) 순서 ---------- */
   const TAB_KEY = 'dadari_tab_order_v1';   // 이 기기의 설정(동기화하지 않는다)
-  const TAB_LABELS = { status: '📊 현황', calendar: '📅 캘린더', ledger: '💰 가계부', savings: '🐷 저축', schedule: '🗓 시간표', health: '🩺 건강', insurance: '🛡 보험', rental: '🧰 렌탈', academy: '📚 학원비', biz: '📈 사업매출', food: '🍳 오늘뭐먹지' };
+  const TAB_LABELS = { status: '📊 현황', calendar: '📅 캘린더', ledger: '💰 가계부', savings: '🐷 저축', schedule: '🗓 시간표', health: '🩺 건강', insurance: '🛡 보험', rental: '🧰 렌탈·구독', academy: '📚 학원비', biz: '📈 사업매출', food: '🍳 오늘뭐먹지' };
   function tabOrder() {
     const base = Object.keys(TAB_LABELS);
     let saved = [];
@@ -5087,7 +5087,7 @@
       if (rentState(r, today) === 'ended') return;
       const d = nextPay(r.payDay, today, 'month');
       const dd = d ? within(d, 0, 3) : null;
-      if (dd !== null) add(dd, `렌탈료 ${r.name} ${formatWon(+r.fee || 0)}`, 'rental', '🧰');
+      if (dd !== null) add(dd, `이용료 ${r.name} ${formatWon(+r.fee || 0)}`, 'rental', '🧰');
       const v = within(r.nextVisit, -7, 7);
       if (v !== null) add(v, `${r.name} 방문 관리`, 'rental', '🧰');
       const e = within(rentEnd(r), -30, 60);
@@ -5137,8 +5137,8 @@
 
   /* 캘린더 알람 내보내기 */
   const ALARM_KEY = 'dadari_alarm_v1';   // 이 기기의 설정(동기화하지 않는다)
-  const ALARM_GROUPS = [['visit', '🏥 병원 예약'], ['vaccine', '💉 접종 예정'], ['pay', '💳 납부일 (보험·렌탈·학원비·카드 결제일)'],
-    ['renew', '🛡 보험 갱신·만기'], ['rent', '🧰 렌탈 방문·약정 만료'], ['med', '💊 복약 시간'], ['food', '🧊 냉장고 소비기한'], ['mine', '📅 캘린더에 적은 내 일정']];
+  const ALARM_GROUPS = [['visit', '🏥 병원 예약'], ['vaccine', '💉 접종 예정'], ['pay', '💳 납부일 (보험·렌탈·구독·학원비·카드 결제일)'],
+    ['renew', '🛡 보험 갱신·만기'], ['rent', '🧰 렌탈·구독 방문·만료'], ['med', '💊 복약 시간'], ['food', '🧊 냉장고 소비기한'], ['mine', '📅 캘린더에 적은 내 일정']];
   const ALARM_LEADS = [['day0', '당일 오전 9시'], ['day1', '하루 전 오전 9시'], ['day3', '3일 전 오전 9시'], ['day1+0', '하루 전 + 당일 오전 9시']];
   function loadAlarm() {
     let v = null;
@@ -5210,7 +5210,7 @@
       });
       rentals.forEach((r) => {
         if (rentState(r, today) === 'ended' || !(r.payDay >= 1)) return;
-        monthly({ uid: 'pay-rent-' + r.id, summary: `🧰 렌탈료 ${r.name} ${formatWon(+r.fee || 0)}` }, r.payDay);
+        monthly({ uid: 'pay-rent-' + r.id, summary: `🧰 이용료 ${r.name} ${formatWon(+r.fee || 0)}` }, r.payDay);
       });
       academies.forEach((a) => {
         if (a.status !== 'active' || !(a.payDay >= 1)) return;
@@ -5407,7 +5407,7 @@
       row('🔁', '자동이체·정기결제', `${expRecurs.length}건${incRecurs.length ? ` · 고정수입 ${incRecurs.length}건` : ''}`, '', money(sum(expRecurs, (r) => r.amount)) === '-' ? '-' : '월 ' + formatWon(sum(expRecurs, (r) => r.amount)), 'ledger', 'card'),
       row('💳', '카드', `등록 ${cards.length}장`, '', cards.length ? '이번 달 ' + formatWon(cardTotal) : '-', 'ledger', 'card'),
       row('🛡', '보험', `납입 중 ${activeIns.length}건 / 전체 ${insurance.length}건`, insSoon ? `갱신·만기 임박 ${insSoon}건` : '', insMonthly ? '월 ' + formatWon(insMonthly) : '-', 'insurance'),
-      row('🧰', '렌탈', `이용 중 ${liveRent.length}건`, rentSoon ? `약정 만료 임박 ${rentSoon}건` : '', rentMonthly ? '월 ' + formatWon(rentMonthly) : '-', 'rental'),
+      row('🧰', '렌탈·구독', `이용 중 ${liveRent.length}건`, rentSoon ? `약정 만료 임박 ${rentSoon}건` : '', rentMonthly ? '월 ' + formatWon(rentMonthly) : '-', 'rental'),
       row('📚', '학원비', `수강 ${liveAca.length}건 · 납부 ${liveAca.length - acaUnpaid.length}/${liveAca.length}`, acaUnpaid.length ? `미납 ${acaUnpaid.length}건 ${formatWon(sum(acaUnpaid, (a) => +a.fee || 0))}` : '', acaTotal ? formatWon(acaTotal) : '-', 'academy'),
       row('🩺', '건강', `접종 예정 ${planned.length} · 병원 예약 ${visitsNext}${medsLeft ? ` · 오늘 복약 ${medsLeft}개 남음` : ''}`, [overdueVac ? `접종 ${overdueVac}건 지남` : '', claimTodo ? `실비 청구 필요 ${claimTodo}건` : ''].filter(Boolean).join(' · '), '-', 'health'),
       row('🗓', '시간표', `오늘 일정 ${todaySch}개 · 구성원 ${schedule.members.length}명`, '', '-', 'schedule'),
@@ -5417,7 +5417,7 @@
     ].join('');
 
     // 매달 고정으로 나가는 돈 (보험·렌탈·학원비는 각 탭 데이터에서, 그 밖의 자동이체는 정기결제 목록에서)
-    const parts = [['보험', insMonthly], ['렌탈', rentMonthly], ['학원비', sum(academies.filter((a) => a.status === 'active'), (a) => +a.fee || 0)], ['자동이체·기타', otherRecurs]].filter((p) => p[1] > 0);
+    const parts = [['보험', insMonthly], ['렌탈·구독', rentMonthly], ['학원비', sum(academies.filter((a) => a.status === 'active'), (a) => +a.fee || 0)], ['자동이체·기타', otherRecurs]].filter((p) => p[1] > 0);
     const fixedTotal = sum(parts, (p) => p[1]);
     const maxPart = Math.max(1, ...parts.map((p) => p[1]));
     const fixedHtml = parts.length
@@ -5900,7 +5900,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v36'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v37'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span style="display:block;margin-bottom:4px">다달이, 매일의 기록이 모여 더 나은 생활이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
