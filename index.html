@@ -434,10 +434,19 @@
   .fx-row:first-child { border-top: none; }
   .fx-row span { color: var(--text-muted); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .fx-row span em { font-style: normal; color: var(--text); }
-  /* 탭이 많아서 아이콘을 위, 이름을 아래에 두고, 폰에서는 줄을 좌우로 밀어 넘긴다(넓은 화면에서는 꽉 채운다) */
-  .viewtabs { gap: 5px; padding: 0 12px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
-  .viewtabs::-webkit-scrollbar { display: none; }
-  .viewtabs button { flex: 1 0 64px; padding: 8px 0; font-size: 11px; line-height: 1.3; display: flex; flex-direction: column; align-items: center; gap: 1px; white-space: nowrap; }
+  .viewtabs-foot { max-width: 720px; margin: 0 auto 10px; padding: 0 20px; text-align: right; }
+  .tab-order-btn { background: none; border: 0; color: var(--text-muted); font-size: 12px; cursor: pointer; padding: 4px 0; }
+  .rcp { padding: 12px 0; border-top: 1px solid var(--border); font-size: 13px; line-height: 1.6; }
+  .rcp:first-of-type { border-top: none; }
+  .rcp .rn { font-size: 15px; font-weight: 700; }
+  .rcp .rt { font-size: 10px; background: var(--accent-soft); color: var(--accent); border-radius: 99px; padding: 1px 7px; margin-left: 6px; vertical-align: 1px; }
+  .rcp .rm { color: var(--text-muted); }
+  .rcp .rw { color: var(--expense); }
+  .rcp .rk { margin-top: 2px; }
+  .pick { background: var(--accent-soft); border: 1px solid var(--accent); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
+  .pick .rcp { padding: 0; border: 0; }
+  .dd-chip { font-size: 10px; border-radius: 99px; padding: 1px 6px; margin-left: 5px; border: 1px solid var(--border); color: var(--text-muted); }
+  .dd-chip.soon { color: var(--expense); border-color: var(--expense); font-weight: 700; }
   .vcheck.on { background: var(--accent); color: #fff; }
   .biz-trend { display: flex; align-items: flex-end; gap: 8px; height: 120px; margin-top: 8px; }
   .biz-trend .col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 3px; font-size: 10px; color: var(--text-muted); }
@@ -543,17 +552,23 @@
   .fx-group b.expense { color: var(--expense); }
   .fix-btn { opacity: 0.3; }
   .fix-btn.on { opacity: 1; }
-  .viewtabs { display: flex; gap: 8px; max-width: 720px; margin: 0 auto 12px; padding: 0 20px; }
+  /* 메뉴는 한 줄에 4개씩 아래로 내려 쌓는다(아이콘 위, 이름 아래). 순서는 "메뉴 순서 바꾸기"로 바꾼다. */
+  .viewtabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; max-width: 720px; margin: 0 auto 6px; padding: 0 20px; }
   .viewtabs button {
-    flex: 1;
-    padding: 10px;
+    padding: 9px 0;
     border-radius: 10px;
     border: 1px solid var(--border);
     background: var(--card-bg);
     color: var(--text-muted);
-    font-size: 14px;
+    font-size: 12px;
     font-weight: 600;
+    line-height: 1.3;
     cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    white-space: nowrap;
   }
   .viewtabs button.active { background: var(--accent); border-color: var(--accent); color: white; }
   .day-tabs { display: flex; gap: 6px; margin-bottom: 12px; }
@@ -639,7 +654,9 @@
   <button type="button" data-view="rental"><span class="ic">🧰</span>렌탈</button>
   <button type="button" data-view="academy"><span class="ic">📚</span>학원비</button>
   <button type="button" data-view="biz"><span class="ic">📈</span>사업매출</button>
+  <button type="button" data-view="food"><span class="ic">🍳</span>오늘뭐먹지</button>
 </nav>
+<div class="viewtabs-foot"><button type="button" class="tab-order-btn" id="tab-order-btn">⇅ 메뉴 순서 바꾸기</button></div>
 
 <main id="view-insurance" hidden>
   <section class="card">
@@ -681,6 +698,17 @@
       <button type="button" class="mini-btn" id="add-cost-btn">＋ 비용 입력</button>
       <button type="button" class="mini-btn" id="biz-target-btn">🎯 월 목표</button>
     </div>
+  </section>
+</main>
+
+<main id="view-food" hidden>
+  <section class="card">
+    <div class="sch-modes" id="food-modes">
+      <button type="button" data-fm="fridge" class="active">🧊 냉장고</button>
+      <button type="button" data-fm="menu">🍳 오늘 뭐 먹지?</button>
+    </div>
+    <div id="food-body"></div>
+    <div class="cards-actions" id="food-actions"></div>
   </section>
 </main>
 
@@ -1254,7 +1282,7 @@
 
   el('export-btn').addEventListener('click', () => {
     // 예전 백업은 내역 배열만 있었다. 지금은 카드·자동이체·월 목표까지 한 파일에 담고, 불러올 때 두 형식을 모두 받는다.
-    const backup = { app: 'dadari', version: 2, transactions, categories, cards, recurs, recurDone: [...recurDone], goal, schedule, health, insurance, rentals, academies, biz };
+    const backup = { app: 'dadari', version: 2, transactions, categories, cards, recurs, recurDone: [...recurDone], goal, schedule, health, insurance, rentals, academies, biz, fridge };
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -1333,6 +1361,11 @@
             mergeById(academies, data.academies, (a) => typeof a.name === 'string' && a.fee > 0);
             saveAcademies();
             renderAcademy();
+          }
+          if (Array.isArray(data.fridge)) {
+            mergeById(fridge, data.fridge, (f) => typeof f.name === 'string' && f.name);
+            saveFridge();
+            renderFood();
           }
           if (data.biz && Array.isArray(data.biz.entries)) {
             mergeById(biz.entries, data.biz.entries, (e) => validDate(e.date) && (e.kind === 'sale' || e.kind === 'cost') && e.amount > 0);
@@ -1923,6 +1956,7 @@
     el('view-rental').hidden = v !== 'rental';
     el('view-academy').hidden = v !== 'academy';
     el('view-biz').hidden = v !== 'biz';
+    el('view-food').hidden = v !== 'food';
     document.querySelectorAll('#viewtabs button').forEach((b) => b.classList.toggle('active', b.dataset.view === v));
     saveJson(VIEW_KEY, v);
     if (v === 'schedule') renderSchedule();
@@ -1931,8 +1965,7 @@
     if (v === 'rental') renderRental();
     if (v === 'academy') renderAcademy();
     if (v === 'biz') renderBiz();
-    const activeTab = document.querySelector('#viewtabs button.active');
-    if (activeTab && activeTab.scrollIntoView) activeTab.scrollIntoView({ inline: 'center', block: 'nearest' });   // 탭 줄이 넘칠 때 선택한 탭이 보이게
+    if (v === 'food') renderFood();
   }
   el('viewtabs').addEventListener('click', (e) => {
     const b = e.target.closest('button[data-view]');
@@ -3522,6 +3555,294 @@
     if (row) openBizSheet(biz.entries.find((x) => x.id === row.dataset.biz));
   });
 
+  /* ---------- 오늘 뭐 먹지? (냉장고 관리) ---------- */
+  // 냉장고 재료와 소비기한을 기록하고, 가진 재료로 만들 수 있는 메뉴를 추천한다(소비기한이 임박한 재료를 쓰는 메뉴를 우선).
+  const FRIDGE_KEY = 'dadari_fridge_v1';
+  let fridge = loadJson(FRIDGE_KEY, []);   // {id, name, qty, store 'fridge'|'freezer'|'room', bought, expiry, note}
+  if (!Array.isArray(fridge)) fridge = [];
+  let foodMode = 'fridge';
+  let foodPick = null;
+  const saveFridge = () => saveJson(FRIDGE_KEY, fridge);
+  const STORES = [['fridge', '🧊 냉장'], ['freezer', '❄️ 냉동'], ['room', '🧺 실온']];
+  const STAPLES = '소금·설탕·간장·식용유·참기름·후추·고춧가루·다진마늘·깨·고추장·된장·식초';
+
+  // 재료 이름을 표준 이름으로 맞춘다(계란=달걀, 대파=파 등). 가장 긴 키워드가 이긴다.
+  const ALIASES = {
+    달걀: ['달걀', '계란'], 파: ['대파', '쪽파', '실파', '파'], 양파: ['양파'], 마늘: ['마늘'], 감자: ['감자'], 고구마: ['고구마'], 당근: ['당근'],
+    애호박: ['애호박', '호박'], 버섯: ['버섯', '표고', '느타리', '팽이', '새송이', '양송이'], 두부: ['두부'], 순두부: ['순두부'], 김치: ['김치', '깍두기'],
+    콩나물: ['콩나물'], 숙주: ['숙주'], 시금치: ['시금치'], 상추: ['상추', '양상추', '로메인', '샐러드'], 깻잎: ['깻잎'], 양배추: ['양배추'], 오이: ['오이'],
+    무: ['무', '총각무'], 배추: ['배추', '알배기'], 브로콜리: ['브로콜리'], 파프리카: ['파프리카', '피망'], 고추: ['고추', '청양'], 토마토: ['토마토'],
+    돼지고기: ['돼지', '삼겹', '목살', '앞다리', '뒷다리', '항정', '제육'], 소고기: ['소고기', '쇠고기', '한우', '불고기', '등심', '안심', '차돌', '양지'],
+    닭고기: ['닭', '치킨'], 햄: ['햄', '스팸', '소시지', '소세지', '베이컨'], 참치: ['참치'], 어묵: ['어묵', '오뎅'], 북어: ['북어', '황태'],
+    고등어: ['고등어'], 오징어: ['오징어'], 새우: ['새우'], 멸치: ['멸치'], 미역: ['미역'], 김: ['김밥김', '조미김', '김'],
+    밥: ['밥', '쌀', '햇반', '현미'], 라면: ['라면'], 국수: ['국수', '소면', '중면'], 파스타: ['파스타', '스파게티'], 떡: ['떡'], 식빵: ['식빵', '토스트', '빵'],
+    만두: ['만두'], 우유: ['우유'], 치즈: ['치즈'], 밀가루: ['밀가루', '부침가루', '튀김가루'], 카레: ['카레'], 토마토소스: ['토마토소스', '파스타소스'], 생크림: ['생크림']
+  };
+  const canonOf = (raw) => {
+    const n = String(raw).replace(/\s+/g, '').toLowerCase();
+    let best = null, len = 0;
+    Object.entries(ALIASES).forEach(([c, ks]) => ks.forEach((k) => { if (n.includes(k) && k.length > len) { best = c; len = k.length; } }));
+    return best || n;
+  };
+
+  // [메뉴, 분류, 꼭 필요한 재료(A|B는 둘 중 하나), 있으면 좋은 재료, 한 줄 조리법]
+  const RECIPES = [
+    ['김치찌개', '국·찌개', ['김치', '돼지고기|참치|햄'], ['두부', '파', '양파'], '김치와 고기를 볶다가 물을 붓고 끓이다 두부·파를 넣어요.'],
+    ['된장찌개', '국·찌개', ['두부', '애호박|감자|양파|버섯'], ['파', '고추', '버섯'], '멸치 육수나 물에 된장을 풀고 채소·두부를 넣어 끓여요.'],
+    ['순두부찌개', '국·찌개', ['순두부'], ['돼지고기', '달걀', '파', '새우'], '고춧가루·기름에 고기를 볶고 물, 순두부를 넣어 끓인 뒤 달걀을 풀어요.'],
+    ['계란국', '국·찌개', ['달걀', '파'], ['양파'], '물이 끓으면 간장·소금으로 간하고 달걀을 풀어 파를 넣어요.'],
+    ['콩나물국', '국·찌개', ['콩나물'], ['파', '달걀', '김치'], '물에 콩나물과 마늘을 넣고 뚜껑 열지 말고 끓인 뒤 소금으로 간해요.'],
+    ['미역국', '국·찌개', ['미역'], ['소고기', '달걀'], '불린 미역을 참기름에 볶다가 물을 붓고 간장·소금으로 간해요.'],
+    ['감자국', '국·찌개', ['감자'], ['양파', '파', '애호박'], '채 썬 감자와 양파를 볶다 물을 붓고 끓여 소금·간장으로 간해요.'],
+    ['어묵탕', '국·찌개', ['어묵', '무|파|양파'], ['파', '고추'], '무나 양파로 국물을 내고 어묵을 넣어 간장·소금으로 간해요.'],
+    ['부대찌개', '국·찌개', ['햄', '김치', '라면|두부|파'], ['치즈', '양파'], '김치·햄·채소를 냄비에 돌려 담고 육수를 부어 끓인 뒤 라면을 넣어요.'],
+    ['북엇국', '국·찌개', ['북어'], ['달걀', '파', '두부', '무'], '북어를 참기름에 볶다 물을 붓고 끓여 달걀을 풀어요.'],
+    ['계란말이', '반찬', ['달걀'], ['파', '당근', '양파', '햄'], '달걀에 다진 채소를 섞어 약불에서 돌돌 말아요.'],
+    ['계란찜', '반찬', ['달걀'], ['파'], '달걀을 물과 1:1로 풀어 소금 간하고 중탕하거나 약불에서 찌세요.'],
+    ['감자볶음', '반찬', ['감자'], ['양파', '당근', '햄'], '채 썬 감자를 물에 헹궈 기름에 볶다 소금으로 간해요.'],
+    ['애호박볶음', '반찬', ['애호박'], ['양파', '파', '당근'], '반달 썬 애호박을 기름에 볶다 소금·마늘로 간해요.'],
+    ['어묵볶음', '반찬', ['어묵'], ['양파', '당근', '파'], '어묵과 채소를 볶다 간장·설탕·물엿으로 조려요.'],
+    ['소시지야채볶음', '반찬', ['햄', '양파|당근|파프리카|양배추'], ['달걀'], '소시지와 채소를 볶아 케첩이나 간장으로 간해요.'],
+    ['콩나물무침', '반찬', ['콩나물'], ['파'], '데친 콩나물에 소금·참기름·깨·다진 마늘을 무쳐요.'],
+    ['시금치나물', '반찬', ['시금치'], ['마늘'], '살짝 데친 시금치를 물기 짜서 간장·참기름·깨로 무쳐요.'],
+    ['두부조림', '반찬', ['두부'], ['파', '양파'], '부친 두부에 간장·고춧가루 양념을 얹어 졸여요.'],
+    ['두부부침', '반찬', ['두부'], ['달걀'], '두부를 썰어 소금 뿌려 노릇하게 부쳐요.'],
+    ['멸치볶음', '반찬', ['멸치'], ['마늘'], '마른 팬에 멸치를 볶고 간장·설탕·물엿으로 버무려요.'],
+    ['제육볶음', '반찬', ['돼지고기', '양파|파|양배추'], ['당근', '고추'], '고추장·고춧가루 양념에 고기를 재워 채소와 센 불에 볶아요.'],
+    ['불고기', '반찬', ['소고기', '양파|파|버섯|당근'], ['버섯'], '간장·설탕·배즙 양념에 재워 채소와 함께 볶아요.'],
+    ['닭볶음탕', '반찬', ['닭고기', '감자', '양파|당근|파'], ['고추'], '양념과 물을 붓고 닭·감자·채소를 센 불에서 끓이다 졸여요.'],
+    ['두부김치', '반찬', ['두부', '김치'], ['돼지고기'], '볶은 김치를 데친 두부와 함께 담아요.'],
+    ['고등어조림', '반찬', ['고등어', '무|감자|양파|파'], ['고추'], '무를 깔고 고등어를 얹어 양념과 물을 붓고 졸여요.'],
+    ['오징어볶음', '반찬', ['오징어', '양파|파|양배추'], ['고추', '당근'], '고추장 양념에 오징어와 채소를 센 불에 재빨리 볶아요.'],
+    ['계란볶음밥', '한 그릇', ['밥', '달걀'], ['파', '양파', '햄', '당근'], '파기름에 달걀을 먼저 볶고 밥과 채소를 넣어 간장·소금으로 간해요.'],
+    ['김치볶음밥', '한 그릇', ['밥', '김치'], ['달걀', '햄', '파'], '김치와 햄을 볶다가 밥을 넣고 참기름·깨를 더해요.'],
+    ['참치마요덮밥', '한 그릇', ['밥', '참치'], ['달걀', '양파', '김'], '기름 뺀 참치를 마요네즈·간장에 버무려 밥 위에 올려요.'],
+    ['간장계란밥', '한 그릇', ['밥', '달걀'], ['김'], '반숙 달걀프라이와 간장·참기름을 밥에 비벼요.'],
+    ['주먹밥', '한 그릇', ['밥', '김|참치|햄'], ['달걀', '당근'], '밥에 소금·참기름과 잘게 다진 재료를 섞어 뭉쳐요.'],
+    ['카레라이스', '한 그릇', ['밥', '카레', '감자|양파|당근'], ['돼지고기', '소고기', '닭고기'], '재료를 볶다가 물을 붓고 익으면 카레를 풀어 끓여요.'],
+    ['비빔밥', '한 그릇', ['밥', '시금치|콩나물|애호박|당근', '달걀'], ['고추장'], '나물을 볶거나 무쳐 밥 위에 올리고 고추장·참기름·달걀을 얹어요.'],
+    ['오므라이스', '한 그릇', ['밥', '달걀', '양파|햄|당근'], ['케첩'], '밥을 볶아 케첩으로 간하고 얇게 부친 달걀로 감싸요.'],
+    ['김밥', '한 그릇', ['밥', '김', '달걀|햄|시금치|당근'], ['오이'], '밥에 참기름·소금을 섞고 속재료를 올려 김으로 말아요.'],
+    ['라면', '면', ['라면'], ['달걀', '파', '김치', '치즈', '떡', '만두'], '물이 끓으면 면과 스프를 넣고 달걀·파를 더해요.'],
+    ['잔치국수', '면', ['국수', '애호박|달걀|당근|파'], ['김'], '멸치 육수에 삶은 국수를 말고 고명을 올려요.'],
+    ['비빔국수', '면', ['국수', '김치|오이|달걀'], ['깻잎'], '삶은 국수를 고추장·식초·설탕 양념에 비벼요.'],
+    ['토마토파스타', '면', ['파스타', '토마토소스|토마토'], ['양파', '버섯', '햄', '마늘'], '면을 삶아 양파·마늘을 볶은 소스와 섞어요.'],
+    ['크림파스타', '면', ['파스타', '우유|생크림', '양파|버섯|햄'], ['치즈', '마늘'], '재료를 볶고 우유(또는 생크림)를 졸여 삶은 면을 넣어요.'],
+    ['떡볶이', '분식', ['떡', '어묵|양배추|파|양파'], ['달걀', '라면', '고추장'], '고추장·설탕 양념 물에 떡과 어묵을 넣고 졸여요.'],
+    ['만두국', '분식', ['만두'], ['달걀', '파', '김'], '멸치 육수나 물에 만두를 넣어 끓이고 달걀을 풀어요.'],
+    ['계란토스트', '분식', ['식빵', '달걀'], ['치즈', '햄', '양배추'], '달걀·채소를 부쳐 식빵 사이에 넣고 굽거나 데워요.'],
+    ['감자전', '분식', ['감자'], ['파', '양파'], '감자를 갈아 소금을 넣고 기름에 노릇하게 부쳐요.'],
+    ['김치전', '분식', ['김치', '밀가루'], ['파', '양파'], '김치·밀가루·물을 섞어 얇게 부쳐요.'],
+    ['파전', '분식', ['파', '밀가루'], ['오징어', '새우', '달걀'], '밀가루 반죽에 파를 넣고 해물과 달걀을 올려 부쳐요.'],
+    ['샐러드', '분식', ['상추|양배추|오이|토마토'], ['달걀', '닭고기', '치즈'], '채소를 씻어 먹기 좋게 썰고 드레싱을 곁들여요.']
+  ];
+
+  const ddOf = (f) => (validDate(f.expiry) ? diffDays(f.expiry, todayStr()) : null);
+  const ddChip = (dd) => (dd === null ? '' : `<span class="dd-chip${dd <= 3 ? ' soon' : ''}">${dd < 0 ? '기한 ' + -dd + '일 지남' : dd === 0 ? '오늘까지' : 'D-' + dd}</span>`);
+
+  function suggestMenus() {
+    const have = new Map();
+    fridge.forEach((f) => {
+      const c = canonOf(f.name), dd = ddOf(f), cur = have.get(c);
+      if (!cur || (dd !== null && (cur.dd === null || dd < cur.dd))) have.set(c, { name: f.name, dd });
+    });
+    return RECIPES.map(([name, tag, need, opt, tip]) => {
+      const groups = need.map((g) => g.split('|'));
+      const missing = [], used = [];
+      let urgent = 0;
+      groups.forEach((g) => {
+        const hit = g.find((a) => have.has(a));
+        if (hit) { const it = have.get(hit); used.push({ label: hit, dd: it.dd }); if (it.dd !== null && it.dd <= 3) urgent += it.dd <= 1 ? 2 : 1; }
+        else missing.push(g.length > 1 ? g.join(' 또는 ') : g[0]);
+      });
+      const extra = opt.filter((o) => have.has(o)).map((o) => ({ label: o, dd: have.get(o).dd }));
+      extra.forEach((x) => { if (x.dd !== null && x.dd <= 3) urgent += 1; });
+      const score = ((groups.length - missing.length) / groups.length) * 3 + urgent * 1.5 + extra.length * 0.3;
+      return { name, tag, tip, missing, used, extra, urgent, score };
+    }).filter((r) => r.used.length > 0);
+  }
+
+  function rcpHtml(r) {
+    const mats = [...r.used, ...r.extra].map((x) => `${esc(x.label)}${x.dd !== null && x.dd <= 3 ? ddChip(x.dd) : ''}`).join(' · ');
+    return `<div class="rcp"><div><span class="rn">${esc(r.name)}</span><span class="rt">${esc(r.tag)}</span></div>
+      <div class="rm">내 재료: ${mats}</div>${r.missing.length ? `<div class="rw">부족: ${esc(r.missing.join(', '))}</div>` : ''}<div class="rk">${esc(r.tip)}</div></div>`;
+  }
+
+  function renderFood() {
+    el('food-modes').querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.dataset.fm === foodMode));
+    el('food-actions').innerHTML = foodMode === 'fridge'
+      ? '<button type="button" class="mini-btn" data-fa="add">＋ 재료 추가</button><button type="button" class="mini-btn" data-fa="bulk">＋ 여러 개 한 번에</button>'
+      : '<button type="button" class="mini-btn" data-fa="pick">🎲 오늘은 이거!</button><button type="button" class="mini-btn" data-fa="goFridge">🧊 냉장고 보기</button>';
+    el('food-body').innerHTML = foodMode === 'fridge' ? fridgeHtml() : menuHtml();
+  }
+
+  function fridgeHtml() {
+    if (!fridge.length) return '<div class="empty-msg">냉장고가 비어 있어요<br>“＋ 재료 추가”나 “＋ 여러 개 한 번에”로 재료를 넣으면<br>“오늘 뭐 먹지?”에서 메뉴를 추천해 드려요</div>';
+    const soon = fridge.filter((f) => { const d = ddOf(f); return d !== null && d <= 3; }).sort((a, b) => ddOf(a) - ddOf(b));
+    const expired = soon.filter((f) => ddOf(f) < 0).length;
+    let html = `<div class="ins-sum">재료 <b>${fridge.length}개</b> · 소비기한 임박(3일 이내) <b>${soon.length - expired}개</b>${expired ? ` · 기한 지남 <b style="color:var(--expense)">${expired}개</b>` : ''}</div>`;
+    const row = (f) => `<div class="vrow"><button type="button" class="visit" data-fr="${f.id}"><div class="v1"><span>${esc(f.name)}${f.qty ? ` <small style="color:var(--text-muted)">${esc(f.qty)}</small>` : ''}${ddChip(ddOf(f))}</span><span style="font-size:11px;color:var(--text-muted)">${validDate(f.expiry) ? f.expiry.slice(2).replace(/-/g, '.') : ''}</span></div>
+      ${f.note ? `<div class="v2">${esc(f.note)}</div>` : ''}</button><button type="button" class="vcheck" data-fdone="${f.id}" aria-label="다 먹음">다 먹음</button></div>`;
+    if (soon.length) html += `<div class="h-sec">🚨 소비기한 임박 · ${soon.length}개</div>` + soon.map(row).join('');
+    STORES.forEach(([k, label]) => {
+      const list = fridge.filter((f) => f.store === k && !soon.includes(f)).sort((a, b) => (ddOf(a) === null ? 9999 : ddOf(a)) - (ddOf(b) === null ? 9999 : ddOf(b)) || a.name.localeCompare(b.name));
+      if (list.length) html += `<div class="h-sec">${label} · ${list.length}개</div>` + list.map(row).join('');
+    });
+    return html;
+  }
+
+  function menuHtml() {
+    if (!fridge.length) return '<div class="empty-msg">냉장고에 재료를 먼저 넣어 주세요<br>재료를 넣으면 만들 수 있는 메뉴를 골라 드려요</div>';
+    const all = suggestMenus();
+    const ready = all.filter((r) => !r.missing.length).sort((a, b) => b.score - a.score);
+    const almost = all.filter((r) => r.missing.length > 0 && r.missing.length <= 2).sort((a, b) => b.score - a.score);
+    const urgent = ready.filter((r) => r.urgent > 0).slice(0, 5);
+    let html = `<p class="cyc-note" style="margin:0 0 10px">냉장고 재료 ${fridge.length}개 기준이에요. 기본 양념(${STAPLES})은 있다고 가정해요.</p>`;
+    if (foodPick) html += `<div class="pick"><div class="h-sec" style="margin:0 0 6px">🎲 오늘은 이거 어때요?</div>${rcpHtml(foodPick)}</div>`;
+    if (urgent.length) html += `<div class="h-sec">🚨 기한 임박 재료로 만들기</div>` + urgent.map(rcpHtml).join('');
+    html += `<div class="h-sec">✅ 지금 바로 만들 수 있어요${ready.length ? ' · ' + ready.length + '개' : ''}</div>`;
+    html += ready.length ? ready.slice(0, 12).map(rcpHtml).join('') : '<div class="empty-msg" style="padding:14px 0">지금 재료만으로 만들 수 있는 메뉴가 아직 없어요</div>';
+    if (almost.length) html += `<div class="h-sec">🛒 재료 1~2개만 더 있으면${' · ' + almost.length + '개'}</div>` + almost.slice(0, 8).map(rcpHtml).join('');
+    return html;
+  }
+
+  function pickMenu() {
+    const all = suggestMenus();
+    let pool = all.filter((r) => !r.missing.length);
+    if (!pool.length) pool = all.filter((r) => r.missing.length === 1);
+    if (!pool.length) { foodPick = null; showToast('만들 수 있는 메뉴를 찾지 못했어요. 재료를 더 넣어 보세요'); return; }
+    // 점수가 높은(기한 임박 재료를 쓰는) 메뉴가 더 잘 뽑히도록 가중치를 둔다
+    const w = pool.map((r) => 1 + r.score);
+    let x = Math.random() * w.reduce((a, b) => a + b, 0), i = 0;
+    while (i < pool.length - 1 && (x -= w[i]) > 0) i++;
+    foodPick = pool[i];
+  }
+
+  function openFridgeSheet(f) {
+    const val = (x) => attr(x == null ? '' : String(x));
+    const store = f ? f.store : 'fridge';
+    openSheet(`<form>
+      <h3>${f ? '재료 수정' : '재료 추가'}</h3>
+      <label>재료 이름</label><input name="name" required maxlength="30" placeholder="예: 두부, 대파, 우유" value="${val(f && f.name)}" autocomplete="off">
+      <label>수량 (선택)</label><input name="qty" maxlength="20" placeholder="예: 2개, 300g, 반 모" value="${val(f && f.qty)}">
+      <label>보관 위치</label>
+      <select name="store">${STORES.map(([k, n]) => `<option value="${k}"${k === store ? ' selected' : ''}>${n}</option>`).join('')}</select>
+      <label>구매일</label><input name="bought" type="date" value="${val(f ? f.bought : todayStr())}">
+      <label>소비기한 (선택)</label><input name="expiry" type="date" value="${val(f && f.expiry)}">
+      <label>메모 (선택)</label><input name="note" maxlength="60" placeholder="예: 개봉함" value="${val(f && f.note)}">
+      <div class="sheet-actions"><button type="button" data-cancel>취소</button>${f ? '<button type="button" data-delete>삭제</button>' : ''}<button type="submit">저장</button></div>
+    </form>`, (fd) => {
+      const name = String(fd.get('name')).trim();
+      if (!name) return false;
+      const date = (k) => (validDate(String(fd.get(k))) ? String(fd.get(k)) : '');
+      const rec = { name, qty: String(fd.get('qty')).trim(), store: String(fd.get('store')), bought: date('bought'), expiry: date('expiry'), note: String(fd.get('note')).trim() };
+      if (f) Object.assign(f, rec); else fridge.push({ id: newId(), ...rec });
+      saveFridge();
+      foodPick = null;
+      renderFood();
+      showToast(f ? '수정했어요' : '추가했어요');
+    });
+    const del = sheetBody.querySelector('[data-delete]');
+    if (del) del.addEventListener('click', () => {
+      tomb(f.id);
+      fridge = fridge.filter((x) => x.id !== f.id);
+      saveFridge();
+      closeSheet();
+      foodPick = null;
+      renderFood();
+      showToast('삭제했어요');
+    });
+  }
+
+  function openBulkSheet() {
+    openSheet(`<form>
+      <h3>재료 여러 개 한 번에 추가</h3>
+      <label>재료 이름 (쉼표나 줄바꿈으로 구분)</label>
+      <textarea name="names" required maxlength="1000" placeholder="두부, 대파, 달걀 10구, 우유&#10;김치&#10;양파"></textarea>
+      <label>보관 위치</label>
+      <select name="store">${STORES.map(([k, n]) => `<option value="${k}">${n}</option>`).join('')}</select>
+      <label>소비기한 (선택, 모두 같은 날이면)</label><input name="expiry" type="date">
+      <p class="goal-hint">수량은 나중에 재료를 눌러 적을 수 있어요.</p>
+      <div class="sheet-actions"><button type="button" data-cancel>취소</button><button type="submit">추가</button></div>
+    </form>`, (fd) => {
+      const names = String(fd.get('names')).split(/[,\n]/).map((s) => s.trim()).filter(Boolean);
+      if (!names.length) return false;
+      const expiry = validDate(String(fd.get('expiry'))) ? String(fd.get('expiry')) : '';
+      names.forEach((name) => fridge.push({ id: newId(), name: name.slice(0, 30), qty: '', store: String(fd.get('store')), bought: todayStr(), expiry, note: '' }));
+      saveFridge();
+      foodPick = null;
+      renderFood();
+      showToast(`${names.length}개를 추가했어요`);
+    });
+  }
+
+  el('food-modes').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-fm]');
+    if (b) { foodMode = b.dataset.fm; renderFood(); }
+  });
+  el('food-actions').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-fa]');
+    if (!b) return;
+    if (b.dataset.fa === 'add') openFridgeSheet(null);
+    else if (b.dataset.fa === 'bulk') openBulkSheet();
+    else if (b.dataset.fa === 'goFridge') { foodMode = 'fridge'; renderFood(); }
+    else if (b.dataset.fa === 'pick') { pickMenu(); renderFood(); }
+  });
+  el('food-body').addEventListener('click', (e) => {
+    const done = e.target.closest('[data-fdone]');
+    if (done) {
+      const f = fridge.find((x) => x.id === done.dataset.fdone);
+      if (f) { tomb(f.id); fridge = fridge.filter((x) => x.id !== f.id); saveFridge(); foodPick = null; renderFood(); showToast(`${f.name} 다 먹었어요`); }
+      return;
+    }
+    const row = e.target.closest('[data-fr]');
+    if (row) openFridgeSheet(fridge.find((x) => x.id === row.dataset.fr));
+  });
+
+  /* ---------- 메뉴(탭) 순서 ---------- */
+  const TAB_KEY = 'dadari_tab_order_v1';   // 이 기기의 설정(동기화하지 않는다)
+  const TAB_LABELS = { ledger: '💰 가계부', schedule: '🗓 시간표', health: '🩺 건강', insurance: '🛡 보험', rental: '🧰 렌탈', academy: '📚 학원비', biz: '📈 사업매출', food: '🍳 오늘뭐먹지' };
+  function tabOrder() {
+    const base = Object.keys(TAB_LABELS);
+    let saved = [];
+    try { saved = JSON.parse(localStorage.getItem(TAB_KEY)) || []; } catch (e) { /* 기본 순서 사용 */ }
+    const ok = saved.filter((id) => base.includes(id));
+    return [...ok, ...base.filter((id) => !ok.includes(id))];   // 새로 생긴 메뉴는 맨 뒤에 붙인다
+  }
+  function applyTabOrder() {
+    const nav = el('viewtabs');
+    tabOrder().forEach((id) => { const b = nav.querySelector(`[data-view="${id}"]`); if (b) nav.appendChild(b); });
+  }
+  function openTabOrderSheet() {
+    const draw = () => {
+      sheetBody.innerHTML = `<form><h3>메뉴 순서 바꾸기</h3>
+        <p class="goal-hint" style="margin:0 0 6px">▲▼로 순서를 바꾸면 바로 적용돼요. 한 줄에 4개씩 위에서부터 채워져요.</p>
+        ${tabOrder().map((id, i, all) => `<div class="rec"><div class="rec-name">${i + 1}. ${TAB_LABELS[id]}</div>
+          <button type="button" class="icon-btn" data-tup="${id}"${i === 0 ? ' disabled style="opacity:.25"' : ''} aria-label="위로">▲</button>
+          <button type="button" class="icon-btn" data-tdown="${id}"${i === all.length - 1 ? ' disabled style="opacity:.25"' : ''} aria-label="아래로">▼</button></div>`).join('')}
+        <div class="sheet-actions"><button type="button" data-cancel>닫기</button><button type="button" data-treset>기본 순서로</button></div></form>`;
+    };
+    const move = (id, step) => {
+      const o = tabOrder(), i = o.indexOf(id), j = i + step;
+      if (i < 0 || j < 0 || j >= o.length) return;
+      [o[i], o[j]] = [o[j], o[i]];
+      try { localStorage.setItem(TAB_KEY, JSON.stringify(o)); } catch (e) { /* 저장 못 해도 이번 화면에서는 적용 */ }
+      applyTabOrder();
+      draw();
+    };
+    sheetBody.onclick = (e) => {
+      const b = e.target.closest('button');
+      if (!b || b.disabled) return;
+      if (b.dataset.tup) move(b.dataset.tup, -1);
+      else if (b.dataset.tdown) move(b.dataset.tdown, 1);
+      else if (b.dataset.treset !== undefined) { try { localStorage.removeItem(TAB_KEY); } catch (e2) { /* 무시 */ } applyTabOrder(); draw(); }
+      else if (b.dataset.cancel !== undefined) closeSheet();
+    };
+    draw();
+    sheet.hidden = false;
+  }
+  el('tab-order-btn').addEventListener('click', openTabOrderSheet);
+
   /* ---------- 알림: 오늘 할 일 배너 · 캘린더 알람(.ics) ---------- */
   // 웹 앱은 꺼져 있을 때 스스로 알림을 울릴 수 없다. 그래서 (1) 앱을 열면 확인할 일을 모아 보여 주고,
   // (2) 일정을 캘린더(.ics)로 내보내 휴대폰 캘린더가 진짜 알림을 울리게 한다.
@@ -3600,6 +3921,7 @@
       const dd = d ? within(d, 0, 3) : null;
       if (dd !== null) add(dd, `${c.name} 결제일`, 'ledger', '💳');
     });
+    fridge.forEach((f) => { const dd = within(f.expiry, -30, 2); if (dd !== null) add(dd, `냉장고 · ${f.name} 소비기한${dd < 0 ? ' 지남' : ''}`, 'food', '🧊'); });
     return items.sort((a, b) => (a.dd === null ? 9999 : a.dd) - (b.dd === null ? 9999 : b.dd));
   }
 
@@ -3631,7 +3953,7 @@
   /* 캘린더 알람 내보내기 */
   const ALARM_KEY = 'dadari_alarm_v1';   // 이 기기의 설정(동기화하지 않는다)
   const ALARM_GROUPS = [['visit', '🏥 병원 예약'], ['vaccine', '💉 접종 예정'], ['pay', '💳 납부일 (보험·렌탈·학원비·카드 결제일)'],
-    ['renew', '🛡 보험 갱신·만기'], ['rent', '🧰 렌탈 방문·약정 만료'], ['med', '💊 복약 시간']];
+    ['renew', '🛡 보험 갱신·만기'], ['rent', '🧰 렌탈 방문·약정 만료'], ['med', '💊 복약 시간'], ['food', '🧊 냉장고 소비기한']];
   const ALARM_LEADS = [['day0', '당일 오전 9시'], ['day1', '하루 전 오전 9시'], ['day3', '3일 전 오전 9시'], ['day1+0', '하루 전 + 당일 오전 9시']];
   function loadAlarm() {
     let v = null;
@@ -3726,6 +4048,7 @@
       const end = rentEnd(r);
       if (end && end >= today) ev({ uid: 'end-rent-' + r.id, summary: `🧰 ${r.name} 약정 만료 (해지·재약정 확인)`, date: end, alarms: ['-P29DT15H', ...alarms] });
     });
+    if (on('food')) fridge.forEach((f) => { if (validDate(f.expiry) && f.expiry >= today) ev({ uid: 'food-' + f.id, summary: `🧊 ${f.name} 소비기한`, date: f.expiry, alarms: ['-PT15H', 'PT9H'] }); });
     if (on('med')) health.meds.forEach((m) => {
       if (!(m.times || []).length || (validDate(m.end) && m.end < today)) return;
       const start = validDate(m.start) && m.start > today ? m.start : today;
@@ -3797,7 +4120,7 @@
   const defaultCats = () => ({ expense: [...CATEGORIES.expense], income: [...CATEGORIES.income] });
   const sameCats = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   const hasData = () => transactions.length || cards.length || recurs.length || schedule.members.length
-    || health.visits.length || health.periods.length || health.vaccines.length || health.meds.length || insurance.length || rentals.length || academies.length || biz.entries.length || biz.target > 0 || goal > 0 || !sameCats(categories, defaultCats());
+    || health.visits.length || health.periods.length || health.vaccines.length || health.meds.length || insurance.length || rentals.length || academies.length || biz.entries.length || biz.target > 0 || fridge.length || goal > 0 || !sameCats(categories, defaultCats());
 
   function markDirty() {
     if (applying) return;
@@ -3813,7 +4136,7 @@
 
   const snapshot = () => ({
     app: 'dadari', version: 3, updatedAt: new Date().toISOString(),
-    transactions, categories, cards, recurs, recurDone: [...recurDone], goal, schedule, health, insurance, rentals, academies, biz, tombs: [...tombs]
+    transactions, categories, cards, recurs, recurDone: [...recurDone], goal, schedule, health, insurance, rentals, academies, biz, fridge, tombs: [...tombs]
   });
 
   // 두 기기가 따로 고친 내용을 합친다. 같은 id가 양쪽에 있으면 이 기기 것을 쓰고, 지운 항목(tombs)은 되살리지 않는다.
@@ -3839,6 +4162,7 @@
       insurance: union(local.insurance, remote.insurance),
       rentals: union(local.rentals, remote.rentals),
       academies: union(local.academies, remote.academies),
+      fridge: union(local.fridge, remote.fridge),
       biz: {
         entries: union(local.biz && local.biz.entries, remote.biz && remote.biz.entries),
         target: (local.biz && local.biz.target) || (remote.biz && remote.biz.target) || 0
@@ -3862,6 +4186,7 @@
       if (Array.isArray(s.insurance)) insurance = s.insurance;
       if (Array.isArray(s.rentals)) rentals = s.rentals;
       if (Array.isArray(s.academies)) academies = s.academies;
+      if (Array.isArray(s.fridge)) fridge = s.fridge;
       if (s.biz && Array.isArray(s.biz.entries)) biz = { entries: s.biz.entries, target: Math.max(0, +s.biz.target || 0) };
       if (s.categories) { saveJson(CAT_KEY, s.categories); categories = loadCategories(); }
       if (Array.isArray(s.tombs)) tombs = new Set([...tombs, ...s.tombs]);
@@ -3877,6 +4202,7 @@
       saveRentals();
       saveAcademies();
       saveBiz();
+      saveFridge();
     } finally {
       applying = false;
     }
@@ -3889,6 +4215,7 @@
     renderRental();
     renderAcademy();
     renderBiz();
+    renderFood();
     if (applyRecurs()) renderAll();
   }
 
@@ -4213,7 +4540,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v22'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v23'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span style="display:block;margin-bottom:4px">다다리, 매일의 기록이 모여 더 나은 생활이 됩니다.</span>다다리 ' + APP_VERSION;
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
@@ -4260,7 +4587,8 @@
   updatePayVisibility();
   renderAll();
   const savedView = loadJson(VIEW_KEY, 'ledger');
-  setView(['schedule', 'health', 'insurance', 'rental', 'academy', 'biz'].includes(savedView) ? savedView : 'ledger');
+  setView(['schedule', 'health', 'insurance', 'rental', 'academy', 'biz', 'food'].includes(savedView) ? savedView : 'ledger');
+  applyTabOrder();
   renderAlarmOpts();
   renderTodo();
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') renderTodo(); });
