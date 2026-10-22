@@ -3,6 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#4f46e5">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="다다리">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <title>다다리 가계부</title>
 <style>
   :root {
@@ -280,6 +287,48 @@
     z-index: 10;
   }
   .toast.show { opacity: 1; }
+
+  .goal-row { display: flex; gap: 8px; margin-bottom: 4px; }
+  .goal-row button {
+    flex-shrink: 0;
+    padding: 0 16px;
+    border: none;
+    border-radius: 10px;
+    background: var(--accent);
+    color: white;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .goal-hint { font-size: 12px; color: var(--text-muted); margin: 6px 0 0; }
+  .week { margin-top: 12px; padding: 10px 12px; border-radius: 10px; font-size: 12px; color: var(--text-muted); }
+  .week.current { background: var(--accent-soft); }
+  .week .line { display: flex; justify-content: space-between; margin: 4px 0; }
+  .week .name { font-size: 13px; font-weight: 600; color: var(--text); }
+  .week .name em {
+    font-style: normal;
+    font-size: 10px;
+    background: var(--accent);
+    color: white;
+    border-radius: 99px;
+    padding: 1px 7px;
+    margin-left: 4px;
+  }
+  .week .track { height: 8px; background: var(--bg); border-radius: 6px; overflow: hidden; }
+  .week .fill { height: 100%; background: var(--accent); border-radius: 6px; }
+  .week .fill.near { background: #d97706; }
+  .week .fill.over { background: var(--expense); }
+  .week .over-text { color: var(--expense); }
+  .install-btn {
+    width: 100%;
+    padding: 10px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 13px;
+    cursor: pointer;
+  }
 </style>
 </head>
 <body>
@@ -311,6 +360,16 @@
         <div class="val" id="sum-balance">0원</div>
       </div>
     </div>
+  </section>
+
+  <section class="card" id="goal-card">
+    <h2 class="section-title">월 지출 목표 · 주별 분배</h2>
+    <div class="goal-row">
+      <input type="number" id="goal-input" placeholder="한 달 목표 금액 (원)" min="0" inputmode="numeric">
+      <button type="button" id="goal-save">저장</button>
+    </div>
+    <p class="goal-hint">월 목표를 일수에 비례해 일요일~토요일 주 단위로 나눠요. 0을 저장하면 해제돼요.</p>
+    <div id="week-list"></div>
   </section>
 
   <section class="card">
@@ -359,6 +418,12 @@
     </div>
   </section>
 
+  <section class="card" id="install-card" hidden>
+    <h2 class="section-title">홈 화면에 설치</h2>
+    <button class="install-btn" id="install-btn" type="button" hidden>앱으로 설치하기</button>
+    <p class="goal-hint" id="install-hint" style="margin:0"></p>
+  </section>
+
 </main>
 
 <div class="toast" id="toast"></div>
@@ -372,7 +437,10 @@
     income: ['급여', '부수입', '용돈', '환급/이자', '기타']
   };
 
+  const GOAL_KEY = 'dadari_goal_v1';
+
   let transactions = load();
+  let goal = loadGoal();
   let currentType = 'expense';
   let viewDate = new Date();
   viewDate.setDate(1);
@@ -403,9 +471,18 @@
     }
   }
 
+  function loadGoal() {
+    try {
+      return Math.max(0, parseInt(localStorage.getItem(GOAL_KEY), 10) || 0);
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  // toISOString은 UTC 기준이라 한국 시간 새벽(0~9시)에 전날 날짜가 나오므로 로컬 날짜로 만든다.
   function todayStr() {
     const d = new Date();
-    return d.toISOString().slice(0, 10);
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
   }
 
   function formatWon(n) {
@@ -480,9 +557,68 @@
     el('sum-expense').textContent = formatWon(expense);
     el('sum-balance').textContent = formatWon(income - expense);
 
+    renderWeeks(monthTx.filter((t) => t.type === 'expense'));
     renderBreakdown(monthTx.filter((t) => t.type === 'expense'));
     renderList(monthTx);
   }
+
+  // 월 목표를 일요일 시작 주 단위로 나눈다. 1일이 주 중간이면 첫 주는 짧은 주이고, 목표는 일수에 비례해 배분한다.
+  function weeksOfMonth(year, month) {
+    const days = new Date(year, month + 1, 0).getDate();
+    const weeks = [];
+    for (let d = 1; d <= days; d++) {
+      if (d === 1 || new Date(year, month, d).getDay() === 0) weeks.push({ start: d, end: d });
+      else weeks[weeks.length - 1].end = d;
+    }
+    let left = goal;
+    weeks.forEach((w, i) => {
+      w.budget = i === weeks.length - 1 ? left : Math.round(goal * (w.end - w.start + 1) / days);
+      left -= w.budget;
+    });
+    return weeks;
+  }
+
+  function renderWeeks(expenseTx) {
+    const wrap = el('week-list');
+    el('goal-input').value = goal || '';
+    if (!goal) {
+      wrap.innerHTML = '';
+      return;
+    }
+    const y = viewDate.getFullYear();
+    const m = viewDate.getMonth();
+    const pad = (n) => String(n).padStart(2, '0');
+    const prefix = y + '-' + pad(m + 1) + '-';
+    const today = todayStr();
+    wrap.innerHTML = weeksOfMonth(y, m)
+      .map((w, i) => {
+        const from = prefix + pad(w.start);
+        const to = prefix + pad(w.end);
+        const spent = expenseTx.filter((t) => t.date >= from && t.date <= to).reduce((s, t) => s + t.amount, 0);
+        const ratio = w.budget ? spent / w.budget : (spent ? 2 : 0);
+        const left = w.budget - spent;
+        const cls = ratio > 1 ? 'over' : ratio > 0.8 ? 'near' : '';
+        const current = today >= from && today <= to;
+        return `<div class="week${current ? ' current' : ''}">
+          <div class="line"><span class="name">${i + 1}주차${current ? '<em>이번 주</em>' : ''}</span><span>${m + 1}/${w.start} ~ ${m + 1}/${w.end}</span></div>
+          <div class="track"><div class="fill ${cls}" style="width:${Math.min(100, ratio * 100)}%"></div></div>
+          <div class="line"><span>${formatWon(spent)} / ${formatWon(w.budget)}</span><span class="${left < 0 ? 'over-text' : ''}">${left >= 0 ? formatWon(left) + ' 남음' : formatWon(-left) + ' 초과'}</span></div>
+        </div>`;
+      })
+      .join('');
+  }
+
+  el('goal-save').addEventListener('click', () => {
+    goal = Math.max(0, parseInt(el('goal-input').value, 10) || 0);
+    try {
+      localStorage.setItem(GOAL_KEY, String(goal));
+    } catch (e) {
+      showToast('저장 공간이 부족해 저장하지 못했어요');
+      return;
+    }
+    renderAll();
+    showToast(goal ? '월 목표를 저장했어요' : '월 목표를 해제했어요');
+  });
 
   function renderBreakdown(expenseTx) {
     const wrap = el('breakdown-list');
@@ -598,6 +734,39 @@
     };
     reader.readAsText(file);
   });
+
+  /* ---------- PWA ---------- */
+  let installEvt = null;
+  const installCard = el('install-card');
+  const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+  if (!standalone) {
+    installCard.hidden = false;
+    el('install-hint').textContent = /iPhone|iPad|iPod/.test(navigator.userAgent)
+      ? 'Safari 공유 버튼 → “홈 화면에 추가”를 눌러 주세요.'
+      : '브라우저 메뉴 → “앱 설치” 또는 “홈 화면에 추가”를 눌러 주세요.';
+  }
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    installEvt = e;
+    el('install-btn').hidden = false;
+    el('install-hint').hidden = true;
+  });
+  el('install-btn').addEventListener('click', () => {
+    if (!installEvt) return;
+    installEvt.prompt();
+    installEvt.userChoice.then(() => {
+      installEvt = null;
+      installCard.hidden = true;
+    });
+  });
+  window.addEventListener('appinstalled', () => {
+    installCard.hidden = true;
+    showToast('설치했어요');
+  });
+  if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+  }
+  if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
 
   renderAll();
 })();
