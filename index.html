@@ -1300,7 +1300,14 @@
   // 구간 형식이 아닌 줄은 설명 그대로 보여 준다. 실적은 이 가계부에서 그 카드로 기록한 지출 합계다.
   function parseBenefits(text) {
     const re = /^(.*?)(\d+(?:\.\d+)?)\s*[-:]\s*(.+)$/;
+    // "전월실적 30만원"처럼 구간 없이 쓴 한 줄은 이 카드의 실적 기준(그 금액 이상이면 혜택)으로 읽는다.
+    const reqRe = /^(?:전월\s*)?실적\s*[:：]?\s*(\d+(?:\.\d+)?)\s*(만원|만|원)?\s*(?:이상)?$/;
     return String(text || '').split('\n').map((s) => s.trim()).filter(Boolean).map((line) => {
+      const rq = reqRe.exec(line);
+      if (rq) {
+        const n = parseFloat(rq[1]);
+        return { req: Math.round(rq[2] === '원' ? n : rq[2] || n < 1000 ? n * 10000 : n) };
+      }
       const parts = line.split('/').map((s) => s.trim()).filter(Boolean);
       const name = parts[0] || line;
       const rest = parts.slice(1);
@@ -1323,8 +1330,10 @@
   const manwon = (n) => (n % 10000 === 0 ? n / 10000 + '만원' : formatWon(n));
 
   function perfHtml(c) {
-    const bens = parseBenefits(c.benefits);
-    if (!bens.length) return '';
+    const all = parseBenefits(c.benefits);
+    if (!all.length) return '';
+    const req = (all.find((b) => b.req) || {}).req || 0;   // 구간 없이 적은 단일 실적 기준
+    const bens = all.filter((b) => !b.req);
     const cur = cardUse(c.id, monthKey(viewDate));
     const prev = cardUse(c.id, monthKey(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1)));
     const mins = [...new Set(bens.flatMap((b) => (b.tiers || []).map((t) => t.min)))].sort((a, b) => a - b);
@@ -1336,11 +1345,16 @@
       head = `<div class="perf">전월 실적 <b>${formatWon(prev)}</b> · ${reached ? manwon(reached) + ' 구간' : `첫 구간(${manwon(mins[0])})까지 ${formatWon(mins[0] - prev)} 부족`}
         <div class="bar"><i style="width:${Math.min(100, (cur / mins[mins.length - 1]) * 100)}%"></i></div>
         이번 달 사용 <b>${formatWon(cur)}</b> · 다음 달 ${nowReached ? manwon(nowReached) + ' 구간 예상' : '구간 미달 예상'}${nextMin ? ` (${manwon(nextMin)}까지 ${formatWon(nextMin - cur)})` : ''}`;
+    } else if (req) {
+      head = `<div class="perf">전월 실적 <b>${formatWon(prev)}</b> · ${manwon(req)} 기준 ${prev >= req ? '<b>달성 ✓</b>' : formatWon(req - prev) + ' 부족'}
+        <div class="bar"><i style="width:${Math.min(100, (cur / req) * 100)}%"></i></div>
+        이번 달 사용 <b>${formatWon(cur)}</b> · 다음 달 ${cur >= req ? '달성 예상' : `미달 예상 (${manwon(req)}까지 ${formatWon(req - cur)})`}`;
     } else {
       head = '<div class="perf">';
     }
+    const state = req ? (prev >= req ? '<b>적용</b>' : '실적 미달') : '';
     const rows = bens.map((b) => {
-      if (!b.tiers) return `<div class="benefit"><span>${escapeHtml(b.name)}</span><span>${escapeHtml(b.note || '')}</span></div>`;
+      if (!b.tiers) return `<div class="benefit"><span>${escapeHtml(b.name)}</span><span>${[escapeHtml(b.note || ''), state].filter(Boolean).join(' ')}</span></div>`;
       const t = b.tiers.filter((x) => x.min <= prev).pop();
       return `<div class="benefit"><span>${escapeHtml(b.name)}</span><span>${t ? '<b>' + escapeHtml(t.value) + '</b>' : '실적 ' + manwon(b.tiers[0].min) + '부터'}</span></div>
         <div class="benefit-sub">${b.tiers.map((x) => `${manwon(x.min)} ${escapeHtml(x.value)}`).join(' / ')}</div>`;
@@ -2934,7 +2948,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v14'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v15'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').textContent = '다다리 가계부 ' + APP_VERSION;
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
