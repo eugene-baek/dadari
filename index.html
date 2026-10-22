@@ -3,14 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="theme-color" content="#4f46e5">
+<meta name="theme-color" content="#00cdbe">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="다다리">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
-<title>다다리 가계부</title>
+<title>다다리 — 나의 생활을 한눈에</title>
+<meta name="description" content="돈 관리부터 시간 관리까지, 일상의 모든 기록을 다다리에서 간편하게 관리하세요.">
 <style>
   :root {
     --bg: #f5f6f8;
@@ -69,6 +70,7 @@
     cursor: pointer;
   }
   .ver { text-align: center; color: var(--text-muted); font-size: 11px; margin: 20px 0 0; }
+  header h1 .logo { width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0; }
   header h1 {
     font-size: 22px;
     margin: 0 0 4px;
@@ -516,6 +518,20 @@
   .cyc-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
   .rec-amt.inc { color: var(--income); }
   @media (max-width: 440px) { .summary-item .val { font-size: 13px; letter-spacing: -0.3px; } .summary-item { padding: 10px 4px; } }
+  .todo-wrap { max-width: 720px; margin: 0 auto 12px; padding: 0 20px; }
+  .todo-head { width: 100%; text-align: left; background: none; border: 0; color: var(--text); font: inherit; font-size: 14px; font-weight: 700; padding: 0; cursor: pointer; display: flex; justify-content: space-between; }
+  .todo-head small { font-weight: 400; color: var(--text-muted); }
+  .todo-item { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; background: none; border: 0; border-top: 1px solid var(--border); color: var(--text); font: inherit; font-size: 13px; padding: 9px 0; margin-top: 9px; cursor: pointer; }
+  .todo-item:first-child { margin-top: 10px; }
+  .todo-item .td-text { flex: 1; min-width: 0; }
+  .todo-item .td-dd { font-weight: 700; color: var(--accent); flex-shrink: 0; }
+  .todo-item .td-dd.late { color: var(--expense); }
+  .todo-item .td-dd.today { color: var(--expense); }
+  .alarm-row { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-bottom: 10px; }
+  .alarm-row label.chk { margin: 0; }
+  .alarm-times { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 10px; }
+  .alarm-times label { font-size: 11px; }
+  .alarm-times input { padding: 8px 4px; font-size: 13px; }
   .rec-total { font-weight: 700; border-top: 2px solid var(--border); }
   .rec-total + .rec-total { border-top: 1px solid var(--border); margin-top: 0; }
   .ins-sum b.inc { color: var(--income); }
@@ -611,8 +627,8 @@
 
 <header>
   <button class="refresh-btn" id="refresh-btn" type="button" aria-label="새로고침">🔄 새로고침</button>
-  <h1>🪜 다다리 가계부</h1>
-  <p>매일의 수입과 지출을 가볍게 기록해요</p>
+  <h1><img class="logo" src="icon-192.png" alt="" width="32" height="32">다다리</h1>
+  <p>나의 생활을 한눈에 · 돈 관리부터 시간 관리까지</p>
 </header>
 
 <nav class="viewtabs" id="viewtabs">
@@ -678,6 +694,13 @@
     </div>
   </section>
 </main>
+
+<div class="todo-wrap" id="todo-wrap" hidden>
+  <section class="card" style="margin-top:0">
+    <button type="button" class="todo-head" id="todo-head" aria-expanded="true"></button>
+    <div id="todo-list"></div>
+  </section>
+</div>
 
 <main id="view-health" hidden>
   <section class="card">
@@ -826,6 +849,14 @@
     </div>
   </section>
 
+  <section class="card" id="alarm-card">
+    <h2 class="section-title">📅 알람 (캘린더로 내보내기)</h2>
+    <p class="goal-hint" style="margin:0 0 10px">병원 예약·접종·납부일·갱신·렌탈 방문·복약 시간을 아이폰 캘린더에 넣어 진짜 알림으로 울리게 해요. 앱이 꺼져 있어도 울려요.</p>
+    <div id="alarm-opts"></div>
+    <button class="install-btn" id="alarm-export" type="button">📅 캘린더 파일 만들기</button>
+    <p class="goal-hint" id="alarm-result" style="margin:8px 0 0"></p>
+  </section>
+
   <section class="card" id="sync-card">
     <h2 class="section-title">동기화 (폰 · 컴퓨터)</h2>
     <p class="goal-hint" id="sync-status" style="margin:0 0 10px"></p>
@@ -884,6 +915,7 @@
   let selectNewCard = false; // 결제수단에서 "카드 등록"을 눌러 연 경우, 등록한 카드를 바로 선택해 준다
   let applying = false;   // 동기화로 받은 데이터를 저장하는 중에는 "내가 고침"으로 보지 않는다
   let syncTimer = null;
+  let todoTimer = null;
   let syncing = false;
   let syncAgain = false;
   let currentType = 'expense';
@@ -933,7 +965,7 @@
     } catch (e) {
       showToast('저장 공간이 부족해 저장하지 못했어요');
     }
-    if (key !== SYNC_KEY && key !== VIEW_KEY) markDirty();
+    if (key !== SYNC_KEY && key !== VIEW_KEY) { markDirty(); queueTodo(); }
   }
 
   function loadCategories() {
@@ -1228,7 +1260,7 @@
     const a = document.createElement('a');
     const stamp = todayStr();
     a.href = url;
-    a.download = `다다리가계부_백업_${stamp}.json`;
+    a.download = `다다리_백업_${stamp}.json`;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -3490,6 +3522,267 @@
     if (row) openBizSheet(biz.entries.find((x) => x.id === row.dataset.biz));
   });
 
+  /* ---------- 알림: 오늘 할 일 배너 · 캘린더 알람(.ics) ---------- */
+  // 웹 앱은 꺼져 있을 때 스스로 알림을 울릴 수 없다. 그래서 (1) 앱을 열면 확인할 일을 모아 보여 주고,
+  // (2) 일정을 캘린더(.ics)로 내보내 휴대폰 캘린더가 진짜 알림을 울리게 한다.
+  function queueTodo() {
+    clearTimeout(todoTimer);
+    todoTimer = setTimeout(renderTodo, 300);
+  }
+
+  // 오늘 이후 가장 가까운 납부일(day일). 연납이면 payMonth월만 센다.
+  function nextPay(day, today, freq, payMonth) {
+    if (!(day >= 1)) return '';
+    const [ty, tm] = today.split('-').map(Number);
+    for (let i = 0; i < 26; i++) {
+      const m = (tm - 1 + i) % 12;
+      const y = ty + Math.floor((tm - 1 + i) / 12);
+      if (freq === 'year' && m !== (payMonth >= 1 ? payMonth : 1) - 1) continue;
+      const d = ymdOf(y, m, day);
+      if (d >= today) return d;
+    }
+    return '';
+  }
+
+  function todoItems() {
+    const today = todayStr();
+    const items = [];
+    const add = (dd, text, view, icon) => items.push({ dd, text, view, icon });
+    const within = (date, lo, hi) => { if (!validDate(date)) return null; const dd = diffDays(date, today); return dd >= lo && dd <= hi ? dd : null; };
+
+    health.visits.forEach((v) => { const dd = within(v.next, 0, 7); if (dd !== null) add(dd, `${whoName(v.who)} · ${v.hospital} 예약`, 'health', '🏥'); });
+    const claim = health.visits.filter((v) => v.claim === 'todo').length;
+    if (claim) add(null, `실비 청구 필요 ${claim}건`, 'health', '🧾');
+    health.vaccines.filter((v) => !v.done).forEach((v) => {
+      const dd = within(v.date, -365, 7);
+      if (dd !== null) add(dd, `${whoName(v.who)} · ${v.name}${v.dose ? ' ' + v.dose : ''} 접종`, 'health', '💉');
+    });
+    health.meds.forEach((m) => {
+      if (!medActive(m, today) || !(m.times || []).length) return;
+      const taken = (m.taken && m.taken[today]) || [];
+      const left = m.times.filter((t) => !taken.includes(t));
+      if (left.length) add(0, `${whoName(m.who)} · ${m.name} ${left.map(slotName).join('·')}`, 'health', '💊');
+    });
+
+    insurance.forEach((p) => {
+      const st = insState(p, today);
+      if (st === 'ended') return;
+      if (st === 'active') {
+        const d = nextPay(p.payDay, today, p.freq, p.payMonth);
+        const dd = d ? within(d, 0, 3) : null;
+        if (dd !== null) add(dd, `보험료 ${p.name} ${formatWon(p.premium)}`, 'insurance', '🛡');
+        const e = within(insEnd(p), 0, 30);
+        if (e !== null) add(e, `${p.name} 납입 만기`, 'insurance', '🛡');
+      }
+      [['갱신', p.renewal], ['보장 만기', p.expiry]].forEach(([label, date]) => {
+        const dd = within(date, -7, 30);
+        if (dd !== null) add(dd, `${p.name} ${label}`, 'insurance', '🛡');
+      });
+    });
+    rentals.forEach((r) => {
+      if (rentState(r, today) === 'ended') return;
+      const d = nextPay(r.payDay, today, 'month');
+      const dd = d ? within(d, 0, 3) : null;
+      if (dd !== null) add(dd, `렌탈료 ${r.name} ${formatWon(+r.fee || 0)}`, 'rental', '🧰');
+      const v = within(r.nextVisit, -7, 7);
+      if (v !== null) add(v, `${r.name} 방문 관리`, 'rental', '🧰');
+      const e = within(rentEnd(r), -30, 60);
+      if (e !== null) add(e, `${r.name} 약정 만료 (해지·재약정 확인)`, 'rental', '🧰');
+    });
+    const ym = today.slice(0, 7);
+    academies.filter((a) => a.status === 'active' && a.payDay && acaInMonth(a, ym) && !acaPaid(a, ym)).forEach((a) => {
+      const due = ymdOf(+ym.slice(0, 4), +ym.slice(5, 7) - 1, a.payDay);
+      const dd = diffDays(due, today);
+      if (dd <= 7) add(dd, `${whoName(a.who)} · ${a.name} 학원비 ${dd < 0 ? '미납' : '납부'}`, 'academy', '📚');
+    });
+    cards.filter((c) => c.kind === 'credit' && c.payDay).forEach((c) => {
+      const d = nextPay(c.payDay, today, 'month');
+      const dd = d ? within(d, 0, 3) : null;
+      if (dd !== null) add(dd, `${c.name} 결제일`, 'ledger', '💳');
+    });
+    return items.sort((a, b) => (a.dd === null ? 9999 : a.dd) - (b.dd === null ? 9999 : b.dd));
+  }
+
+  function renderTodo() {
+    const wrap = el('todo-wrap');
+    const items = todoItems();
+    if (!items.length) { wrap.hidden = true; return; }
+    wrap.hidden = false;
+    let open = true;
+    try { open = localStorage.getItem('dadari_todo_closed') !== '1'; } catch (e) { /* 기억 못 해도 펼친 채로 */ }
+    const urgent = items.filter((i) => i.dd !== null && i.dd <= 0).length;
+    el('todo-head').setAttribute('aria-expanded', String(open));
+    el('todo-head').innerHTML = `<span>🔔 확인할 일 ${items.length}건</span><small>${urgent ? '오늘·지남 ' + urgent + '건 · ' : ''}${open ? '접기 ▲' : '펼치기 ▼'}</small>`;
+    el('todo-list').hidden = !open;
+    el('todo-list').innerHTML = items.map((i) => {
+      const dd = i.dd === null ? '' : i.dd === 0 ? '오늘' : i.dd > 0 ? 'D-' + i.dd : -i.dd + '일 지남';
+      return `<button type="button" class="todo-item" data-tv="${i.view}"><span>${i.icon}</span><span class="td-text">${esc(i.text)}</span><span class="td-dd${i.dd !== null && i.dd < 0 ? ' late' : i.dd === 0 ? ' today' : ''}">${dd}</span></button>`;
+    }).join('');
+  }
+  el('todo-head').addEventListener('click', () => {
+    try { localStorage.setItem('dadari_todo_closed', el('todo-list').hidden ? '0' : '1'); } catch (e) { /* 무시 */ }
+    renderTodo();
+  });
+  el('todo-list').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-tv]');
+    if (b) { setView(b.dataset.tv); window.scrollTo(0, 0); }
+  });
+
+  /* 캘린더 알람 내보내기 */
+  const ALARM_KEY = 'dadari_alarm_v1';   // 이 기기의 설정(동기화하지 않는다)
+  const ALARM_GROUPS = [['visit', '🏥 병원 예약'], ['vaccine', '💉 접종 예정'], ['pay', '💳 납부일 (보험·렌탈·학원비·카드 결제일)'],
+    ['renew', '🛡 보험 갱신·만기'], ['rent', '🧰 렌탈 방문·약정 만료'], ['med', '💊 복약 시간']];
+  const ALARM_LEADS = [['day0', '당일 오전 9시'], ['day1', '하루 전 오전 9시'], ['day3', '3일 전 오전 9시'], ['day1+0', '하루 전 + 당일 오전 9시']];
+  function loadAlarm() {
+    let v = null;
+    try { v = JSON.parse(localStorage.getItem(ALARM_KEY)); } catch (e) { /* 기본값 사용 */ }
+    const base = { lead: 'day1', off: [], times: { morning: '08:00', noon: '12:30', evening: '19:00', bed: '22:00' } };
+    return { lead: v && ALARM_LEADS.some((l) => l[0] === v.lead) ? v.lead : base.lead, off: Array.isArray(v && v.off) ? v.off : [], times: { ...base.times, ...((v && v.times) || {}) } };
+  }
+  const saveAlarm = (a) => { try { localStorage.setItem(ALARM_KEY, JSON.stringify(a)); } catch (e) { /* 저장 못 해도 이번 내보내기는 가능 */ } };
+
+  function renderAlarmOpts() {
+    const a = loadAlarm();
+    el('alarm-opts').innerHTML = `
+      <div class="alarm-row">${ALARM_GROUPS.map(([k, n]) => `<label class="chk"><input type="checkbox" data-ag="${k}"${a.off.includes(k) ? '' : ' checked'}> ${n}</label>`).join('')}</div>
+      <label style="margin-bottom:4px">알림 시각</label>
+      <select id="alarm-lead" style="margin-bottom:10px">${ALARM_LEADS.map(([k, n]) => `<option value="${k}"${a.lead === k ? ' selected' : ''}>${n}</option>`).join('')}</select>
+      <label style="margin-bottom:4px">복약 알림 시각</label>
+      <div class="alarm-times">${SLOTS.map(([k, n]) => `<div><label>${n}</label><input type="time" data-at="${k}" value="${attr(a.times[k])}"></div>`).join('')}</div>`;
+  }
+  el('alarm-opts').addEventListener('change', () => {
+    const a = loadAlarm();
+    a.off = [...document.querySelectorAll('[data-ag]')].filter((c) => !c.checked).map((c) => c.dataset.ag);
+    a.lead = el('alarm-lead').value;
+    document.querySelectorAll('[data-at]').forEach((i) => { if (/^\d{2}:\d{2}$/.test(i.value)) a.times[i.dataset.at] = i.value; });
+    saveAlarm(a);
+  });
+
+  // ICS 문법: 줄 끝은 CRLF, 한 줄은 75바이트 이내로 접고(다음 줄 앞에 공백), 쉼표·세미콜론·역슬래시·줄바꿈은 이스케이프한다.
+  const icsEsc = (s) => String(s).replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
+  function icsFold(line) {
+    const enc = new TextEncoder();
+    let out = '', cur = '', bytes = 0;
+    for (const ch of line) {
+      const b = enc.encode(ch).length;
+      if (bytes + b > 73) { out += cur + '\r\n '; cur = ''; bytes = 1; }
+      cur += ch;
+      bytes += b;
+    }
+    return out + cur;
+  }
+  const icsDate = (s) => s.replace(/-/g, '');
+  const icsTime = (s, t) => icsDate(s) + 'T' + t.replace(':', '') + '00';
+  const addMinutes = (t, n) => { const [h, m] = t.split(':').map(Number); const x = h * 60 + m + n; return pad2(Math.floor(x / 60) % 24) + ':' + pad2(x % 60); };
+
+  function buildEvents(opts) {
+    const today = todayStr();
+    const alarms = { day0: ['PT9H'], day1: ['-PT15H'], day3: ['-P2DT15H'], 'day1+0': ['-PT15H', 'PT9H'] }[opts.lead] || ['PT9H'];
+    const on = (g) => !opts.off.includes(g);
+    const events = [];
+    const ev = (o) => { if (o.date && validDate(o.date)) events.push({ alarms, ...o }); };
+    // 매월 납부일 일정. 1~28일은 반복 규칙 하나로, 29~31일은 없는 달이 있어 12개월치를 정확한 날짜(없는 달은 말일)로 각각 만든다.
+    const monthly = (o, day) => {
+      if (day <= 28) { ev({ ...o, date: nextPay(day, today, 'month'), rrule: `FREQ=MONTHLY;BYMONTHDAY=${day}` }); return; }
+      const [ty, tm] = today.split('-').map(Number);
+      let n = 0;
+      for (let i = 0; i < 14 && n < 12; i++) {
+        const date = ymdOf(ty + Math.floor((tm - 1 + i) / 12), (tm - 1 + i) % 12, day);
+        if (date >= today) { ev({ ...o, uid: `${o.uid}-${date.slice(0, 7)}`, date }); n++; }
+      }
+    };
+
+    if (on('visit')) health.visits.forEach((v) => { if (validDate(v.next) && v.next >= today) ev({ uid: 'visit-' + v.id, summary: `🏥 ${whoName(v.who)} ${v.hospital} 예약`, desc: v.reason || '', date: v.next }); });
+    if (on('vaccine')) health.vaccines.forEach((v) => { if (!v.done && validDate(v.date) && v.date >= today) ev({ uid: 'vac-' + v.id, summary: `💉 ${whoName(v.who)} ${v.name}${v.dose ? ' ' + v.dose : ''} 접종`, date: v.date }); });
+    if (on('pay')) {
+      insurance.forEach((p) => {
+        if (insState(p, today) !== 'active' || !(p.payDay >= 1)) return;
+        const summary = `🛡 보험료 ${p.name} ${formatWon(p.premium)}`;
+        if (p.freq === 'year') ev({ uid: 'pay-ins-' + p.id, summary, date: nextPay(p.payDay, today, 'year', p.payMonth), rrule: 'FREQ=YEARLY' });
+        else monthly({ uid: 'pay-ins-' + p.id, summary }, p.payDay);
+      });
+      rentals.forEach((r) => {
+        if (rentState(r, today) === 'ended' || !(r.payDay >= 1)) return;
+        monthly({ uid: 'pay-rent-' + r.id, summary: `🧰 렌탈료 ${r.name} ${formatWon(+r.fee || 0)}` }, r.payDay);
+      });
+      academies.forEach((a) => {
+        if (a.status !== 'active' || !(a.payDay >= 1)) return;
+        monthly({ uid: 'pay-aca-' + a.id, summary: `📚 ${whoName(a.who)} ${a.name} 학원비 ${formatWon(+a.fee || 0)}` }, a.payDay);
+      });
+      cards.forEach((c) => {
+        if (c.kind !== 'credit' || !(c.payDay >= 1)) return;
+        monthly({ uid: 'pay-card-' + c.id, summary: `💳 ${c.name} 결제일` }, c.payDay);
+      });
+    }
+    if (on('renew')) insurance.forEach((p) => {
+      if (insState(p, today) === 'ended') return;
+      [['갱신', p.renewal], ['보장 만기', p.expiry], ['납입 만기', insEnd(p)]].forEach(([label, date], i) => {
+        if (validDate(date) && date >= today) ev({ uid: `ins-${i}-${p.id}`, summary: `🛡 ${p.name} ${label}`, date });
+      });
+    });
+    if (on('rent')) rentals.forEach((r) => {
+      if (rentState(r, today) === 'ended') return;
+      if (validDate(r.nextVisit) && r.nextVisit >= today) ev({ uid: 'visit-rent-' + r.id, summary: `🧰 ${r.name} 방문 관리`, date: r.nextVisit, rrule: +r.visitEvery > 0 ? `FREQ=MONTHLY;INTERVAL=${+r.visitEvery}` : '' });
+      const end = rentEnd(r);
+      if (end && end >= today) ev({ uid: 'end-rent-' + r.id, summary: `🧰 ${r.name} 약정 만료 (해지·재약정 확인)`, date: end, alarms: ['-P29DT15H', ...alarms] });
+    });
+    if (on('med')) health.meds.forEach((m) => {
+      if (!(m.times || []).length || (validDate(m.end) && m.end < today)) return;
+      const start = validDate(m.start) && m.start > today ? m.start : today;
+      m.times.forEach((slot) => {
+        const time = opts.times[slot];
+        if (!/^\d{2}:\d{2}$/.test(time || '')) return;
+        events.push({ uid: `med-${m.id}-${slot}`, summary: `💊 ${whoName(m.who)} ${m.name}${m.dose ? ' ' + m.dose : ''} (${slotName(slot)})`, desc: [m.place, m.note].filter(Boolean).join(' · '),
+          date: start, time, rrule: 'FREQ=DAILY' + (validDate(m.end) ? `;UNTIL=${icsDate(m.end)}T235959` : ''), alarms: ['PT0S'] });
+      });
+    });
+    return events;
+  }
+
+  function buildIcs(events) {
+    const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+    const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//dadari//KO', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', 'X-WR-CALNAME:다다리', 'X-WR-TIMEZONE:Asia/Seoul'];
+    events.forEach((e) => {
+      lines.push('BEGIN:VEVENT', `UID:${e.uid}@dadari`, `DTSTAMP:${stamp}`);
+      if (e.time) lines.push(`DTSTART:${icsTime(e.date, e.time)}`, `DTEND:${icsTime(e.date, addMinutes(e.time, 15))}`);
+      else lines.push(`DTSTART;VALUE=DATE:${icsDate(e.date)}`, `DTEND;VALUE=DATE:${icsDate(addDays(e.date, 1))}`);
+      if (e.rrule) lines.push('RRULE:' + e.rrule);
+      lines.push('SUMMARY:' + icsEsc(e.summary));
+      if (e.desc) lines.push('DESCRIPTION:' + icsEsc(e.desc));
+      e.alarms.forEach((tr) => lines.push('BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:' + icsEsc(e.summary), 'TRIGGER:' + tr, 'END:VALARM'));
+      lines.push('END:VEVENT');
+    });
+    lines.push('END:VCALENDAR');
+    return lines.map(icsFold).join('\r\n') + '\r\n';
+  }
+
+  async function deliverIcs(text, name) {
+    const file = new File([text], name, { type: 'text/calendar' });
+    // 휴대폰에서는 공유 시트로 열어 "캘린더"로 바로 넣게 하고, 안 되면 파일로 내려받는다.
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file], title: '다다리 알람' }); return 'share'; } catch (e) { if (e && e.name === 'AbortError') return 'cancel'; }
+    }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(file);
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1500);
+    return 'download';
+  }
+
+  el('alarm-export').addEventListener('click', async () => {
+    const opts = loadAlarm();
+    const events = buildEvents(opts);
+    if (!events.length) { el('alarm-result').textContent = '내보낼 일정이 없어요. 병원 예약·납부일·갱신일 같은 날짜를 먼저 등록해 주세요.'; return; }
+    const n = (p) => events.filter((e) => e.uid.startsWith(p)).length;
+    el('alarm-result').textContent = `일정 ${events.length}개를 만들었어요 (예약·접종 ${n('visit-') - n('visit-rent-') + n('vac-')}, 납부일 ${n('pay-')}, 갱신·만기 ${n('ins-') + n('end-rent-')}, 렌탈 방문 ${n('visit-rent-')}, 복약 ${n('med-')}).`;
+    const how = await deliverIcs(buildIcs(events), '다다리_알람.ics');
+    if (how === 'download') el('alarm-result').textContent += ' 내려받은 파일을 열면 캘린더에 추가돼요.';
+    if (how === 'share') el('alarm-result').textContent += ' 공유 창에서 “캘린더”를 고르세요.';
+  });
+
   /* ---------- 동기화 (GitHub 비공개 저장소) ---------- */
   // 모든 데이터를 비공개 저장소의 파일 하나(dadari-data.json)에 모은다. 토큰은 이 기기에만 저장하고 백업에는 넣지 않는다.
   const GH_API = 'https://api.github.com';
@@ -3920,8 +4213,8 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v21'; // deploy.sh가 sw.js 버전과 함께 올린다
-  el('ver').textContent = '다다리 가계부 ' + APP_VERSION;
+  const APP_VERSION = 'v22'; // deploy.sh가 sw.js 버전과 함께 올린다
+  el('ver').innerHTML = '<span style="display:block;margin-bottom:4px">다다리, 매일의 기록이 모여 더 나은 생활이 됩니다.</span>다다리 ' + APP_VERSION;
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
     try {
@@ -3968,6 +4261,10 @@
   renderAll();
   const savedView = loadJson(VIEW_KEY, 'ledger');
   setView(['schedule', 'health', 'insurance', 'rental', 'academy', 'biz'].includes(savedView) ? savedView : 'ledger');
+  renderAlarmOpts();
+  renderTodo();
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') renderTodo(); });
+  setInterval(renderTodo, 60000);   // 켜 둔 채 날짜가 바뀌거나 시간이 흘러도 최신으로
   showSync();
   syncNow();
 })();
