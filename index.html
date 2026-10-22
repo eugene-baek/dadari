@@ -445,6 +445,17 @@
   .med-slots { display: flex; gap: 6px; flex-wrap: wrap; }
   .slot { padding: 7px 12px; border-radius: 99px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 13px; cursor: pointer; }
   .slot.on { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .vx { padding: 8px 0; border-top: 1px solid var(--border); }
+  .vx:first-of-type { border-top: none; }
+  .vx-name { font-size: 13px; font-weight: 600; margin-bottom: 5px; }
+  .vx-doses { display: flex; gap: 5px; flex-wrap: wrap; }
+  .vx-note { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+  .vx-hint { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 12px; color: var(--text-muted); padding: 8px 0; }
+  .dose { padding: 6px 10px; border-radius: 99px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 12px; cursor: pointer; }
+  .dose.done { background: var(--income-soft); border-color: var(--income); color: var(--income); }
+  .dose.planned { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+  .dose.due { background: var(--expense-soft); border-color: var(--expense); color: var(--expense); font-weight: 600; }
+  .dose.soon { border-style: dashed; color: var(--text-muted); }
   .vrow { display: flex; align-items: center; gap: 6px; border-top: 1px solid var(--border); }
   .vrow .visit { flex: 1; border-top: none; }
   .vcheck { flex-shrink: 0; padding: 7px 10px; border-radius: 99px; border: 1px solid var(--accent); background: none; color: var(--accent); font-size: 12px; font-weight: 600; cursor: pointer; }
@@ -1697,11 +1708,34 @@
     return true;
   }
 
+  // 생년월일을 넣으면 접종 화면에 그 나이의 국가 표준 접종이 나온다. back이면 저장·취소 뒤 구성원 관리로 돌아간다.
+  function openBirthSheet(m, back) {
+    if (!m) return;
+    openSheet(`<form>
+      <h3>${escapeHtml(m.name)} 생년월일</h3>
+      <label>생년월일</label><input name="birth" type="date" max="${todayStr()}" value="${attr(m.birth || '')}">
+      <p class="goal-hint">입력하면 나이에 맞는 국가 표준 접종을 접종 화면에 보여 드려요. 비워 두고 저장하면 지워져요.</p>
+      <div class="sheet-actions"><button type="button" data-cancel>취소</button><button type="submit">저장</button></div>
+    </form>`, (fd) => {
+      const b = String(fd.get('birth'));
+      if (validDate(b) && b > todayStr()) { showToast('오늘보다 늦은 날짜예요'); return false; }
+      m.birth = validDate(b) ? b : '';
+      saveSchedule();
+      renderSchedule();
+      renderHealth();
+      showToast('저장했어요');
+      if (back) setTimeout(openMemberManager, 0);
+    });
+    if (back) sheetBody.querySelector('[data-cancel]').addEventListener('click', () => setTimeout(openMemberManager, 0));
+  }
+
   function openMemberManager() {
     const draw = () => {
       sheetBody.innerHTML = `<form>
         <h3>구성원 관리</h3>
-        ${schedule.members.length ? schedule.members.map((m, i, all) => `<div class="rec"><div class="rec-name">${escapeHtml(m.name)}</div>
+        ${schedule.members.length ? schedule.members.map((m, i, all) => `<div class="rec"><div><div class="rec-name">${escapeHtml(m.name)}</div>
+          <div class="rec-sub">${validDate(m.birth) ? m.birth.replace(/-/g, '.') + ' · ' + ageText(monthsBetween(m.birth, todayStr())) : '생년월일 미입력'}</div></div>
+          <button type="button" class="icon-btn" data-mbirth="${m.id}" aria-label="생년월일">🎂</button>
           <button type="button" class="icon-btn" data-mup="${m.id}" aria-label="위로"${i === 0 ? ' disabled style="opacity:.25"' : ''}>▲</button>
           <button type="button" class="icon-btn" data-mdown="${m.id}" aria-label="아래로"${i === all.length - 1 ? ' disabled style="opacity:.25"' : ''}>▼</button>
           <button type="button" class="icon-btn" data-mren="${m.id}" aria-label="이름 바꾸기">✎</button>
@@ -1756,6 +1790,7 @@
       else if (b.dataset.cancel !== undefined) closeSheet();
       else if (b.dataset.mdel) { if (removeMember(b.dataset.mdel)) draw(); }
       else if (b.dataset.mren) rename(b.dataset.mren);
+      else if (b.dataset.mbirth) openBirthSheet(schedule.members.find((m) => m.id === b.dataset.mbirth), true);
       else if (b.dataset.mup) move(b.dataset.mup, -1);
       else if (b.dataset.mdown) move(b.dataset.mdown, 1);
     };
@@ -1884,7 +1919,16 @@
     const yearList = list.filter((v) => v.date.startsWith(year));
     const cost = yearList.reduce((s, v) => s + (+v.cost || 0), 0);
 
+    // 실비(실손보험) 청구: 청구해야 하는데 아직 안 한 진료를 맨 위에 모은다.
+    const toClaim = list.filter((v) => v.claim === 'todo').sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
     let html = '';
+    if (toClaim.length) {
+      const sum = toClaim.reduce((s, v) => s + (+v.cost || 0), 0);
+      html += `<div class="h-sec">실비 청구 필요 · ${toClaim.length}건${sum ? ' · 진료비 ' + formatWon(sum) : ''}</div>` + toClaim.map((v) => `<div class="vrow">
+        <button type="button" class="visit" data-visit="${v.id}"><div class="v1"><span>${v.date.slice(2).replace(/-/g, '.')} · ${title(v)}</span><span>${+v.cost ? formatWon(+v.cost) : ''}</span></div>
+          ${v.reason ? `<div class="v2">${escapeHtml(v.reason)}</div>` : ''}</button>
+        <button type="button" class="vcheck" data-claimdone="${v.id}" aria-label="청구 완료로 표시">청구 완료</button></div>`).join('');
+    }
     if (upcoming.length) {
       html += '<div class="h-sec">다음 예약</div>' + upcoming.map((v) => {
         const dd = diffDays(v.next, today);
@@ -1895,7 +1939,7 @@
     html += `<div class="h-sec">진료 기록${list.length ? ` · 올해 ${yearList.length}회${cost ? ' · ' + formatWon(cost) : ''}` : ''}</div>`;
     html += past.length ? past.map((v) => `<button type="button" class="visit" data-visit="${v.id}">
         <div class="v1"><span>${v.date.slice(2).replace(/-/g, '.')} · ${title(v)}</span><span>${+v.cost ? formatWon(+v.cost) : ''}</span></div>
-        <div class="v2">${[v.reason, validDate(v.next) ? '다음 예약 ' + mdOf(v.next) : '', v.note].filter(Boolean).map(escapeHtml).join(' · ')}</div></button>`).join('')
+        <div class="v2">${[v.reason, validDate(v.next) ? '다음 예약 ' + mdOf(v.next) : '', v.claim === 'todo' ? '⚠ 실비 청구 필요' : v.claim === 'done' ? '🧾 실비 청구 완료' + (+v.claimAmt ? ' ' + formatWon(+v.claimAmt) : '') : '', v.note].filter(Boolean).map(escapeHtml).join(' · ')}</div></button>`).join('')
       : '<div class="empty-msg">진료 기록이 없어요<br>아래 “＋ 진료 기록”으로 추가하세요<br>가족별로 나누려면 “구성원 관리”에서 이름을 먼저 추가해 주세요</div>';
     el('health-body').innerHTML = html;
   }
@@ -1912,6 +1956,14 @@
       <label>진료과 (선택)</label><input name="dept" maxlength="20" placeholder="예: 소아과, 치과" value="${val(v && v.dept)}">
       <label>증상 · 진단 (선택)</label><input name="reason" maxlength="60" value="${val(v && v.reason)}">
       <label>진료비 (원, 선택)</label><input name="cost" type="number" min="0" inputmode="numeric" value="${val(v && v.cost)}">
+      <label>실비(실손보험) 청구</label>
+      <select name="claim">
+        <option value=""${!v || !v.claim ? ' selected' : ''}>청구 안 함 (부)</option>
+        <option value="todo"${v && v.claim === 'todo' ? ' selected' : ''}>청구 필요 (아직 안 함)</option>
+        <option value="done"${v && v.claim === 'done' ? ' selected' : ''}>청구 완료 (여)</option>
+      </select>
+      <label>청구일 · 받은 금액 (선택)</label>
+      <div class="goal-row"><input name="claimDate" type="date" value="${val(v && v.claimDate)}"><input name="claimAmt" type="number" min="0" inputmode="numeric" placeholder="받은 금액(원)" value="${val(v && v.claimAmt)}"></div>
       <label>다음 예약일 (선택)</label><input name="next" type="date" value="${val(v && v.next)}">
       <label>메모 (선택)</label><input name="note" maxlength="80" value="${val(v && v.note)}">
       ${v ? '' : '<label class="check"><input type="checkbox" name="ledger" checked> 진료비를 가계부에 지출로도 기록</label>'}
@@ -1926,6 +1978,10 @@
         who: String(fd.get('who')), date, hospital, dept: String(fd.get('dept')).trim(),
         reason: String(fd.get('reason')).trim(), cost, next, note: String(fd.get('note')).trim()
       };
+      rec.claim = ['todo', 'done'].includes(String(fd.get('claim'))) ? String(fd.get('claim')) : '';
+      rec.claimDate = validDate(String(fd.get('claimDate'))) ? String(fd.get('claimDate')) : '';
+      rec.claimAmt = Math.max(0, parseInt(fd.get('claimAmt'), 10) || 0);
+      if (rec.claim === 'done' && !rec.claimDate) rec.claimDate = todayStr();
       if (v) Object.assign(v, rec);
       else {
         health.visits.push({ id: newId(), ...rec });
@@ -1962,6 +2018,90 @@
     return m ? `${+m[1] + 1}차` : '다음 접종';
   };
 
+  // 표준 접종일정: 질병관리청 국가예방접종 표준일정(어린이, 질병관리청 페이지 2025-12-16 확인, 지자체 게시본 2026-01-05 수정본과 대조).
+  // [차수, 접종 시작 월령, 표시 문구]. 일정은 바뀔 수 있으니 실제 접종은 소아과·보건소와 확인한다.
+  const VAX = [
+    { name: 'B형간염', re: /B형간염|HepB/i, doses: [[1, 0, '출생 시'], [2, 1, '1개월'], [3, 6, '6개월']] },
+    { name: 'BCG(결핵)', short: 'BCG(결핵)', re: /BCG|결핵/i, doses: [[1, 0, '4주 이내']] },
+    { name: 'DTaP(디프테리아·파상풍·백일해)', short: 'DTaP', re: /DTaP|디프테리아/i, doses: [[1, 2, '2개월'], [2, 4, '4개월'], [3, 6, '6개월'], [4, 15, '15~18개월'], [5, 48, '4~6세']] },
+    { name: '폴리오(IPV)', short: '폴리오(IPV)', re: /IPV|폴리오/i, doses: [[1, 2, '2개월'], [2, 4, '4개월'], [3, 6, '6~18개월'], [4, 48, '4~6세']] },
+    { name: 'Hib', re: /Hib/i, doses: [[1, 2, '2개월'], [2, 4, '4개월'], [3, 6, '6개월'], [4, 12, '12~15개월']] },
+    { name: '폐렴구균(PCV)', re: /PCV|폐렴구균/i, doses: [[1, 2, '2개월'], [2, 4, '4개월'], [3, 6, '6개월'], [4, 12, '12~15개월']] },
+    { name: '로타바이러스', re: /로타|RV/i, doses: [[1, 2, '2개월'], [2, 4, '4개월'], [3, 6, '6개월(제품에 따라)']] },
+    { name: 'MMR(홍역·유행성이하선염·풍진)', short: 'MMR', re: /MMR|홍역/i, doses: [[1, 12, '12~15개월'], [2, 48, '4~6세']] },
+    { name: '수두', re: /수두|VAR/i, doses: [[1, 12, '12~15개월']] },
+    { name: 'A형간염', re: /A형간염|HepA/i, doses: [[1, 12, '12~35개월'], [2, 18, '1차 후 6개월 이상']] },
+    { name: '일본뇌염', re: /일본뇌염|JE/i, note: '불활성화 백신 기준 5회예요. 생백신은 2회라서 맞은 백신 종류에 따라 달라요.',
+      doses: [[1, 12, '12~23개월'], [2, 13, '1차 후 1개월'], [3, 24, '24~35개월'], [4, 72, '6세'], [5, 144, '12세']] },
+    { name: 'Tdap/Td', re: /Tdap|\bTd\b/i, doses: [[1, 132, '11~12세']] },
+    { name: 'HPV', re: /HPV|유두종/i, note: '국가 지원은 12~17세 여아 대상이에요. 횟수는 의료진 안내를 따르세요.', doses: [[1, 144, '12세(여아)']] }
+  ];
+  const monthsBetween = (birth, ref) => {
+    const b = parseD(birth), r = parseD(ref);
+    return (r.getFullYear() - b.getFullYear()) * 12 + r.getMonth() - b.getMonth() - (r.getDate() < b.getDate() ? 1 : 0);
+  };
+  const addMonthsTo = (s, n) => { const d = parseD(s); d.setMonth(d.getMonth() + n); return fmtD(d); };
+  const ageText = (mo) => (mo < 24 ? `${Math.max(mo, 0)}개월` : `만 ${Math.floor(mo / 12)}세`);
+  const doseNo = (d) => { const m = /(\d+)\s*차/.exec(d || ''); return m ? +m[1] : 0; };
+
+  // 백신별·차수별 상태: done(기록 있음) / planned(예정 등록) / due(시기가 되었는데 기록 없음) / soon(3개월 안) / later
+  function vaxStates(member, today) {
+    const age = monthsBetween(member.birth, today);
+    const mine = health.vaccines.filter((v) => v.who === member.id);
+    const rows = VAX.map((x, vi) => {
+      const recs = mine.filter((v) => x.re.test(v.name || ''));
+      const done = recs.filter((v) => v.done);
+      const doneCount = Math.max(done.length, ...done.map((v) => doseNo(v.dose)), 0);
+      const planned = recs.filter((v) => !v.done);
+      const doses = x.doses.map(([n, from, label]) => {
+        let st = 'later', rec = null;
+        if (doneCount >= n) st = 'done';
+        else {
+          rec = planned.find((v) => doseNo(v.dose) === n) || (n === doneCount + 1 ? planned.find((v) => !doseNo(v.dose)) : null) || null;
+          if (rec) st = 'planned';
+          else if (age >= from) st = 'due';
+          else if (from - age <= 3) st = 'soon';
+        }
+        return { n, from, label, st, rec };
+      });
+      return { vi, x, doses };
+    });
+    // 인플루엔자: 매년 접종(생후 6개월~12세). 최근 1년 안의 접종 기록이 있으면 완료로 본다.
+    const flu = mine.filter((v) => /인플루엔자|독감/.test(v.name || '') && v.done && diffDays(today, v.date) >= 0 && diffDays(today, v.date) <= 365);
+    return { age, rows, flu: age >= 6 && age < 156 ? (flu.length ? 'done' : 'due') : null };
+  }
+
+  function standardHtml(today) {
+    const members = schedule.members.filter((m) => healthWho === 'all' || m.id === healthWho);
+    let html = '';
+    if (healthWho === 'me') return '<div class="cyc-note" style="margin:0 0 6px">국가 표준 접종일정은 어린이·청소년 기준이라서, 생년월일을 입력한 구성원에게 표시돼요.</div>';
+    if (!members.length) return '';
+    const stLabel = { done: '완료', planned: '예정', due: '시기 도래·기록 없음', soon: '곧 시기' };
+    members.forEach((m) => {
+      if (!validDate(m.birth)) {
+        html += `<div class="vx-hint"><span>${escapeHtml(m.name)}: 생년월일을 입력하면 나이에 맞는 표준 접종을 보여 드려요</span><button type="button" class="vcheck" data-birth="${m.id}">입력</button></div>`;
+        return;
+      }
+      const s = vaxStates(m, today);
+      if (s.age > 18 * 12) {
+        html += `<div class="h-sec">${escapeHtml(m.name)} · ${ageText(s.age)}</div><div class="cyc-note" style="margin:0 0 6px">국가 표준 접종일정은 만 12세까지(HPV 등 청소년 일부)라서 표시할 항목이 없어요.</div>`;
+        return;
+      }
+      const lines = s.rows.filter((r) => r.doses.some((d) => d.st !== 'later')).map((r) => `<div class="vx">
+          <div class="vx-name">${escapeHtml(r.x.short || r.x.name)}</div>
+          <div class="vx-doses">${r.doses.filter((d) => d.st !== 'later').map((d) =>
+            `<button type="button" class="dose ${d.st}" data-vstd="${m.id}|${r.vi}|${d.n}" aria-label="${stLabel[d.st]}">${d.st === 'done' ? '✓ ' : ''}${r.x.doses.length > 1 ? d.n + '차 ' : ''}${d.label}</button>`).join('')}</div>
+          ${r.x.note && r.doses.some((d) => d.st !== 'done' && d.st !== 'later') ? `<div class="vx-note">${escapeHtml(r.x.note)}</div>` : ''}</div>`).join('');
+      const flu = s.flu ? `<div class="vx"><div class="vx-name">인플루엔자(독감)</div><div class="vx-doses"><button type="button" class="dose ${s.flu}" data-vstd="${m.id}|flu|1">${s.flu === 'done' ? '✓ 최근 1년 내 접종' : '매년 접종 대상'}</button></div></div>` : '';
+      html += `<div class="h-sec">${escapeHtml(m.name)} · ${ageText(s.age)} · 표준 접종 일정</div>${lines}${flu}`;
+    });
+    if (html) {
+      html += '<div class="cyc-legend" style="justify-content:flex-start"><span><i style="background:var(--income)"></i>완료</span><span><i style="background:var(--accent)"></i>예정</span><span><i style="background:var(--expense)"></i>시기 도래·기록 없음</span><span><i style="border:1px dashed var(--text-muted)"></i>곧</span></div>'
+        + '<p class="cyc-note">칸을 누르면 기록할 수 있어요. 이미 맞은 접종은 “완료”로 기록해 주세요. 질병관리청 국가예방접종 표준일정(어린이) 기준이며, 혼합백신(5가·6가 등)은 포함된 백신을 각각 기록해 주세요. 일정은 바뀔 수 있으니 소아과·보건소 안내를 따르세요.</p>';
+    }
+    return html;
+  }
+
   function renderVaccines() {
     const ppl = people();
     if (healthWho !== 'all' && !ppl.some((p) => p.id === healthWho)) healthWho = 'all';
@@ -1975,7 +2115,7 @@
     const planned = list.filter((v) => !v.done).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
     const done = list.filter((v) => v.done).sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
 
-    let html = `<div class="h-sec">해야 할 접종${planned.length ? ` · ${planned.length}건` : ''}</div>`;
+    let html = standardHtml(today) + `<div class="h-sec">해야 할 접종${planned.length ? ` · ${planned.length}건` : ''}</div>`;
     html += planned.length ? planned.map((v) => {
       const dd = diffDays(v.date, today);
       const when = dd < 0 ? `<span class="dd" style="color:var(--expense)">${-dd}일 지남</span>` : `<span class="dd">${dd === 0 ? '오늘' : 'D-' + dd}</span>`;
@@ -1992,22 +2132,23 @@
     el('health-body').innerHTML = html;
   }
 
-  function openVaccineSheet(v) {
-    const who = v ? v.who : healthWho === 'all' ? 'me' : healthWho;
+  function openVaccineSheet(v, preset) {
+    preset = preset || {};
+    const who = v ? v.who : preset.who || (healthWho === 'all' ? 'me' : healthWho);
     const whoOpts = people().map((p) => `<option value="${attr(p.id)}"${p.id === who ? ' selected' : ''}>${escapeHtml(p.name)}</option>`).join('');
     const val = (x) => attr(x == null ? '' : String(x));
     openSheet(`<form>
       <h3>${v ? '접종 수정' : '접종 기록 추가'}</h3>
       <label>누구</label><select name="who">${whoOpts}</select>
       <label>백신 이름</label>
-      <input name="name" required maxlength="40" list="vaccine-names" placeholder="예: 독감, MMR" value="${val(v && v.name)}" autocomplete="off">
+      <input name="name" required maxlength="40" list="vaccine-names" placeholder="예: 독감, MMR" value="${val(v ? v.name : preset.name)}" autocomplete="off">
       <datalist id="vaccine-names">${VACCINES.map((n) => `<option value="${attr(n)}">`).join('')}</datalist>
-      <label>차수 (선택)</label><input name="dose" maxlength="12" placeholder="예: 1차, 2차, 추가접종" value="${val(v && v.dose)}">
+      <label>차수 (선택)</label><input name="dose" maxlength="12" placeholder="예: 1차, 2차, 추가접종" value="${val(v ? v.dose : preset.dose)}">
       <label>상태</label>
-      <select name="state"><option value="planned"${v && v.done ? '' : ' selected'}>예정 (해야 할 접종)</option><option value="done"${v && v.done ? ' selected' : ''}>완료 (맞았어요)</option></select>
-      <label>날짜 (예정일 또는 접종일)</label><input name="date" type="date" required value="${v ? val(v.date) : todayStr()}">
+      <select name="state"><option value="planned"${(v ? v.done : preset.state === 'done') ? '' : ' selected'}>예정 (해야 할 접종)</option><option value="done"${(v ? v.done : preset.state === 'done') ? ' selected' : ''}>완료 (맞았어요)</option></select>
+      <label>날짜 (예정일 또는 접종일)</label><input name="date" type="date" required value="${v ? val(v.date) : preset.date || todayStr()}">
       <label>병원 · 장소 (선택)</label><input name="place" maxlength="30" value="${val(v && v.place)}">
-      <label>메모 (선택)</label><input name="note" maxlength="80" value="${val(v && v.note)}">
+      <label>메모 (선택)</label><input name="note" maxlength="80" value="${val(v ? v.note : preset.note)}">
       <label>다음 차수 예정일 (선택)</label><input name="next" type="date">
       <p class="goal-hint">상태가 “완료”이고 다음 예정일을 넣으면, 다음 차수가 “해야 할 접종”에 자동으로 등록돼요.</p>
       <div class="sheet-actions"><button type="button" data-cancel>취소</button>${v ? '<button type="button" data-delete>삭제</button>' : ''}<button type="submit">저장</button></div>
@@ -2248,6 +2389,38 @@
   el('health-body').addEventListener('click', (e) => {
     const visit = e.target.closest('[data-visit]');
     if (visit) { openVisitSheet(health.visits.find((v) => v.id === visit.dataset.visit)); return; }
+    const claimDone = e.target.closest('[data-claimdone]');
+    if (claimDone) {
+      const v = health.visits.find((x) => x.id === claimDone.dataset.claimdone);
+      if (v) { v.claim = 'done'; v.claimDate = todayStr(); saveHealth(); renderHealth(); showToast('실비 청구 완료로 표시했어요 (청구일은 오늘)'); }
+      return;
+    }
+    const birthBtn = e.target.closest('[data-birth]');
+    if (birthBtn) { openBirthSheet(schedule.members.find((m) => m.id === birthBtn.dataset.birth)); return; }
+    const std = e.target.closest('[data-vstd]');
+    if (std) {
+      const [mid, key, nStr] = std.dataset.vstd.split('|');
+      const m = schedule.members.find((x) => x.id === mid);
+      if (!m || !validDate(m.birth)) return;
+      const today = todayStr();
+      if (key === 'flu') {
+        if (vaxStates(m, today).flu === 'done') { showToast('최근 1년 안에 접종한 기록이 있어요'); return; }
+        openVaccineSheet(null, { who: mid, name: '인플루엔자(독감)', state: 'done', date: today });
+        return;
+      }
+      const row = vaxStates(m, today).rows.find((r) => r.vi === +key);
+      const d = row && row.doses.find((x) => x.n === +nStr);
+      if (!d) return;
+      if (d.st === 'done') { showToast('이미 완료로 기록돼 있어요'); return; }
+      if (d.st === 'planned' && d.rec) { openVaccineSheet(d.rec); return; }
+      const est = addMonthsTo(m.birth, d.from);
+      openVaccineSheet(null, {
+        who: mid, name: row.x.name, dose: row.x.doses.length > 1 ? `${d.n}차` : '',
+        state: d.st === 'due' ? 'done' : 'planned', date: d.st === 'due' && est > today ? today : est,
+        note: d.st === 'due' ? '날짜는 표준 시기로 추정(맞았다면 실제 날짜로 고쳐 주세요)' : ''
+      });
+      return;
+    }
     const take = e.target.closest('[data-take]');
     if (take) {
       const m = health.meds.find((x) => x.id === take.dataset.take);
@@ -2675,7 +2848,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v10'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v11'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').textContent = '다다리 가계부 ' + APP_VERSION;
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
