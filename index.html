@@ -508,6 +508,11 @@
   .cal-day .sp { font-size: 9px; line-height: 1.2; color: var(--expense); white-space: nowrap; }
   .cal-day .sp.inc { color: var(--income); }
   .cal-tx { display: flex; justify-content: space-between; gap: 8px; padding: 6px 2px; font-size: 13px; border-top: 1px solid var(--border); }
+  .subtabs { position: sticky; top: 0; z-index: 8; display: flex; gap: 4px; overflow-x: auto; padding: 8px 0; margin: 0 0 4px; background: var(--bg); scrollbar-width: none; }
+  .subtabs::-webkit-scrollbar { display: none; }
+  .subtabs button { flex: 1 0 auto; padding: 9px 8px; border: 1px solid var(--border); border-radius: 99px; background: var(--card-bg); color: var(--text-muted); font-size: 12.5px; font-weight: 600; white-space: nowrap; cursor: pointer; }
+  .subtabs button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .sub-off { display: none !important; }
   .biz-shops { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
   .biz-shops button { padding: 7px 13px; border: 1px solid var(--border); border-radius: 999px; background: var(--card-bg); color: var(--text-muted); font-size: 13px; font-weight: 600; cursor: pointer; }
   .biz-shops button.active { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
@@ -864,6 +869,7 @@
 </main>
 
 <main id="view-status" hidden>
+  <nav class="subtabs" id="sub-status" aria-label="현황 메뉴"></nav>
   <section class="card">
     <div id="status-body"></div>
   </section>
@@ -930,12 +936,17 @@
 
 <main id="view-ledger">
 
-  <section class="card">
-    <div class="month-nav">
+  <nav class="subtabs" id="sub-ledger" aria-label="가계부 메뉴"></nav>
+
+  <section class="card" data-sub="sum plan list card">
+    <div class="month-nav" style="margin-bottom:0">
       <button id="prev-month" aria-label="이전 달">◀</button>
       <div class="label" id="month-label"></div>
       <button id="next-month" aria-label="다음 달">▶</button>
     </div>
+  </section>
+
+  <section class="card" data-sub="sum">
     <div class="summary-grid">
       <div class="summary-item income">
         <div class="lbl">수입</div>
@@ -958,12 +969,12 @@
     </div>
   </section>
 
-  <section class="card" id="fixed-card">
+  <section class="card" id="fixed-card" data-sub="sum">
     <h2 class="section-title">이번 달 고정 수입·지출<span class="fx-sum" id="fixed-sum"></span></h2>
     <div id="fixed-list"></div>
   </section>
 
-  <section class="card" id="goal-card">
+  <section class="card" id="goal-card" data-sub="plan">
     <h2 class="section-title">월 지출 목표 · 주별 분배</h2>
     <div class="goal-row">
       <input type="number" id="goal-input" placeholder="한 달 목표 금액 (원)" min="0" inputmode="numeric">
@@ -973,7 +984,7 @@
     <div id="week-list"></div>
   </section>
 
-  <section class="card">
+  <section class="card" data-sub="rec">
     <div class="list-head">
       <h2 class="section-title">새 기록 추가</h2>
       <button type="button" class="mini-btn" id="cat-manage-btn" style="flex:none;padding:6px 10px;font-size:12px">카테고리 관리</button>
@@ -1020,12 +1031,12 @@
     </form>
   </section>
 
-  <section class="card" id="breakdown-card">
+  <section class="card" id="breakdown-card" data-sub="plan">
     <h2 class="section-title">이번 달 지출 카테고리</h2>
     <div id="breakdown-list"></div>
   </section>
 
-  <section class="card" id="cards-card">
+  <section class="card" id="cards-card" data-sub="card">
     <h2 class="section-title">카드 · 자동이체</h2>
     <div id="cards-list"></div>
     <div class="cards-actions">
@@ -1034,7 +1045,7 @@
     </div>
   </section>
 
-  <section class="card">
+  <section class="card" data-sub="list">
     <div class="list-head">
       <h2 class="section-title">내역</h2>
       <label class="chk"><input type="checkbox" id="only-fixed"> 고정만 보기</label>
@@ -1042,7 +1053,7 @@
     <div class="tx-list" id="tx-list"></div>
   </section>
 
-  <section class="card" id="search-card">
+  <section class="card" id="search-card" data-sub="list">
     <h2 class="section-title">🔍 내역 검색 · 기간 합계</h2>
     <div class="sq-presets" id="sq-presets">
       <button type="button" data-sqp="month">이번 달</button><button type="button" data-sqp="last">지난 달</button><button type="button" data-sqp="year">올해</button><button type="button" data-sqp="all">전체</button>
@@ -1057,7 +1068,7 @@
     <div id="sq-result"></div>
   </section>
 
-  <section class="card">
+  <section class="card" data-sub="set">
     <h2 class="section-title">백업 &amp; 복원</h2>
     <div class="backup-row">
       <button id="export-btn" type="button">내보내기 (JSON)</button>
@@ -1066,7 +1077,7 @@
     </div>
   </section>
 
-  <section class="card" id="alarm-card">
+  <section class="card" id="alarm-card" data-sub="set">
     <h2 class="section-title">📅 알람 (캘린더로 내보내기)</h2>
     <p class="goal-hint" style="margin:0 0 10px">병원 예약·접종·납부일·갱신·렌탈 방문·복약 시간을 아이폰 캘린더에 넣어 진짜 알림으로 울리게 해요. 앱이 꺼져 있어도 울려요.</p>
     <div id="alarm-opts"></div>
@@ -1074,7 +1085,7 @@
     <p class="goal-hint" id="alarm-result" style="margin:8px 0 0"></p>
   </section>
 
-  <section class="card" id="sync-card">
+  <section class="card" id="sync-card" data-sub="set">
     <h2 class="section-title">동기화 (폰 · 컴퓨터)</h2>
     <p class="goal-hint" id="sync-status" style="margin:0 0 10px"></p>
     <div class="backup-row">
@@ -1083,7 +1094,7 @@
     </div>
   </section>
 
-  <section class="card" id="lock-card">
+  <section class="card" id="lock-card" data-sub="set">
     <h2 class="section-title">🔒 앱 잠금</h2>
     <p class="goal-hint" id="lock-status" style="margin:0 0 10px"></p>
     <div class="backup-row">
@@ -1094,7 +1105,7 @@
     <p class="goal-hint" style="margin:8px 0 0">이 폰·컴퓨터에서 앱을 열 때 비밀번호를 묻는 화면 잠금이에요. 비밀번호는 이 기기에만 저장되고 동기화·백업에는 들어가지 않아요.</p>
   </section>
 
-  <section class="card" id="install-card" hidden>
+  <section class="card" id="install-card" data-sub="set" hidden>
     <h2 class="section-title">홈 화면에 설치</h2>
     <button class="install-btn" id="install-btn" type="button" hidden>앱으로 설치하기</button>
     <p class="goal-hint" id="install-hint" style="margin:0"></p>
@@ -2360,6 +2371,7 @@
     if (v === 'food') renderFood();
     if (v === 'calendar') renderCal();
     if (v === 'savings') renderSavings();
+    if (SUBS[v]) applySub(v);
     renderTodo();   // 현황 탭이면 확인할 일 배너와 현황표를 그리고, 아니면 배너를 숨긴다
   }
   el('viewtabs').addEventListener('click', (e) => {
@@ -4943,6 +4955,38 @@
     else { setView(row.dataset.cv); window.scrollTo(0, 0); }
   });
 
+  /* ---------- 소메뉴(메뉴 안의 작은 탭) ---------- */
+  // 내용이 긴 메뉴는 위쪽 작은 탭으로 나눠 한 번에 한 묶음만 보여 준다. 섹션에 data-sub="탭이름 ..."을 달면 그 탭에서만 보인다(안 달면 항상 보인다).
+  // 선택한 탭은 이 기기의 localStorage(`dadari_sub_v1`)에만 기억한다. 새 메뉴에 쓰려면 SUBS에 항목과 <nav class="subtabs" id="sub-메뉴"> 를 추가한다.
+  const SUB_KEY = 'dadari_sub_v1';
+  const SUBS = {
+    ledger: [['sum', '요약'], ['rec', '기록'], ['list', '내역'], ['plan', '목표·분석'], ['card', '카드·이체'], ['set', '설정']],
+    status: [['table', '현황표'], ['chart', '그래프'], ['fixed', '고정·카드']]
+  };
+  const subGet = () => { try { return JSON.parse(localStorage.getItem(SUB_KEY)) || {}; } catch (e) { return {}; } };
+  function subCurrent(view) { const k = subGet()[view]; return SUBS[view].some((x) => x[0] === k) ? k : SUBS[view][0][0]; }
+  function applySub(view) {
+    const cur = subCurrent(view), nav = el('sub-' + view);
+    nav.innerHTML = SUBS[view].map(([k, n]) => `<button type="button" data-st="${k}" class="${k === cur ? 'active' : ''}">${n}</button>`).join('');
+    el('view-' + view).querySelectorAll('[data-sub]').forEach((sec) => sec.classList.toggle('sub-off', !sec.dataset.sub.split(' ').includes(cur)));
+    const act = nav.querySelector('.active');
+    if (act) nav.scrollLeft = act.offsetLeft - (nav.clientWidth - act.clientWidth) / 2;
+  }
+  function setSubTab(view, k) {
+    const st = subGet();
+    st[view] = k;
+    try { localStorage.setItem(SUB_KEY, JSON.stringify(st)); } catch (e) { /* 기억하지 못해도 이번에는 바뀐다 */ }
+    applySub(view);
+  }
+  Object.keys(SUBS).forEach((v) => el('sub-' + v).addEventListener('click', (e) => {
+    const b = e.target.closest('[data-st]');
+    if (!b) return;
+    setSubTab(v, b.dataset.st);
+    // 탭을 바꾸면 그 메뉴의 맨 위(소메뉴 줄 바로 아래)부터 보이게 한다
+    const top = el('view-' + v).getBoundingClientRect().top + window.scrollY - 4;
+    if (window.scrollY > top) window.scrollTo(0, top);
+  }));
+
   /* ---------- 메뉴(탭) 순서 ---------- */
   const TAB_KEY = 'dadari_tab_order_v1';   // 이 기기의 설정(동기화하지 않는다)
   const TAB_LABELS = { status: '📊 현황', calendar: '📅 캘린더', ledger: '💰 가계부', savings: '🐷 저축', schedule: '🗓 시간표', health: '🩺 건강', insurance: '🛡 보험', rental: '🧰 렌탈', academy: '📚 학원비', biz: '📈 사업매출', food: '🍳 오늘뭐먹지' };
@@ -5355,13 +5399,13 @@
     const expiredFood = soonFood.filter((f) => ddOf(f) < 0).length;
 
     const money = (n) => (n ? formatWon(n) : '-');
-    const row = (ic, name, main, warn, amt, view) => `<tr data-sv="${view}"><td><span class="st-name">${ic} ${name}</span></td>
+    const row = (ic, name, main, warn, amt, view, sub) => `<tr data-sv="${view}"${sub ? ` data-ssub="${sub}"` : ''}><td><span class="st-name">${ic} ${name}</span></td>
       <td>${main}${warn ? `<div class="st-warn">${warn}</div>` : ''}</td><td class="st-amt">${amt}</td></tr>`;
     const goalTxt = goal > 0 ? `월 목표 ${formatWon(goal)} 중 ${Math.round((exp / goal) * 100)}% 사용` : '';
     const rows = [
-      row('💰', '가계부', `수입 ${money(inc)} · 지출 ${money(exp)}<div class="st-sub">고정비 ${money(fixedExp)}${goalTxt ? ' · ' + goalTxt : ''}</div>`, goal > 0 && exp > goal ? '월 목표를 넘었어요' : '', `${bal < 0 ? '-' : ''}${formatWon(Math.abs(bal))}`, 'ledger'),
-      row('🔁', '자동이체·정기결제', `${expRecurs.length}건${incRecurs.length ? ` · 고정수입 ${incRecurs.length}건` : ''}`, '', money(sum(expRecurs, (r) => r.amount)) === '-' ? '-' : '월 ' + formatWon(sum(expRecurs, (r) => r.amount)), 'ledger'),
-      row('💳', '카드', `등록 ${cards.length}장`, '', cards.length ? '이번 달 ' + formatWon(cardTotal) : '-', 'ledger'),
+      row('💰', '가계부', `수입 ${money(inc)} · 지출 ${money(exp)}<div class="st-sub">고정비 ${money(fixedExp)}${goalTxt ? ' · ' + goalTxt : ''}</div>`, goal > 0 && exp > goal ? '월 목표를 넘었어요' : '', `${bal < 0 ? '-' : ''}${formatWon(Math.abs(bal))}`, 'ledger', 'sum'),
+      row('🔁', '자동이체·정기결제', `${expRecurs.length}건${incRecurs.length ? ` · 고정수입 ${incRecurs.length}건` : ''}`, '', money(sum(expRecurs, (r) => r.amount)) === '-' ? '-' : '월 ' + formatWon(sum(expRecurs, (r) => r.amount)), 'ledger', 'card'),
+      row('💳', '카드', `등록 ${cards.length}장`, '', cards.length ? '이번 달 ' + formatWon(cardTotal) : '-', 'ledger', 'card'),
       row('🛡', '보험', `납입 중 ${activeIns.length}건 / 전체 ${insurance.length}건`, insSoon ? `갱신·만기 임박 ${insSoon}건` : '', insMonthly ? '월 ' + formatWon(insMonthly) : '-', 'insurance'),
       row('🧰', '렌탈', `이용 중 ${liveRent.length}건`, rentSoon ? `약정 만료 임박 ${rentSoon}건` : '', rentMonthly ? '월 ' + formatWon(rentMonthly) : '-', 'rental'),
       row('📚', '학원비', `수강 ${liveAca.length}건 · 납부 ${liveAca.length - acaUnpaid.length}/${liveAca.length}`, acaUnpaid.length ? `미납 ${acaUnpaid.length}건 ${formatWon(sum(acaUnpaid, (a) => +a.fee || 0))}` : '', acaTotal ? formatWon(acaTotal) : '-', 'academy'),
@@ -5394,15 +5438,18 @@
         <div class="summary-item income"><div class="lbl">이번 달 수입</div><div class="val">${formatWon(inc)}</div></div>
         <div class="summary-item expense"><div class="lbl">지출</div><div class="val">${formatWon(exp)}</div></div>
         <div class="summary-item balance"><div class="lbl">잔액</div><div class="val">${bal < 0 ? '-' : ''}${formatWon(Math.abs(bal))}</div></div></div>
-      ${statusChartsHtml()}
-      <h2 class="section-title" style="margin:22px 0 0">관리 현황표</h2>
+      <div data-sub="chart">${statusChartsHtml() || '<div class="empty-msg">아직 그래프로 보여 줄 기록이 없어요</div>'}</div>
+      <div data-sub="table"><h2 class="section-title" style="margin:18px 0 0">관리 현황표</h2>
       <table class="st-table"><thead><tr><th>영역</th><th>현황</th><th>금액</th></tr></thead><tbody>${rows}</tbody></table>
-      <p class="goal-hint" style="margin:6px 0 0">행을 누르면 해당 메뉴로 이동해요.</p>${fixedHtml}${cardHtml}`;
+      <p class="goal-hint" style="margin:6px 0 0">행을 누르면 해당 메뉴로 이동해요.</p></div>
+      <div data-sub="fixed">${fixedHtml + cardHtml || '<div class="empty-msg">고정으로 나가는 돈이나 등록한 카드가 아직 없어요</div>'}</div>`;
+    applySub('status');
   }
   el('status-body').addEventListener('click', (e) => {
     const vm = e.target.closest('[data-vm]');
     if (vm) { stSel = +vm.dataset.vm; renderStatus(); return; }
     const t = e.target.closest('[data-sv], [data-tv]');
+    if (t && t.dataset.ssub) setSubTab('ledger', t.dataset.ssub);
     if (t) { setView(t.dataset.sv || t.dataset.tv); window.scrollTo(0, 0); }
   });
 
@@ -5853,7 +5900,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v35'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v36'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span style="display:block;margin-bottom:4px">다달이, 매일의 기록이 모여 더 나은 생활이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
