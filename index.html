@@ -1765,7 +1765,35 @@
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        const data = JSON.parse(reader.result);
+        let data = JSON.parse(reader.result);
+        // 예전에 지운 항목(tombs)이 파일에 들어 있으면 새 id로 되살린다. 같은 id 그대로 넣으면 동기화가 "지운 항목"으로 보고 다시 지워 버린다.
+        // 항목끼리의 연결(구성원 id·자동이체 id·통장 id 등)은 새 id로 같이 바꿔 이어 준다.
+        let revived = 0;
+        if (data && typeof data === 'object' && !Array.isArray(data)) {
+          const remap = new Map();
+          const scan = (v) => {
+            if (Array.isArray(v)) v.forEach(scan);
+            else if (v && typeof v === 'object') {
+              if (typeof v.id === 'string' && tombs.has(v.id) && !remap.has(v.id)) remap.set(v.id, newId());
+              Object.keys(v).forEach((k) => scan(v[k]));
+            }
+          };
+          scan(data);
+          if (remap.size) {
+            const swap = (v) => {
+              if (typeof v === 'string') {
+                if (remap.has(v)) return remap.get(v);
+                if (v.startsWith('rc_')) remap.forEach((n, o) => { v = v.split(o).join(n); });   // 자동이체 기록 id(rc_<자동이체id>_<월>)
+                return v;
+              }
+              if (Array.isArray(v)) return v.map(swap);
+              if (v && typeof v === 'object') { const o = {}; Object.keys(v).forEach((k) => { o[k] = swap(v[k]); }); return o; }
+              return v;
+            };
+            data = swap(data);
+            revived = remap.size;
+          }
+        }
         // 객체 형식은 일부 항목만 담아도 된다(예: 시간표만 있는 파일).
         const txs = Array.isArray(data) ? data : data && typeof data === 'object' ? data.transactions || [] : null;
         if (!Array.isArray(txs)) throw new Error('invalid format');
@@ -1870,7 +1898,7 @@
           }
         }
         renderAll();
-        showToast(added.length || Array.isArray(data) ? `${added.length}건을 새로 불러왔어요` : '불러왔어요');
+        showToast(revived ? `지웠던 항목 ${revived}개를 포함해 불러왔어요` : added.length || Array.isArray(data) ? `${added.length}건을 새로 불러왔어요` : '불러왔어요');
       } catch (err) {
         showToast('올바른 백업 파일이 아니에요');
       }
@@ -6630,7 +6658,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v45'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v46'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span style="display:block;margin-bottom:4px">다달이, 매일의 기록이 모여 더 나은 생활이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
