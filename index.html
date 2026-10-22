@@ -477,6 +477,11 @@
   .fx-row span { color: var(--text-muted); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .fx-row span em { font-style: normal; color: var(--text); }
   .viewtabs-foot { max-width: 720px; margin: 0 auto 10px; padding: 0 20px; text-align: right; }
+  #viewtabs button[hidden] { display: none; }
+  .rec.tab-off .rec-name { color: var(--text-muted); text-decoration: line-through; }
+  .tt-sw { flex: none; padding: 6px 12px; border: 1px solid var(--border); border-radius: 99px; background: var(--card-bg); color: var(--text-muted); font-size: 12px; font-weight: 600; cursor: pointer; }
+  .tt-sw.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .tt-fixed { flex: none; font-size: 11px; color: var(--text-muted); }
   .tab-order-btn { background: none; border: 0; color: var(--text-muted); font-size: 12px; cursor: pointer; padding: 4px 0; }
   .rcp { padding: 12px 0; border-top: 1px solid var(--border); font-size: 13px; line-height: 1.6; display: flex; gap: 12px; align-items: flex-start; }
   .rcp .rb { flex: 1; min-width: 0; }
@@ -837,7 +842,7 @@
   <button type="button" data-view="biz"><span class="ic">📈</span>나는CEO</button>
   <button type="button" data-view="food"><span class="ic">🍳</span>오늘뭐먹지</button>
 </nav>
-<div class="viewtabs-foot"><button type="button" class="tab-order-btn" id="tab-order-btn">⇅ 메뉴 순서 바꾸기</button></div>
+<div class="viewtabs-foot"><button type="button" class="tab-order-btn" id="tab-order-btn">⚙ 메뉴 관리 (순서·사용 여부)</button></div>
 
 <main id="view-insurance" hidden>
   <section class="card">
@@ -4936,7 +4941,7 @@
   function calRange(cal, from, to) {
     const map = {}, money = {}, src = CAL_SRC[cal], off = calOff[cal];
     const on = (k) => src.includes(k) && !off.has(k);
-    const add = (kind, date, o) => { if (on(kind) && validDate(date) && date >= from && date <= to) (map[date] = map[date] || []).push({ kind, color: CAL_KIND_COLOR[kind], ...o }); };
+    const add = (kind, date, o) => { if (o.view && tabHidden(o.view)) return; if (on(kind) && validDate(date) && date >= from && date <= to) (map[date] = map[date] || []).push({ kind, color: CAL_KIND_COLOR[kind], ...o }); };
     const ms = [];
     for (let d = new Date(+from.slice(0, 4), +from.slice(5, 7) - 1, 1); dstr(d) <= to; d.setMonth(d.getMonth() + 1)) ms.push([d.getFullYear(), d.getMonth()]);
 
@@ -5222,9 +5227,14 @@
     if (window.scrollY > top) window.scrollTo(0, top);
   }));
 
-  /* ---------- 메뉴(탭) 순서 ---------- */
-  const TAB_KEY = 'dadari_tab_order_v1';   // 이 기기의 설정(동기화하지 않는다)
+  /* ---------- 메뉴(탭) 관리: 순서와 사용 여부 ---------- */
+  // 순서와 "사용 안 함"은 이 기기의 localStorage에만 둔다(동기화하지 않는다). 사용 안 함은 화면에서 감출 뿐 데이터는 지우지 않는다.
+  // 대시보드는 설정(백업·동기화·앱 잠금)이 들어 있어 항상 사용한다.
+  const TAB_KEY = 'dadari_tab_order_v1';
+  const TAB_HIDE_KEY = 'dadari_tab_hidden_v1';
   const TAB_LABELS = { status: '📊 대시보드', calendar: '📅 캘린더', ledger: '💰 가계부', savings: '🐷 저축', schedule: '🗓 시간표', health: '🩺 건강', insurance: '🛡 보험', rental: '🧰 렌탈·구독', academy: '📚 학원비', biz: '📈 나는CEO', food: '🍳 오늘뭐먹지' };
+  const TAB_FIXED = ['status'];
+  var tabsReady = false;   // 처음 화면을 그리기 전에는 메뉴를 옮기지 않는다(아래 초기화에서 true)
   function tabOrder() {
     const base = Object.keys(TAB_LABELS);
     let saved = [];
@@ -5232,16 +5242,26 @@
     const ok = saved.filter((id) => base.includes(id));
     return [...ok, ...base.filter((id) => !ok.includes(id))];   // 새로 생긴 메뉴는 맨 뒤에 붙인다
   }
+  function hiddenTabs() {
+    let h = [];
+    try { h = JSON.parse(localStorage.getItem('dadari_tab_hidden_v1')) || []; } catch (e) { /* 모두 사용 */ }
+    return new Set(h.filter((id) => id !== 'status' && Object.prototype.hasOwnProperty.call(TAB_LABELS, id)));
+  }
+  const tabHidden = (id) => hiddenTabs().has(id);
   function applyTabOrder() {
-    const nav = el('viewtabs');
-    tabOrder().forEach((id) => { const b = nav.querySelector(`[data-view="${id}"]`); if (b) nav.appendChild(b); });
+    const nav = el('viewtabs'), hid = hiddenTabs();
+    tabOrder().forEach((id) => { const b = nav.querySelector(`[data-view="${id}"]`); if (b) { nav.appendChild(b); b.hidden = hid.has(id); } });
+    // 지금 보던 메뉴를 감췄으면 첫 번째 보이는 메뉴로 옮긴다
+    const act = nav.querySelector('button.active');
+    if (tabsReady && act && act.hidden) setView(tabOrder().find((id) => !hid.has(id)) || 'status');
   }
   function openTabOrderSheet() {
     const draw = () => {
-      sheetBody.innerHTML = `<form><h3>메뉴 순서 바꾸기</h3>
-        <p class="goal-hint" style="margin:0 0 6px">☰를 누른 채 끌어서 옮기세요. 놓으면 바로 적용돼요. 한 줄에 4개씩 위에서부터 채워져요.</p>
-        ${tabOrder().map((id, i) => `<div class="rec" data-id="${id}"><span class="grip" aria-label="끌어서 순서 바꾸기">☰</span><div class="rec-name">${i + 1}. ${TAB_LABELS[id]}</div></div>`).join('')}
-        <div class="sheet-actions"><button type="button" data-cancel>닫기</button><button type="button" data-treset>기본 순서로</button></div></form>`;
+      const hid = hiddenTabs();
+      sheetBody.innerHTML = `<form><h3>메뉴 관리</h3>
+        <p class="goal-hint" style="margin:0 0 6px">☰를 누른 채 끌어서 순서를 바꾸고, 오른쪽 스위치로 사용 여부를 정해요. “사용 안 함”은 메뉴만 감추고 입력한 데이터는 그대로 남아요. 다시 켜면 돌아와요.</p>
+        ${tabOrder().map((id, i) => `<div class="rec${hid.has(id) ? ' tab-off' : ''}" data-id="${id}"><span class="grip" aria-label="끌어서 순서 바꾸기">☰</span><div class="rec-name">${i + 1}. ${TAB_LABELS[id]}</div>${TAB_FIXED.includes(id) ? '<span class="tt-fixed">항상 사용</span>' : `<button type="button" class="tt-sw${hid.has(id) ? '' : ' on'}" data-tt="${id}" role="switch" aria-checked="${!hid.has(id)}">${hid.has(id) ? '사용 안 함' : '사용'}</button>`}</div>`).join('')}
+        <div class="sheet-actions"><button type="button" data-cancel>닫기</button><button type="button" data-treset>기본으로</button></div></form>`;
     };
     makeSortable(sheetBody, '.rec[data-id]', '.grip', (ids) => {
       const base = Object.keys(TAB_LABELS);
@@ -5253,8 +5273,25 @@
     sheetBody.onclick = (e) => {
       const b = e.target.closest('button');
       if (!b) return;
-      if (b.dataset.treset !== undefined) { try { localStorage.removeItem(TAB_KEY); } catch (e2) { /* 무시 */ } applyTabOrder(); draw(); }
-      else if (b.dataset.cancel !== undefined) closeSheet();
+      if (b.dataset.tt) {
+        const hid = hiddenTabs();
+        if (hid.has(b.dataset.tt)) hid.delete(b.dataset.tt); else hid.add(b.dataset.tt);
+        try { localStorage.setItem(TAB_HIDE_KEY, JSON.stringify([...hid])); } catch (e2) { /* 저장 못 해도 이번 화면에서는 적용 */ }
+        applyTabOrder();
+        draw();
+        renderStatus();
+        renderTodo();
+        renderCal();
+        renderFin();
+      } else if (b.dataset.treset !== undefined) {
+        try { localStorage.removeItem(TAB_KEY); localStorage.removeItem(TAB_HIDE_KEY); } catch (e2) { /* 무시 */ }
+        applyTabOrder();
+        draw();
+        renderStatus();
+        renderTodo();
+        renderCal();
+        renderFin();
+      } else if (b.dataset.cancel !== undefined) closeSheet();
     };
     draw();
     sheet.hidden = false;
@@ -5340,7 +5377,7 @@
       if (dd !== null) add(dd, `${c.name} 결제일`, 'ledger', '💳');
     });
     fridge.forEach((f) => { const dd = within(f.expiry, -30, 2); if (dd !== null) add(dd, `냉장고 · ${f.name} 소비기한${dd < 0 ? ' 지남' : ''}`, 'food', '🧊'); });
-    return items.sort((a, b) => (a.dd === null ? 9999 : a.dd) - (b.dd === null ? 9999 : b.dd));
+    return items.filter((i) => !tabHidden(i.view)).sort((a, b) => (a.dd === null ? 9999 : a.dd) - (b.dd === null ? 9999 : b.dd));
   }
 
   function renderTodo() {
@@ -5639,7 +5676,7 @@
     const expiredFood = soonFood.filter((f) => ddOf(f) < 0).length;
 
     const money = (n) => (n ? formatWon(n) : '-');
-    const row = (ic, name, main, warn, amt, view, sub) => `<tr data-sv="${view}"${sub ? ` data-ssub="${sub}"` : ''}><td><span class="st-name">${ic} ${name}</span></td>
+    const row = (ic, name, main, warn, amt, view, sub) => tabHidden(view) ? '' : `<tr data-sv="${view}"${sub ? ` data-ssub="${sub}"` : ''}><td><span class="st-name">${ic} ${name}</span></td>
       <td>${main}${warn ? `<div class="st-warn">${warn}</div>` : ''}</td><td class="st-amt">${amt}</td></tr>`;
     const goalTxt = goal > 0 ? `월 목표 ${formatWon(goal)} 중 ${Math.round((exp / goal) * 100)}% 사용` : '';
     const rows = [
@@ -6141,7 +6178,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v40'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v41'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span style="display:block;margin-bottom:4px">다달이, 매일의 기록이 모여 더 나은 생활이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
@@ -6189,6 +6226,8 @@
   renderAll();
   const savedView = loadJson(VIEW_KEY, 'ledger');
   setView(['status', 'calendar', 'savings', 'schedule', 'health', 'insurance', 'rental', 'academy', 'biz', 'food'].includes(savedView) ? savedView : 'ledger');
+  if (tabHidden(savedView)) setView('status');   // 마지막에 보던 메뉴를 감춰 두었으면 대시보드로 연다
+  tabsReady = true;
   applyTabOrder();
   renderAlarmOpts();
   renderTodo();
