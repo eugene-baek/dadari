@@ -2725,10 +2725,19 @@
     if (applyRecurs()) renderAll();
   }
 
-  function httpError(r) {
-    if (r.status === 401) return new Error('토큰이 올바르지 않아요');
-    if (r.status === 403) return new Error('토큰 권한이 부족해요 (Contents 읽기·쓰기 필요)');
-    return new Error('서버 응답 오류 ' + r.status);
+  // GitHub가 알려 주는 이유(message)를 같이 붙여, 어디가 막혔는지 화면에서 바로 알 수 있게 한다.
+  async function httpError(r) {
+    let detail = '';
+    try { detail = (await r.json()).message || ''; } catch (e) { /* 본문이 없어도 상태 코드로 안내 */ }
+    const tail = detail ? ` (GitHub: ${detail})` : '';
+    if (r.status === 401) return new Error('토큰이 올바르지 않거나 만료됐어요. 토큰을 다시 복사해 붙여 넣어 주세요' + tail);
+    if (r.status === 403) return new Error('토큰 권한이 부족해요. 토큰의 Repository permissions → Contents를 “Read and write”로 해 주세요' + tail);
+    return new Error('서버 응답 오류 ' + r.status + tail);
+  }
+  function describeError(e) {
+    if (navigator.onLine === false) return '인터넷에 연결돼 있지 않아요';
+    if (e instanceof TypeError) return 'GitHub에 연결하지 못했어요. 인터넷, 광고·보안 차단 프로그램, 사내·학교 망 차단 여부를 확인해 주세요';
+    return e.message;
   }
   const ghFetch = (cfg, method, path, body) => fetch((cfg.api || GH_API) + path, {
     method,
@@ -2741,11 +2750,11 @@
     const r = await ghFetch(cfg, 'GET', `/repos/${cfg.repo}/contents/${SYNC_PATH}`);
     if (r.status === 404) {
       const repo = await ghFetch(cfg, 'GET', `/repos/${cfg.repo}`);
-      if (repo.status === 404) throw new Error('저장소를 찾을 수 없어요. 이름과 토큰 권한을 확인해 주세요');
-      if (!repo.ok) throw httpError(repo);
+      if (repo.status === 404) throw new Error('저장소를 찾을 수 없어요. ① 저장소 이름(소유자/이름)이 맞는지, ② 토큰을 만들 때 이 저장소를 선택했는지(Only select repositories), ③ 토큰을 만든 계정이 저장소 주인인지 확인해 주세요');
+      if (!repo.ok) throw await httpError(repo);
       return null;
     }
-    if (!r.ok) throw httpError(r);
+    if (!r.ok) throw await httpError(r);
     const j = await r.json();
     if (typeof j.content !== 'string' || !j.content) throw new Error('데이터 파일을 읽지 못했어요(크기 초과일 수 있어요)');
     return { sha: j.sha, data: JSON.parse(b64dec(j.content)) };
@@ -2756,7 +2765,7 @@
     if (sha) body.sha = sha;
     const r = await ghFetch(cfg, 'PUT', `/repos/${cfg.repo}/contents/${SYNC_PATH}`, body);
     if (r.status === 409 || r.status === 422) return { conflict: true };
-    if (!r.ok) throw httpError(r);
+    if (!r.ok) throw await httpError(r);
     return { sha: (await r.json()).content.sha };
   }
 
@@ -2772,7 +2781,7 @@
     el('sync-status').textContent = msg;
   }
 
-  async function syncNow(manual) {
+  async function syncNow(manual, report) {
     const cfg0 = getCfg();
     if (!cfg0 || !cfg0.token || !cfg0.repo) {
       if (manual) openSyncSheet();
@@ -2810,12 +2819,16 @@
     } catch (e) {
       const cur = getCfg();
       if (cur) {
-        cur.error = e instanceof TypeError || navigator.onLine === false ? '오프라인이에요. 연결되면 다시 동기화해요' : e.message;
+        cur.error = describeError(e);
         setCfg(cur);
       }
     } finally {
       syncing = false;
       showSync();
+      if (manual || report) {   // 직접 누른 동기화는 결과를 알림으로도 알려 준다
+        const c = getCfg();
+        if (c) showToast(c.error ? '⚠ 동기화 실패: ' + c.error.slice(0, 60) : '동기화했어요');
+      }
       if (syncAgain) { syncAgain = false; syncNow(); }
     }
   }
@@ -2841,14 +2854,33 @@
       <label>접근 토큰</label>
       <input name="token" type="password" required autocomplete="off" autocapitalize="off">
       <p class="goal-hint">그 저장소 하나에만 Contents 읽기·쓰기 권한을 준 토큰을 넣어 주세요. 토큰은 이 기기에만 저장되고 백업 파일에는 들어가지 않아요. 폰과 컴퓨터에서 각각 한 번씩 연결하면 돼요.</p>
+      <p class="goal-hint" id="sync-err" style="color:var(--expense);font-weight:600" role="alert"></p>
       <div class="sheet-actions"><button type="button" data-cancel>취소</button><button type="submit">연결</button></div>
     </form>`, (fd) => {
       const repo = String(fd.get('repo')).trim().replace(/^https?:\/\/github\.com\//, '').replace(/\.git$/, '').replace(/\/$/, '');
       const token = String(fd.get('token')).trim();
-      if (!/^[\w.-]+\/[\w.-]+$/.test(repo) || !token) { showToast('저장소 이름(소유자/이름)과 토큰을 확인해 주세요'); return false; }
-      setCfg({ repo, token, sha: null, dirty: !!hasData(), seq: 0, last: 0, error: '' });
-      showSync();
-      syncNow();
+      const errEl = sheetBody.querySelector('#sync-err');
+      const btn = sheetBody.querySelector('button[type="submit"]');
+      if (!/^[\w.-]+\/[\w.-]+$/.test(repo) || !token) {
+        errEl.textContent = '⚠ 저장소 이름은 “소유자/이름” 형식(예: eugene-baek/timetable)으로, 토큰은 비우지 말고 입력해 주세요';
+        return false;
+      }
+      // 먼저 GitHub에 접속해 확인하고, 실패하면 창을 닫지 않고 이유를 보여 준다.
+      const cfg = { repo, token, sha: null, dirty: !!hasData(), seq: 0, last: 0, error: '' };
+      errEl.textContent = '';
+      btn.disabled = true;
+      btn.textContent = '확인 중…';
+      ghGetFile(cfg).then(() => {
+        setCfg(cfg);
+        closeSheet();
+        showSync();
+        syncNow(false, true);
+      }).catch((e) => {
+        errEl.textContent = '⚠ ' + describeError(e);
+        btn.disabled = false;
+        btn.textContent = '연결';
+      });
+      return false;
     });
   }
   el('sync-setup').addEventListener('click', openSyncSheet);
@@ -3014,7 +3046,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v18'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v19'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').textContent = '다다리 가계부 ' + APP_VERSION;
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
