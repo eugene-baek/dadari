@@ -263,7 +263,8 @@
     border-bottom: 1px solid var(--border);
   }
   .tx-item:last-child { border-bottom: none; }
-  .tx-main { display: flex; flex-direction: column; gap: 2px; }
+  .tx-main { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+  .tx-main, .tx-amt { cursor: pointer; }
   .tx-cat { font-size: 14px; font-weight: 600; }
   .tx-meta { font-size: 12px; color: var(--text-muted); }
   .tx-amt { font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -1273,7 +1274,12 @@
   ['sq-from', 'sq-to'].forEach((id) => el(id).addEventListener('change', () => { SQ.from = el('sq-from').value; SQ.to = el('sq-to').value; SQ.preset = ''; renderSearch(); }));
   el('sq-type').addEventListener('change', () => { SQ.type = el('sq-type').value; renderSearch(); });
   el('sq-cat').addEventListener('change', () => { SQ.cat = el('sq-cat').value; renderSearch(); });
-  el('sq-result').addEventListener('click', (e) => { const b = e.target.closest('.del-btn'); if (b) deleteTx(b.closest('.tx-item').dataset.id); });
+  el('sq-result').addEventListener('click', (e) => {
+    const b = e.target.closest('.del-btn');
+    if (b) { deleteTx(b.closest('.tx-item').dataset.id); return; }
+    const row = e.target.closest('.tx-main, .tx-amt');
+    if (row) openTxSheet(row.closest('.tx-item').dataset.id);
+  });
   el('sq-q').addEventListener('input', () => { SQ.q = el('sq-q').value; renderSearch(); });
 
   function renderAll() {
@@ -1432,20 +1438,71 @@
     wrap.querySelectorAll('.del-btn').forEach((btn) => {
       btn.addEventListener('click', (e) => deleteTx(e.target.closest('.tx-item').dataset.id));
     });
+    wrap.querySelectorAll('.tx-main, .tx-amt').forEach((n) => n.addEventListener('click', (e) => openTxSheet(e.target.closest('.tx-item').dataset.id)));
   }
 
   // 내역 삭제(월별 내역·검색 결과 공용). 지운 항목은 tomb로 남겨 동기화에서 되살아나지 않게 한다.
   function deleteTx(id) {
     const t = transactions.find((x) => x.id === id);
-    if (!t) return;
+    if (!t) return false;
     if (!confirm(`${t.date.slice(5).replace('-', '/')} ${t.category || ''}${t.memo ? ' · ' + t.memo : ''} ${t.type === 'income' ? '+' : '-'}${formatWon(t.amount)}
-이 내역을 삭제할까요?`)) return;
+이 내역을 삭제할까요?`)) return false;
     transactions = transactions.filter((x) => x.id !== id);
     delReceipt(id).catch(() => {});
     tomb(id);
     save();
     renderAll();
     showToast('삭제되었어요');
+    return true;
+  }
+
+  // 내역 수정(월별 내역·검색 결과 공용): 줄의 글자 부분을 누르면 열린다. 영수증 사진은 그대로 둔다.
+  function openTxSheet(id) {
+    const t = transactions.find((x) => x.id === id);
+    if (!t) return;
+    const val = (x) => attr(x == null ? '' : String(x));
+    const catOpts = (type, cur) => {
+      const list = categories[type].includes(cur) || !cur ? categories[type] : [...categories[type], cur];
+      return list.map((c) => `<option value="${attr(c)}"${c === cur ? ' selected' : ''}>${escapeHtml(c)}</option>`).join('');
+    };
+    const payNow = t.cardId && cardById(t.cardId) ? t.cardId : (t.pay || 'card');
+    const payOpts = '<option value="cash">현금</option><option value="transfer">계좌이체</option><option value="card">카드 (카드 선택 안 함)</option>'
+      + cards.map((c) => `<option value="${attr(c.id)}">${escapeHtml(c.name)} (${c.kind === 'credit' ? '신용' : '체크'})</option>`).join('');
+    openSheet(`<form>
+      <h3>내역 수정${t.recurId ? ' <small style="font-weight:400;color:var(--text-muted)">자동 기록</small>' : ''}</h3>
+      <label>구분</label><select name="type"><option value="expense"${t.type === 'expense' ? ' selected' : ''}>지출</option><option value="income"${t.type === 'income' ? ' selected' : ''}>수입</option></select>
+      <label>날짜</label><input name="date" type="date" required value="${val(t.date)}">
+      <label>카테고리</label><select name="category">${catOpts(t.type, t.category)}</select>
+      <div id="tx-pay-wrap"><label>결제수단</label><select name="pay">${payOpts}</select></div>
+      <label>금액 (원)</label><input name="amount" type="number" min="1" inputmode="numeric" required value="${val(t.amount)}">
+      <label>메모 (선택)</label><input name="memo" maxlength="80" value="${val(t.memo)}">
+      <label class="check"><input type="checkbox" name="fixed"${isFixed(t) ? ' checked' : ''}> 고정비 (매달 나가는 돈)</label>
+      <div class="sheet-actions"><button type="button" data-cancel>취소</button><button type="button" data-delete>삭제</button><button type="submit">저장</button></div>
+    </form>`, (fd) => {
+      const amount = parseFloat(fd.get('amount')), date = String(fd.get('date'));
+      if (!(amount > 0) || !validDate(date)) { showToast('날짜와 금액을 확인해 주세요'); return false; }
+      const type = fd.get('type') === 'income' ? 'income' : 'expense';
+      t.type = type;
+      t.date = date;
+      t.category = String(fd.get('category'));
+      t.amount = amount;
+      t.memo = String(fd.get('memo')).trim();
+      t.fixed = fd.get('fixed') === 'on';
+      if (type === 'expense') {
+        const pay = String(fd.get('pay'));
+        if (cardById(pay)) t.cardId = pay; else delete t.cardId;
+        t.pay = cardById(pay) || pay === 'card' ? 'card' : pay === 'transfer' ? 'transfer' : 'cash';
+      } else { delete t.pay; delete t.cardId; }
+      save();
+      renderAll();
+      showToast('수정했어요');
+    });
+    const typeSel = sheetBody.querySelector('[name=type]'), catSel = sheetBody.querySelector('[name=category]'), paySel = sheetBody.querySelector('[name=pay]'), payWrap = sheetBody.querySelector('#tx-pay-wrap');
+    paySel.value = [...paySel.options].some((o) => o.value === payNow) ? payNow : 'card';
+    const sync = () => { payWrap.hidden = typeSel.value !== 'expense'; };
+    sync();
+    typeSel.addEventListener('change', () => { catSel.innerHTML = catOpts(typeSel.value, ''); sync(); });
+    sheetBody.querySelector('[data-delete]').addEventListener('click', () => { if (deleteTx(id)) closeSheet(); });
   }
 
   function escapeHtml(str) {
@@ -5337,7 +5394,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v29'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v30'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span style="display:block;margin-bottom:4px">다다리, 매일의 기록이 모여 더 나은 생활이 됩니다.</span>다다리 ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
