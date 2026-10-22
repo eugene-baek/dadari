@@ -2587,7 +2587,7 @@
   const schColor = (i) => schFixedColor(i) || schOtherMap()[schKey(i.title)] || '#eb6834';
 
   function itemButton(i, now) {
-    return `<button type="button" class="sch-item${now ? ' now' : ''}" data-item="${i.id}" style="background:${tone(schColor(i), schKey(i.title))}">
+    return `<button type="button" class="sch-item${now ? ' now' : ''}" data-item="${i.id}">
       <span class="sch-time">${i.end && i.end > i.time ? i.time + '~' + i.end : fmtTime(i.time)}</span>
       <span class="sch-title">${escapeHtml(i.title)}${now ? '<span class="sch-tag">지금</span>' : ''}${i.note ? `<span class="sch-note">${escapeHtml(i.note)}</span>` : ''}</span>
     </button>`;
@@ -6712,7 +6712,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v49'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v50'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span style="display:block;margin-bottom:4px">다달이, 매일의 기록이 모여 더 나은 생활이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
