@@ -26,9 +26,13 @@
     --expense: #dc2626;
     --expense-soft: #fef2f2;
     --shadow: 0 1px 2px rgba(0,0,0,0.04), 0 1px 8px rgba(0,0,0,0.04);
+    --c1: #2a78d6;   /* 그래프 1번 색: 수입·값(파랑) */
+    --c2: #eb6834;   /* 그래프 2번 색: 지출(주황) */
   }
   @media (prefers-color-scheme: dark) {
     :root {
+      --c1: #3987e5;
+      --c2: #d95926;
       --bg: #14151a;
       --card-bg: #1e2027;
       --text: #eef0f3;
@@ -144,6 +148,26 @@
   .summary-item.expense .val { color: var(--expense); }
   .summary-item.balance .val { color: var(--accent); }
 
+  .vz-key { display: flex; gap: 14px; align-items: center; font-size: 12px; color: var(--text-muted); margin-bottom: 8px; }
+  .vz-key i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+  .vz-key .vz-max { margin-left: auto; }
+  i.c1 { background: var(--c1); }
+  i.c2 { background: var(--c2); }
+  .vz-plot { display: flex; gap: 4px; height: 130px; border-bottom: 1px solid var(--border); background: linear-gradient(var(--border), var(--border)) 0 0 / 100% 1px no-repeat, linear-gradient(var(--border), var(--border)) 0 50% / 100% 1px no-repeat; }
+  .vz-col { flex: 1; min-width: 0; height: 100%; padding: 0 2px; border: none; border-radius: 8px 8px 0 0; background: none; cursor: pointer; display: flex; align-items: flex-end; justify-content: center; gap: 2px; }
+  .vz-col.sel { background: var(--accent-soft); }
+  .vz-col i { display: block; width: 42%; max-width: 16px; border-radius: 4px 4px 0 0; }
+  .vz-labels { display: flex; gap: 4px; margin-top: 4px; }
+  .vz-labels span { flex: 1; text-align: center; font-size: 11px; color: var(--text-muted); cursor: pointer; padding: 2px 0; }
+  .vz-labels span.sel { color: var(--text); font-weight: 700; }
+  .vz-detail { margin-top: 8px; font-size: 13px; line-height: 1.6; }
+  .vz-h { display: flex; align-items: center; gap: 8px; padding: 5px 0; font-size: 13px; }
+  .vz-h .n { width: 76px; flex: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .vz-h .t { flex: 1; min-width: 0; height: 10px; }
+  .vz-h .t i { display: block; height: 100%; border-radius: 0 4px 4px 0; background: var(--c1); }
+  .vz-h .a { flex: none; width: 118px; text-align: right; color: var(--text-muted); font-size: 12px; }
+  .vz-table { margin-top: 8px; font-size: 12px; }
+  .vz-table summary { color: var(--text-muted); cursor: pointer; padding: 4px 0; }
   .year-sum { margin-top: 14px; padding: 12px 14px; border: 1px dashed var(--border); border-radius: 12px; }
   .year-sum .ys-head { font-size: 12px; font-weight: 700; color: var(--text-muted); margin-bottom: 6px; }
   .year-sum .ys-row { display: flex; justify-content: space-between; align-items: baseline; padding: 5px 0; font-size: 13px; color: var(--text-muted); }
@@ -708,6 +732,10 @@
   .lock-pad button:active { background: var(--accent-soft); }
   .lock-pad button.blank { visibility: hidden; }
   .lock-forgot { margin-top: 20px; border: none; background: none; color: var(--text-muted); font-size: 13px; text-decoration: underline; cursor: pointer; }
+  .lock-box[hidden] { display: none; }
+  #lock-recover input { margin-bottom: 10px; text-align: center; }
+  #lock-recover #lr-code { letter-spacing: 2px; text-transform: uppercase; }
+  .rec-code { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 24px; font-weight: 700; letter-spacing: 2px; text-align: center; padding: 16px 8px; margin: 10px 0; border: 2px dashed var(--accent); border-radius: 14px; background: var(--accent-soft); user-select: all; }
   .lock-screen[data-mode="cover"] .lock-sub, .lock-screen[data-mode="cover"] .lock-dots, .lock-screen[data-mode="cover"] .lock-pad, .lock-screen[data-mode="cover"] .lock-forgot { visibility: hidden; }
 </style>
 </head>
@@ -721,6 +749,19 @@
     <div class="lock-dots" id="lock-dots"></div>
     <div class="lock-pad" id="lock-pad"></div>
     <button type="button" class="lock-forgot" id="lock-forgot">비밀번호를 잊었어요</button>
+  </div>
+  <div class="lock-box" id="lock-recover" hidden>
+    <div class="lock-ic">🔑</div>
+    <div class="lock-title">복구 코드로 다시 정하기</div>
+    <div class="lock-sub" id="lr-sub">복구 코드와 새 비밀번호를 입력하세요</div>
+    <form id="lr-form" autocomplete="off">
+      <input id="lr-code" placeholder="복구 코드 (XXXX-XXXX-XXXX)" autocapitalize="characters" autocomplete="off" required>
+      <input id="lr-pin" type="password" inputmode="numeric" pattern="[0-9]*" minlength="4" maxlength="6" placeholder="새 비밀번호 (숫자 4~6자리)" autocomplete="off" required>
+      <input id="lr-pin2" type="password" inputmode="numeric" pattern="[0-9]*" minlength="4" maxlength="6" placeholder="새 비밀번호 한 번 더" autocomplete="off" required>
+      <button type="submit" class="install-btn" id="lr-submit">비밀번호 다시 정하기</button>
+    </form>
+    <button type="button" class="lock-forgot" id="lr-back">← 돌아가기</button>
+    <button type="button" class="lock-forgot" id="lr-wipe">복구 코드도 없어요 (데이터 지우고 초기화)</button>
   </div>
 </div>
 <script>
@@ -795,10 +836,13 @@
 
 <main id="view-savings" hidden>
   <section class="card">
+    <div class="member-chips" id="sav-who" hidden></div>
+    <div class="biz-shops" id="sav-kinds" hidden></div>
     <div id="sav-body"></div>
     <div class="cards-actions" style="flex-wrap:wrap">
       <button type="button" class="mini-btn" id="add-sav-btn">＋ 저축 통장·목표</button>
       <button type="button" class="mini-btn" id="add-dep-btn">＋ 입금·출금 기록</button>
+      <button type="button" class="mini-btn" id="sav-member-btn">👥 구성원 관리</button>
     </div>
   </section>
 </main>
@@ -1044,6 +1088,7 @@
     <div class="backup-row">
       <button type="button" id="lock-setup">잠금 설정</button>
       <button type="button" id="lock-off" hidden>잠금 끄기</button>
+      <button type="button" id="lock-recovery" hidden>🔑 복구 코드 새로 만들기</button>
     </div>
     <p class="goal-hint" style="margin:8px 0 0">이 폰·컴퓨터에서 앱을 열 때 비밀번호를 묻는 화면 잠금이에요. 비밀번호는 이 기기에만 저장되고 동기화·백업에는 들어가지 않아요.</p>
   </section>
@@ -2425,6 +2470,8 @@
     if (rents.length) parts.push(`렌탈 ${rents.length}건`);
     const acas = academies.filter((a) => a.who === id);
     if (acas.length) parts.push(`학원 ${acas.length}건`);
+    const savs = savings.accounts.filter((a) => savWho(a) === id);
+    if (savs.length) parts.push(`저축 ${savs.length}개`);
     if (!confirm(`“${m.name}”을(를) 삭제할까요?` + (parts.length ? `\n${parts.join(', ')}도 함께 지워져요.` : ''))) return false;
     // 보험·렌탈·학원에 연결된 가계부 자동 기록 항목도 함께 지운다(이미 기록된 내역은 남는다).
     policies.forEach((p) => syncRecur(p, false, null));
@@ -2434,6 +2481,12 @@
       ...policies.map((p) => p.id), ...rents.map((r) => r.id), ...acas.map((a) => a.id));
     academies = academies.filter((a) => a.who !== id);
     saveAcademies();
+    // 이 사람의 저축 통장과 입출금 기록도 지운다(가계부에 함께 기록한 지출은 남는다)
+    tomb(...savs.map((a) => a.id), ...savings.log.filter((l) => savs.some((a) => a.id === l.sid)).map((l) => l.id));
+    savings.log = savings.log.filter((l) => !savs.some((a) => a.id === l.sid));
+    savings.accounts = savings.accounts.filter((a) => savWho(a) !== id);
+    saveSav();
+    renderSavings();
     schedule.members = schedule.members.filter((x) => x.id !== id);
     schedule.items = schedule.items.filter((i) => i.memberId !== id);
     health.visits = health.visits.filter((v) => v.who !== id);
@@ -4305,7 +4358,10 @@
   let savings = loadJson(SAV_KEY, { accounts: [], log: [] });   // accounts: {id,name,kind,goal,goalDate,monthly,payDay,note}, log: {id,sid,date,amount(입금 +/출금 -),memo,txId}
   if (!savings || !Array.isArray(savings.accounts) || !Array.isArray(savings.log)) savings = { accounts: [], log: [] };
   const saveSav = () => saveJson(SAV_KEY, savings);
-  const SAV_KINDS = ['적금', '예금', '비상금', '투자', '목표 저축', '기타'];
+  const SAV_KINDS = ['적금', '예금', '청약', '연금', '투자', '비상금', '목표 저축', '기타'];
+  const savWho = (a) => a.who || 'me';   // 구성원이 없던 예전 통장은 "나"의 것으로 본다
+  let savKind = 'all';   // 종류 필터('all' 또는 SAV_KINDS 값). 구성원 필터는 보험·렌탈·학원비와 같은 conWho를 쓴다
+  const savVisible = () => savings.accounts.filter((a) => (conWho === 'all' || savWho(a) === conWho) && (savKind === 'all' || (a.kind || '기타') === savKind));
   const savBal = (id) => savings.log.filter((l) => l.sid === id).reduce((a, l) => a + l.amount, 0);
   const savMonthOf = (id, ym) => savings.log.filter((l) => l.sid === id && l.amount > 0 && !l.start && l.date.startsWith(ym)).reduce((a, l) => a + l.amount, 0);
   const signWon = (n) => (n < 0 ? '-' : '+') + formatWon(Math.abs(n));
@@ -4313,12 +4369,18 @@
   function savingsHtml() {
     if (!savings.accounts.length) return '<div class="empty-msg">등록한 저축 통장·목표가 없어요<br>아래 “＋ 저축 통장·목표”로 적금·비상금·목표 저축을 만들고<br>입금할 때마다 기록하면 모인 금액이 보여요</div>';
     const today = todayStr(), ym = today.slice(0, 7), yr = today.slice(0, 4);
-    const total = savings.accounts.reduce((a, x) => a + savBal(x.id), 0);
-    const net = (pre) => savings.log.filter((l) => !l.start && l.date.startsWith(pre)).reduce((a, l) => a + l.amount, 0);
-    const goals = savings.accounts.filter((a) => a.goal > 0);
+    const list = savVisible(), ids = new Set(list.map((a) => a.id)), ppl = people();
+    if (!list.length) return '<div class="empty-msg">이 조건에 맞는 통장·목표가 없어요<br>위의 구성원·종류 선택을 “전체”로 바꿔 보세요</div>';
+    const total = list.reduce((a, x) => a + savBal(x.id), 0);
+    const net = (pre) => savings.log.filter((l) => ids.has(l.sid) && !l.start && l.date.startsWith(pre)).reduce((a, l) => a + l.amount, 0);
+    const goals = list.filter((a) => a.goal > 0);
     const goalSum = goals.reduce((a, x) => a + x.goal, 0), goalHave = goals.reduce((a, x) => a + Math.min(savBal(x.id), x.goal), 0);
-    let html = `<div class="ins-sum">모은 돈 <b>${formatWon(total)}</b> · 통장·목표 ${savings.accounts.length}개<br>이번 달 <b class="inc">${signWon(net(ym))}</b> · 올해 <b class="inc">${signWon(net(yr))}</b>${goalSum ? `<br>목표 합계 ${formatWon(goalSum)} 중 ${Math.round((goalHave / goalSum) * 100)}% 달성` : ''}</div>`;
-    html += savings.accounts.map((a) => {
+    // 전체 보기에서는 구성원별·종류별 모은 돈도 함께 보여 준다
+    const by = (keyOf, names) => names.map((n) => { const v = list.filter((a) => keyOf(a) === n.id).reduce((s, a) => s + savBal(a.id), 0); return v ? `${esc(n.name)} ${formatWon(v)}` : ''; }).filter(Boolean).join(' · ');
+    const perWho = conWho === 'all' && ppl.length > 1 ? by(savWho, ppl) : '';
+    const perKind = savKind === 'all' ? by((a) => a.kind || '기타', SAV_KINDS.map((k) => ({ id: k, name: k }))) : '';
+    let html = `<div class="ins-sum">모은 돈 <b>${formatWon(total)}</b> · 통장·목표 ${list.length}개<br>이번 달 <b class="inc">${signWon(net(ym))}</b> · 올해 <b class="inc">${signWon(net(yr))}</b>${goalSum ? `<br>목표 합계 ${formatWon(goalSum)} 중 ${Math.round((goalHave / goalSum) * 100)}% 달성` : ''}${perWho ? '<br>' + perWho : ''}${perKind ? '<br>' + perKind : ''}</div>`;
+    html += list.map((a) => {
       const bal = savBal(a.id), left = Math.max(0, a.goal - bal), pct = a.goal > 0 ? Math.round((bal / a.goal) * 100) : 0;
       const sub = [];
       if (a.goal > 0) sub.push(left > 0 ? `목표 ${formatWon(a.goal)} · 남은 ${formatWon(left)}` : `목표 ${formatWon(a.goal)} 달성 🎉`);
@@ -4328,20 +4390,32 @@
         if (left > 0 && dd > 0) sub.push(`월 ${formatWon(Math.ceil(left / Math.max(1, Math.round(dd / 30.4))))}씩 모으면 달성`);
       }
       if (a.monthly > 0) { const got = savMonthOf(a.id, ym); sub.push(`이번 달 ${formatWon(got)} / 계획 ${formatWon(a.monthly)}${got >= a.monthly ? ' ✓' : ''}`); }
-      return `<button type="button" class="visit" data-sav="${attr(a.id)}"><div class="v1"><span>${esc(a.name)} <span class="rt" style="font-size:10px;background:var(--accent-soft);color:var(--accent);border-radius:99px;padding:1px 7px">${esc(a.kind || '')}</span></span><b>${formatWon(bal)}</b></div>`
+      const whoTag = conWho === 'all' && ppl.length > 1 ? `<span class="who-tag">${esc(whoName(savWho(a)))}</span>` : '';
+      return `<button type="button" class="visit" data-sav="${attr(a.id)}"><div class="v1"><span>${whoTag}${esc(a.name)} <span class="rt" style="font-size:10px;background:var(--accent-soft);color:var(--accent);border-radius:99px;padding:1px 7px">${esc(a.kind || '')}</span></span><b>${formatWon(bal)}</b></div>`
         + (a.goal > 0 ? `<div class="bar" style="margin:6px 0 4px"><i class="${pct >= 100 ? '' : pct < 30 ? 'near' : ''}" style="width:${Math.min(100, pct)}%"></i></div>` : '')
         + (sub.length ? `<div class="v2">${sub.map(esc).join(' · ')}</div>` : '') + (a.note ? `<div class="v2">${esc(a.note)}</div>` : '') + '</button>';
     }).join('');
     return html;
   }
-  function renderSavings() { el('sav-body').innerHTML = savingsHtml(); }
+  function renderSavings() {
+    drawContractWho(el('sav-who'));
+    // 종류 필터: 지금 쓰는 종류만 건수와 함께 보여 준다(고른 종류에 통장이 없어지면 전체로 돌아간다)
+    const inWho = savings.accounts.filter((a) => conWho === 'all' || savWho(a) === conWho);
+    const kinds = SAV_KINDS.filter((k) => inWho.some((a) => (a.kind || '기타') === k));
+    if (savKind !== 'all' && !kinds.includes(savKind)) savKind = 'all';
+    el('sav-kinds').hidden = kinds.length < 2;
+    el('sav-kinds').innerHTML = ['all', ...kinds].map((k) => `<button type="button" data-sk="${attr(k)}" class="${k === savKind ? 'active' : ''}">${k === 'all' ? '전체 종류' : esc(k) + ' ' + inWho.filter((a) => (a.kind || '기타') === k).length}</button>`).join('');
+    el('sav-body').innerHTML = savingsHtml();
+  }
 
   function openSavAccountSheet(a) {
     const val = (x) => attr(x == null ? '' : String(x));
+    const who = a ? savWho(a) : conWho === 'all' ? 'me' : conWho;
     openSheet(`<form>
       <h3>${a ? '통장·목표 수정' : '저축 통장·목표 추가'}</h3>
+      <label>누구 저축인가요</label><select name="who">${people().map((x) => `<option value="${attr(x.id)}"${x.id === who ? ' selected' : ''}>${esc(x.name)}</option>`).join('')}</select>
       <label>이름</label><input name="name" required maxlength="30" placeholder="예: 비상금, 여행 적금, 아이 학자금" value="${val(a && a.name)}" autocomplete="off">
-      <label>종류</label><select name="kind">${SAV_KINDS.map((k) => `<option${k === (a ? a.kind : '적금') ? ' selected' : ''}>${k}</option>`).join('')}</select>
+      <label>종류</label><select name="kind">${(a && a.kind && !SAV_KINDS.includes(a.kind) ? [...SAV_KINDS, a.kind] : SAV_KINDS).map((k) => `<option${k === (a ? a.kind : savKind !== 'all' ? savKind : '적금') ? ' selected' : ''}>${esc(k)}</option>`).join('')}</select>
       <label>목표 금액 (선택)</label><input name="goal" type="number" min="0" inputmode="numeric" value="${val(a && a.goal ? a.goal : '')}" placeholder="0이면 목표 없음">
       <label>목표일 (선택)</label><input name="goalDate" type="date" value="${val(a && a.goalDate)}">
       <label>월 저축 계획 (선택)</label><input name="monthly" type="number" min="0" inputmode="numeric" value="${val(a && a.monthly ? a.monthly : '')}" placeholder="매달 모으려는 금액">
@@ -4353,7 +4427,7 @@
       const name = String(fd.get('name')).trim();
       if (!name) { showToast('이름을 입력해 주세요'); return false; }
       const rec = {
-        name, kind: String(fd.get('kind')), goal: Math.max(0, parseInt(fd.get('goal'), 10) || 0),
+        who: String(fd.get('who')), name, kind: String(fd.get('kind')), goal: Math.max(0, parseInt(fd.get('goal'), 10) || 0),
         goalDate: validDate(String(fd.get('goalDate'))) ? String(fd.get('goalDate')) : '',
         monthly: Math.max(0, parseInt(fd.get('monthly'), 10) || 0), payDay: Math.min(31, Math.max(0, parseInt(fd.get('payDay'), 10) || 0)), note: String(fd.get('note')).trim()
       };
@@ -4389,7 +4463,7 @@
     const sel = accId || savings.accounts[0].id;
     openSheet(`<form>
       <h3>입금·출금 기록</h3>
-      <label>통장·목표</label><select name="sid">${savings.accounts.map((a) => `<option value="${attr(a.id)}"${a.id === sel ? ' selected' : ''}>${esc(a.name)}</option>`).join('')}</select>
+      <label>통장·목표</label><select name="sid">${savings.accounts.map((a) => `<option value="${attr(a.id)}"${a.id === sel ? ' selected' : ''}>${esc(a.name)}${people().length > 1 ? ' · ' + esc(whoName(savWho(a))) : ''}</option>`).join('')}</select>
       <label>구분</label><select name="sign"><option value="1"${sign !== -1 ? ' selected' : ''}>입금 (모으기)</option><option value="-1"${sign === -1 ? ' selected' : ''}>출금 (꺼내 쓰기)</option></select>
       <label>날짜</label><input name="date" type="date" required value="${val(todayStr())}">
       <label>금액 (원)</label><input name="amount" type="number" min="1" inputmode="numeric" required>
@@ -4444,6 +4518,19 @@
 
   el('add-sav-btn').addEventListener('click', () => openSavAccountSheet(null));
   el('add-dep-btn').addEventListener('click', () => openSavDepositSheet(null, 1));
+  el('sav-member-btn').addEventListener('click', () => openMemberManager());
+  el('sav-who').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-cw]');
+    if (!b) return;
+    conWho = b.dataset.cw;
+    renderSavings();
+  });
+  el('sav-kinds').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-sk]');
+    if (!b) return;
+    savKind = b.dataset.sk;
+    renderSavings();
+  });
   el('sav-body').addEventListener('click', (e) => {
     const b = e.target.closest('[data-sav]');
     if (b) openSavDetail(savings.accounts.find((x) => x.id === b.dataset.sav));
@@ -4492,6 +4579,7 @@
     lockScreen.dataset.mode = 'pin';
     lockScreen.hidden = false;
     document.documentElement.classList.add('locked');
+    lockPanel('pad');
     lockDraw();
     lockCooldown();
   }
@@ -4547,21 +4635,98 @@
     }
   });
 
-  // 비밀번호를 잊었을 때: 복구할 수 없으므로 이 기기의 다다리 데이터를 지우고 처음 상태로 되돌린다(두 번 확인).
-  el('lock-forgot').addEventListener('click', () => {
-    if (!confirm('비밀번호는 복구할 수 없어요.\n\n이 기기의 다다리 데이터(가계부·건강·시간표·사진 등)를 모두 지우고 처음 상태로 되돌릴 수 있어요. GitHub 동기화를 연결해 두었다면 다시 연결해서 데이터를 되찾을 수 있어요.\n\n계속할까요?')) return;
+  // 복구 코드: 비밀번호를 잊었을 때 데이터를 지우지 않고 비밀번호를 다시 정하는 열쇠다. 앱이 메일을 보내는 것이 아니라(서버가 없다)
+  // 사용자가 코드를 적어 두거나 "메일로 보내 두기"로 자기 메일 앱에서 자신에게 보내 둔다. 코드도 해시(rsalt·rhash)로만 저장한다.
+  const REC_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';   // 헷갈리는 글자(0 O 1 I)를 뺀 32자 = 한 글자 5비트
+  const normCode = (s) => String(s).toUpperCase().replace(/[^A-Z0-9]/g, '');
+  function newRecoveryCode() {
+    const b = crypto.getRandomValues(new Uint8Array(12));
+    const s = Array.from(b, (x) => REC_CHARS[x & 31]).join('');
+    return s.slice(0, 4) + '-' + s.slice(4, 8) + '-' + s.slice(8);
+  }
+  async function recoveryFields(code) {
+    const rsalt = toB64(crypto.getRandomValues(new Uint8Array(16)));
+    return { rsalt, rhash: await pinHash(normCode(code), rsalt) };
+  }
+  function showRecoveryCode(code, why) {
+    openSheet(`<form>
+      <h3>🔑 복구 코드</h3>
+      <p class="goal-hint" style="margin:0">${why || '비밀번호를 잊었을 때 이 코드로 비밀번호를 다시 정할 수 있어요(데이터는 지워지지 않아요).'}<br><b>이 코드는 지금 한 번만 보여 줘요.</b> 안전한 곳에 적어 두세요.</p>
+      <div class="rec-code">${code}</div>
+      <div class="sheet-actions" style="margin-bottom:8px"><button type="button" data-rc="copy">📋 복사</button><button type="button" data-rc="mail">📧 메일로 보내 두기</button></div>
+      <p class="goal-hint">“메일로 보내 두기”는 이 폰의 메일 앱을 열어 코드를 본문에 넣어 줘요. 받는 사람을 <b>내 메일 주소</b>로 직접 적어 보내세요(앱은 메일 주소를 알지 못하고 대신 보내지도 않아요). 메일함이 남에게 열리면 코드도 보이니 주의하세요.</p>
+      <div class="sheet-actions"><button type="button" data-cancel>적어 두었어요</button></div>
+    </form>`, () => false);
+    const body = '다다리 앱 복구 코드: ' + code + '\n\n비밀번호를 잊었을 때: 다다리 잠금 화면의 “비밀번호를 잊었어요”에서 이 코드를 입력하면 데이터를 지우지 않고 비밀번호를 다시 정할 수 있어요.';
+    sheetBody.querySelector('[data-rc=copy]').addEventListener('click', async () => {
+      try { await navigator.clipboard.writeText(code); showToast('복구 코드를 복사했어요'); } catch (e) { showToast('복사하지 못했어요. 코드를 직접 적어 두세요'); }
+    });
+    sheetBody.querySelector('[data-rc=mail]').addEventListener('click', () => {
+      location.href = 'mailto:?subject=' + encodeURIComponent('다다리 복구 코드') + '&body=' + encodeURIComponent(body);
+    });
+  }
+
+  // 잠금 화면 안의 패널 전환(번호판 ↔ 복구 코드 입력)
+  function lockPanel(name) {
+    document.querySelector('#lock-screen > .lock-box').hidden = name !== 'pad';
+    el('lock-recover').hidden = name !== 'recover';
+    if (name === 'recover') {
+      const c = lockCfg(), has = !!(c && c.rhash);
+      el('lr-form').hidden = !has;
+      el('lr-sub').textContent = has ? '복구 코드와 새 비밀번호를 입력하세요' : '복구 코드를 만들어 두지 않았어요. 데이터를 지우고 초기화하는 방법만 있어요.';
+      el('lr-form').reset();
+    }
+  }
+  el('lock-forgot').addEventListener('click', () => lockPanel('recover'));
+  el('lr-back').addEventListener('click', () => lockPanel('pad'));
+
+  el('lr-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const c = lockCfg();
+    const msg = (t) => { el('lr-sub').textContent = t; el('lr-sub').classList.add('err'); };
+    if (!c || !c.rhash) return;
+    if (c.until > Date.now()) { msg(`${Math.ceil((c.until - Date.now()) / 1000)}초 뒤에 다시 시도해 주세요`); return; }
+    const pin = el('lr-pin').value, pin2 = el('lr-pin2').value;
+    if (!/^\d{4,6}$/.test(pin)) { msg('새 비밀번호는 숫자 4~6자리로 입력해 주세요'); return; }
+    if (pin !== pin2) { msg('두 비밀번호가 달라요'); return; }
+    let ok = false;
+    try { ok = (await pinHash(normCode(el('lr-code').value), c.rsalt)) === c.rhash; } catch (err) { ok = false; }
+    if (!ok) {
+      c.fails = (c.fails || 0) + 1;
+      if (c.fails >= 5) c.until = Date.now() + Math.min(300, 30 * (c.fails - 4)) * 1000;
+      setLockCfg(c);
+      msg(`복구 코드가 달라요 (${c.fails}/5)`);
+      return;
+    }
+    // 맞으면 새 비밀번호로 바꾸고, 쓴 복구 코드는 버리고 새 코드를 발급한다
+    try {
+      const salt = toB64(crypto.getRandomValues(new Uint8Array(16))), code = newRecoveryCode();
+      setLockCfg({ ...c, salt, hash: await pinHash(pin, salt), len: pin.length, fails: 0, until: 0, ...(await recoveryFields(code)) });
+      el('lr-sub').classList.remove('err');
+      lockPanel('pad');
+      hideLock();
+      renderLockCard();
+      showToast('비밀번호를 다시 정했어요');
+      showRecoveryCode(code, '복구 코드를 썼기 때문에 새 코드로 바꿨어요. 이전 코드는 더 이상 쓸 수 없어요.');
+    } catch (err) { msg('다시 정하지 못했어요. 잠시 뒤 다시 시도해 주세요'); }
+  });
+
+  // 복구 코드도 없을 때: 이 기기의 다다리 데이터를 지우고 처음 상태로 되돌린다(두 번 확인).
+  el('lr-wipe').addEventListener('click', () => {
+    if (!confirm('이 기기의 다다리 데이터(가계부·건강·시간표·사진 등)를 모두 지우고 처음 상태로 되돌려요. 되돌릴 수 없어요.\n\nGitHub 동기화를 연결해 두었다면 다시 연결해서 데이터를 되찾을 수 있어요.\n\n계속할까요?')) return;
     if ((prompt('정말 지우려면 “초기화”라고 입력하세요') || '').trim() !== '초기화') { alert('입력이 달라 취소했어요'); return; }
-    try { Object.keys(localStorage).filter((k) => k.startsWith('dadari_')).forEach((k) => localStorage.removeItem(k)); } catch (e) { /* 지우지 못하면 아래 새로고침 후에도 잠금이 남는다 */ }
-    try { indexedDB.deleteDatabase('dadari'); indexedDB.deleteDatabase('dadari_dishes'); } catch (e) { /* 사진 저장소가 없어도 계속 */ }
+    try { Object.keys(localStorage).filter((k) => k.startsWith('dadari_')).forEach((k) => localStorage.removeItem(k)); } catch (err) { /* 지우지 못하면 아래 새로고침 후에도 잠금이 남는다 */ }
+    try { indexedDB.deleteDatabase('dadari'); indexedDB.deleteDatabase('dadari_dishes'); } catch (err) { /* 사진 저장소가 없어도 계속 */ }
     setTimeout(() => location.reload(), 200);
   });
 
   function renderLockCard() {
     const c = lockCfg();
     const when = c ? (LOCK_AFTER.find((a) => a[0] === c.after) || LOCK_AFTER[1])[1] : '';
-    el('lock-status').textContent = c ? `켜져 있어요 · 숫자 ${c.len}자리 · 잠금 시점: ${when}` : '꺼져 있어요. 켜면 앱을 열 때마다 비밀번호를 물어요.';
+    el('lock-status').textContent = c ? `켜져 있어요 · 숫자 ${c.len}자리 · 잠금 시점: ${when} · 복구 코드 ${c.rhash ? '있음' : '없음(아래에서 만들어 두세요)'}` : '꺼져 있어요. 켜면 앱을 열 때마다 비밀번호를 물어요.';
     el('lock-setup').textContent = c ? '비밀번호 바꾸기' : '잠금 설정';
     el('lock-off').hidden = !c;
+    el('lock-recovery').hidden = !c;
   }
   const lockInput = (name, label, extra) => `<label>${label}</label><input name="${name}" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="off" required ${extra || ''}>`;
 
@@ -4585,11 +4750,37 @@
         try {
           if (c && (await pinHash(cur, c.salt)) !== c.hash) { showToast('현재 비밀번호가 달라요'); return; }
           const salt = toB64(crypto.getRandomValues(new Uint8Array(16)));
-          if (!setLockCfg({ salt, hash: await pinHash(pin, salt), len: pin.length, after, fails: 0, until: 0 })) { showToast('저장하지 못했어요'); return; }
+          // 복구 코드가 이미 있으면 그대로 두고, 없으면(처음 켜거나 예전에 만든 잠금) 새로 만들어 한 번 보여 준다
+          const code = c && c.rhash ? '' : newRecoveryCode();
+          const rec = code ? await recoveryFields(code) : { rsalt: c.rsalt, rhash: c.rhash };
+          if (!setLockCfg({ salt, hash: await pinHash(pin, salt), len: pin.length, after, fails: 0, until: 0, ...rec })) { showToast('저장하지 못했어요'); return; }
           closeSheet();
           renderLockCard();
           showToast(c ? '비밀번호를 바꿨어요' : '앱 잠금을 켰어요');
+          if (code) showRecoveryCode(code);
         } catch (e) { showToast('설정하지 못했어요'); }
+      })();
+      return false;
+    });
+  });
+  el('lock-recovery').addEventListener('click', () => {
+    const c = lockCfg();
+    if (!c) return;
+    openSheet(`<form>
+      <h3>복구 코드 새로 만들기</h3>
+      <p class="goal-hint" style="margin:0 0 6px">새 코드를 만들면 이전 복구 코드는 쓸 수 없어요.</p>
+      ${lockInput('cur', '현재 비밀번호')}
+      <div class="sheet-actions"><button type="button" data-cancel>취소</button><button type="submit">새 코드 만들기</button></div>
+    </form>`, (fd) => {
+      (async () => {
+        try {
+          if ((await pinHash(String(fd.get('cur')), c.salt)) !== c.hash) { showToast('현재 비밀번호가 달라요'); return; }
+          const code = newRecoveryCode();
+          setLockCfg({ ...c, ...(await recoveryFields(code)) });
+          closeSheet();
+          renderLockCard();
+          showRecoveryCode(code, '새 복구 코드를 만들었어요. 이전 코드는 더 이상 쓸 수 없어요.');
+        } catch (e) { showToast('만들지 못했어요'); }
       })();
       return false;
     });
@@ -5071,6 +5262,57 @@
     return req ? (prev >= req ? '실적 달성 ✓' : '실적 미달') : '';
   }
 
+  // 현황 그래프: 최근 6개월 수입·지출, 이번 달 지출 카테고리, 최근 6개월 저축 입금.
+  // 색은 팔레트 검증기를 통과한 파랑(수입·값)과 주황(지출)이다(초록·빨강은 적록색약에서 구분이 안 돼 그래프에는 쓰지 않는다).
+  // 막대를 누르면 그 달 숫자가 아래 한 줄로 나오고, "표로 보기"에 같은 숫자가 표로 있다.
+  let stSel = 5;   // 선택한 달(0~5, 5가 이번 달)
+  function statusChartsHtml() {
+    const now = new Date(), months = [];
+    for (let i = 5; i >= 0; i--) { const d = new Date(now.getFullYear(), now.getMonth() - i, 1); months.push({ ym: monthKey(d), m: d.getMonth() + 1 }); }
+    months.forEach((mo) => {
+      const l = transactions.filter((t) => t.date.startsWith(mo.ym));
+      mo.inc = l.filter((t) => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+      mo.exp = l.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+      mo.sav = savings.log.filter((x) => !x.start && x.amount > 0 && x.date.startsWith(mo.ym)).reduce((s, x) => s + x.amount, 0);
+    });
+    const sel = months[stSel] || months[5], hp = (v, max) => (v > 0 ? Math.max(3, Math.round((v / max) * 100)) : 0);
+    const signed = (n) => (n < 0 ? '-' : '') + formatWon(Math.abs(n));
+    const labels = months.map((mo, i) => `<span class="${i === stSel ? 'sel' : ''}" data-vm="${i}">${mo.m}월</span>`).join('');
+    let html = '';
+
+    if (months.some((x) => x.inc || x.exp)) {
+      const max = Math.max(1, ...months.map((x) => Math.max(x.inc, x.exp)));
+      html += `<h2 class="section-title" style="margin:18px 0 6px">최근 6개월 수입·지출</h2>
+        <div class="vz-key"><span><i class="c1"></i>수입</span><span><i class="c2"></i>지출</span><span class="vz-max">최대 ${shortWon(max)}</span></div>
+        <div class="vz-plot" role="img" aria-label="최근 6개월 월별 수입과 지출 막대그래프">${months.map((mo, i) => `<button type="button" class="vz-col${i === stSel ? ' sel' : ''}" data-vm="${i}" aria-label="${mo.m}월 수입 ${formatWon(mo.inc)}, 지출 ${formatWon(mo.exp)}"><i class="c1" style="height:${hp(mo.inc, max)}%"></i><i class="c2" style="height:${hp(mo.exp, max)}%"></i></button>`).join('')}</div>
+        <div class="vz-labels">${labels}</div>
+        <div class="vz-detail"><b>${sel.m}월</b> · 수입 ${formatWon(sel.inc)} · 지출 ${formatWon(sel.exp)} · 남은 돈 ${signed(sel.inc - sel.exp)}</div>
+        <details class="vz-table"><summary>표로 보기</summary><table class="st-table"><thead><tr><th>월</th><th class="st-amt">수입</th><th class="st-amt">지출</th><th class="st-amt">남은 돈</th></tr></thead><tbody>${months.map((mo) => `<tr><td>${mo.m}월</td><td class="st-amt">${formatWon(mo.inc)}</td><td class="st-amt">${formatWon(mo.exp)}</td><td class="st-amt">${signed(mo.inc - mo.exp)}</td></tr>`).join('')}</tbody></table></details>`;
+    }
+
+    // 이번 달 지출 카테고리(많은 순 5개 + 나머지는 "기타 항목")
+    const cur = months[5], catT = {};
+    transactions.filter((t) => t.date.startsWith(cur.ym) && t.type === 'expense').forEach((t) => { const k = t.category || '기타'; catT[k] = (catT[k] || 0) + t.amount; });
+    let ent = Object.entries(catT).sort((a, b) => b[1] - a[1]);
+    if (ent.length > 6) ent = [...ent.slice(0, 5), ['기타 항목', ent.slice(5).reduce((s, e) => s + e[1], 0)]];
+    if (ent.length) {
+      const total = ent.reduce((s, e) => s + e[1], 0), top = ent[0][1];
+      html += `<h2 class="section-title" style="margin:20px 0 8px">이번 달 지출 카테고리</h2>`
+        + ent.map(([n, v]) => `<div class="vz-h"><span class="n">${esc(n)}</span><span class="t"><i style="width:${Math.max(3, Math.round((v / top) * 100))}%"></i></span><span class="a">${formatWon(v)} · ${Math.round((v / total) * 100)}%</span></div>`).join('')
+        + `<details class="vz-table"><summary>표로 보기</summary><table class="st-table"><thead><tr><th>카테고리</th><th class="st-amt">금액</th><th class="st-amt">비중</th></tr></thead><tbody>${ent.map(([n, v]) => `<tr><td>${esc(n)}</td><td class="st-amt">${formatWon(v)}</td><td class="st-amt">${Math.round((v / total) * 100)}%</td></tr>`).join('')}</tbody></table></details>`;
+    }
+
+    if (months.some((x) => x.sav)) {
+      const max = Math.max(1, ...months.map((x) => x.sav));
+      html += `<h2 class="section-title" style="margin:20px 0 6px">최근 6개월 저축 입금</h2>
+        <div class="vz-key"><span class="vz-max">최대 ${shortWon(max)}</span></div>
+        <div class="vz-plot" role="img" aria-label="최근 6개월 월별 저축 입금액 막대그래프">${months.map((mo, i) => `<button type="button" class="vz-col${i === stSel ? ' sel' : ''}" data-vm="${i}" aria-label="${mo.m}월 저축 입금 ${formatWon(mo.sav)}"><i class="c1" style="height:${hp(mo.sav, max)}%"></i></button>`).join('')}</div>
+        <div class="vz-labels">${labels}</div>
+        <div class="vz-detail"><b>${sel.m}월</b> · 저축 입금 ${formatWon(sel.sav)}</div>`;
+    }
+    return html;
+  }
+
   function renderStatus() {
     const now = new Date(), today = todayStr(), ym = today.slice(0, 7);
     const prevYm = monthKey(new Date(now.getFullYear(), now.getMonth() - 1, 1));
@@ -5151,11 +5393,14 @@
         <div class="summary-item income"><div class="lbl">이번 달 수입</div><div class="val">${formatWon(inc)}</div></div>
         <div class="summary-item expense"><div class="lbl">지출</div><div class="val">${formatWon(exp)}</div></div>
         <div class="summary-item balance"><div class="lbl">잔액</div><div class="val">${bal < 0 ? '-' : ''}${formatWon(Math.abs(bal))}</div></div></div>
-      <h2 class="section-title" style="margin:18px 0 0">관리 현황표</h2>
+      ${statusChartsHtml()}
+      <h2 class="section-title" style="margin:22px 0 0">관리 현황표</h2>
       <table class="st-table"><thead><tr><th>영역</th><th>현황</th><th>금액</th></tr></thead><tbody>${rows}</tbody></table>
       <p class="goal-hint" style="margin:6px 0 0">행을 누르면 해당 메뉴로 이동해요.</p>${fixedHtml}${cardHtml}`;
   }
   el('status-body').addEventListener('click', (e) => {
+    const vm = e.target.closest('[data-vm]');
+    if (vm) { stSel = +vm.dataset.vm; renderStatus(); return; }
     const t = e.target.closest('[data-sv], [data-tv]');
     if (t) { setView(t.dataset.sv || t.dataset.tv); window.scrollTo(0, 0); }
   });
@@ -5607,7 +5852,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v31'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v32'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span style="display:block;margin-bottom:4px">다다리, 매일의 기록이 모여 더 나은 생활이 됩니다.</span>다다리 ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
