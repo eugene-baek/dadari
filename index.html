@@ -690,9 +690,43 @@
     font-size: 13px;
     cursor: pointer;
   }
+  .lock-screen { position: fixed; inset: 0; z-index: 1000; background: var(--bg); display: flex; align-items: center; justify-content: center; padding: 24px; }
+  .lock-screen[hidden] { display: none; }
+  html.locked, html.locked body { overflow: hidden; }
+  .lock-box { width: 100%; max-width: 320px; text-align: center; }
+  .lock-ic { font-size: 40px; }
+  .lock-title { font-size: 20px; font-weight: 700; margin: 6px 0 4px; }
+  .lock-sub { font-size: 13px; color: var(--text-muted); min-height: 20px; margin-bottom: 18px; }
+  .lock-sub.err { color: var(--expense); font-weight: 600; }
+  .lock-dots { display: flex; justify-content: center; gap: 14px; margin-bottom: 22px; min-height: 16px; }
+  .lock-dots i { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--accent); }
+  .lock-dots i.on { background: var(--accent); }
+  .lock-dots.shake { animation: lock-shake .35s; }
+  @keyframes lock-shake { 20%, 60% { transform: translateX(-8px); } 40%, 80% { transform: translateX(8px); } }
+  .lock-pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .lock-pad button { height: 58px; border: 1px solid var(--border); border-radius: 16px; background: var(--card-bg); color: var(--text); font-size: 22px; font-weight: 600; cursor: pointer; touch-action: manipulation; }
+  .lock-pad button:active { background: var(--accent-soft); }
+  .lock-pad button.blank { visibility: hidden; }
+  .lock-forgot { margin-top: 20px; border: none; background: none; color: var(--text-muted); font-size: 13px; text-decoration: underline; cursor: pointer; }
+  .lock-screen[data-mode="cover"] .lock-sub, .lock-screen[data-mode="cover"] .lock-dots, .lock-screen[data-mode="cover"] .lock-pad, .lock-screen[data-mode="cover"] .lock-forgot { visibility: hidden; }
 </style>
 </head>
 <body>
+
+<div class="lock-screen" id="lock-screen" data-mode="pin" hidden>
+  <div class="lock-box">
+    <div class="lock-ic">🔒</div>
+    <div class="lock-title">다다리</div>
+    <div class="lock-sub" id="lock-sub">비밀번호를 입력하세요</div>
+    <div class="lock-dots" id="lock-dots"></div>
+    <div class="lock-pad" id="lock-pad"></div>
+    <button type="button" class="lock-forgot" id="lock-forgot">비밀번호를 잊었어요</button>
+  </div>
+</div>
+<script>
+  // 잠금이 켜져 있으면 화면이 그려지기 전에 잠금 화면부터 보여 준다(내용이 잠깐 보이지 않게).
+  try { if (localStorage.getItem('dadari_lock_v1')) { document.getElementById('lock-screen').hidden = false; document.documentElement.classList.add('locked'); } } catch (e) { /* 저장소를 못 읽으면 잠금 없이 연다 */ }
+</script>
 
 <header>
   <button class="refresh-btn" id="refresh-btn" type="button" aria-label="새로고침">🔄 새로고침</button>
@@ -1002,6 +1036,16 @@
       <button type="button" id="sync-setup">연결 설정</button>
       <button type="button" id="sync-now">지금 동기화</button>
     </div>
+  </section>
+
+  <section class="card" id="lock-card">
+    <h2 class="section-title">🔒 앱 잠금</h2>
+    <p class="goal-hint" id="lock-status" style="margin:0 0 10px"></p>
+    <div class="backup-row">
+      <button type="button" id="lock-setup">잠금 설정</button>
+      <button type="button" id="lock-off" hidden>잠금 끄기</button>
+    </div>
+    <p class="goal-hint" style="margin:8px 0 0">이 폰·컴퓨터에서 앱을 열 때 비밀번호를 묻는 화면 잠금이에요. 비밀번호는 이 기기에만 저장되고 동기화·백업에는 들어가지 않아요.</p>
   </section>
 
   <section class="card" id="install-card" hidden>
@@ -4405,6 +4449,175 @@
     if (b) openSavDetail(savings.accounts.find((x) => x.id === b.dataset.sav));
   });
 
+  /* ---------- 앱 잠금 ---------- */
+  // 앱을 열 때(그리고 설정한 시간 넘게 나갔다 돌아올 때) 비밀번호(숫자 4~6자리)를 묻는 화면 잠금이다.
+  // 설정은 이 기기의 localStorage에만 두고 동기화·백업에 넣지 않는다. 비밀번호는 PBKDF2(SHA-256)로 해시해 저장한다.
+  // 브라우저 저장소 자체를 암호화하지는 않으므로 어디까지나 "화면 잠금"이다.
+  const LOCK_KEY = 'dadari_lock_v1';   // {salt, hash, len, after(분, -1이면 앱을 완전히 닫았을 때만), fails, until}
+  const LOCK_AFTER = [[0, '앱을 나가면 바로'], [1, '앱을 나가고 1분 뒤'], [5, '앱을 나가고 5분 뒤'], [30, '앱을 나가고 30분 뒤'], [-1, '앱을 완전히 닫았을 때만']];
+  const lockScreen = el('lock-screen');
+  const lockCfg = () => { try { return JSON.parse(localStorage.getItem(LOCK_KEY)) || null; } catch (e) { return null; } };
+  const setLockCfg = (c) => { try { if (c) localStorage.setItem(LOCK_KEY, JSON.stringify(c)); else localStorage.removeItem(LOCK_KEY); return true; } catch (e) { return false; } };
+  const lockOk = () => !!(window.crypto && crypto.subtle);
+  const toB64 = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf)));
+  const fromB64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+  async function pinHash(pin, salt) {
+    const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(pin), 'PBKDF2', false, ['deriveBits']);
+    return toB64(await crypto.subtle.deriveBits({ name: 'PBKDF2', salt: fromB64(salt), iterations: 150000, hash: 'SHA-256' }, key, 256));
+  }
+  let lockBuf = '', lockBusy = false, lockTimer = null, hiddenAt = 0;
+
+  function lockDraw() {
+    const c = lockCfg(), n = c ? c.len : 4;
+    el('lock-dots').innerHTML = Array.from({ length: n }, (_, i) => `<i class="${i < lockBuf.length ? 'on' : ''}"></i>`).join('');
+  }
+  function lockMsg(t, err) { const s = el('lock-sub'); s.textContent = t; s.classList.toggle('err', !!err); }
+  // 비밀번호를 5번 이상 틀리면 잠깐 입력을 막는다(30초부터 늘어나 최대 5분)
+  function lockCooldown() {
+    const c = lockCfg();
+    clearInterval(lockTimer);
+    if (!c || !(c.until > Date.now())) { lockMsg('비밀번호를 입력하세요'); return false; }
+    const tick = () => {
+      const left = Math.ceil((c.until - Date.now()) / 1000);
+      if (left <= 0) { clearInterval(lockTimer); lockMsg('비밀번호를 입력하세요'); } else lockMsg(`${left}초 뒤에 다시 입력할 수 있어요`, true);
+    };
+    tick();
+    lockTimer = setInterval(tick, 500);
+    return true;
+  }
+  function showLock() {
+    if (!lockCfg()) return;
+    closeSheet();
+    lockBuf = '';
+    lockScreen.dataset.mode = 'pin';
+    lockScreen.hidden = false;
+    document.documentElement.classList.add('locked');
+    lockDraw();
+    lockCooldown();
+  }
+  function hideLock() {
+    clearInterval(lockTimer);
+    lockBuf = '';
+    lockScreen.hidden = true;
+    document.documentElement.classList.remove('locked');
+  }
+
+  async function lockPress(d) {
+    const c = lockCfg();
+    if (!c || lockBusy || c.until > Date.now()) return;
+    if (d === 'del') { lockBuf = lockBuf.slice(0, -1); lockDraw(); return; }
+    if (lockBuf.length >= c.len) return;
+    lockBuf += d;
+    lockDraw();
+    if (lockBuf.length < c.len) return;
+    lockBusy = true;
+    let ok = false;
+    try { ok = (await pinHash(lockBuf, c.salt)) === c.hash; } catch (e) { ok = false; }
+    lockBusy = false;
+    if (ok) { c.fails = 0; c.until = 0; setLockCfg(c); hideLock(); return; }
+    c.fails = (c.fails || 0) + 1;
+    if (c.fails >= 5) c.until = Date.now() + Math.min(300, 30 * (c.fails - 4)) * 1000;
+    setLockCfg(c);
+    lockBuf = '';
+    const dots = el('lock-dots');
+    dots.classList.remove('shake');
+    void dots.offsetWidth;
+    dots.classList.add('shake');
+    lockDraw();
+    if (!lockCooldown()) lockMsg(`비밀번호가 달라요 (${c.fails}/5)`, true);
+  }
+
+  el('lock-pad').innerHTML = [1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => `<button type="button" data-k="${n}">${n}</button>`).join('')
+    + '<button type="button" class="blank" tabindex="-1" aria-hidden="true"></button><button type="button" data-k="0">0</button><button type="button" data-k="del" aria-label="지우기">⌫</button>';
+  el('lock-pad').addEventListener('click', (e) => { const b = e.target.closest('[data-k]'); if (b) lockPress(b.dataset.k); });
+  document.addEventListener('keydown', (e) => {
+    if (lockScreen.hidden || lockScreen.dataset.mode !== 'pin') return;
+    if (/^[0-9]$/.test(e.key)) lockPress(e.key); else if (e.key === 'Backspace') lockPress('del');
+  });
+
+  // 앱을 나가면 앱 전환 화면에 내용이 비치지 않게 덮고, 돌아왔을 때 설정한 시간이 지났으면 비밀번호를 묻는다.
+  document.addEventListener('visibilitychange', () => {
+    const c = lockCfg();
+    if (!c) return;
+    if (document.visibilityState === 'hidden') {
+      hiddenAt = Date.now();
+      if (lockScreen.hidden) { lockScreen.dataset.mode = 'cover'; lockScreen.hidden = false; }
+    } else if (lockScreen.dataset.mode === 'cover' && !lockScreen.hidden) {
+      if (c.after >= 0 && Date.now() - hiddenAt >= c.after * 60000) showLock(); else hideLock();
+    }
+  });
+
+  // 비밀번호를 잊었을 때: 복구할 수 없으므로 이 기기의 다다리 데이터를 지우고 처음 상태로 되돌린다(두 번 확인).
+  el('lock-forgot').addEventListener('click', () => {
+    if (!confirm('비밀번호는 복구할 수 없어요.\n\n이 기기의 다다리 데이터(가계부·건강·시간표·사진 등)를 모두 지우고 처음 상태로 되돌릴 수 있어요. GitHub 동기화를 연결해 두었다면 다시 연결해서 데이터를 되찾을 수 있어요.\n\n계속할까요?')) return;
+    if ((prompt('정말 지우려면 “초기화”라고 입력하세요') || '').trim() !== '초기화') { alert('입력이 달라 취소했어요'); return; }
+    try { Object.keys(localStorage).filter((k) => k.startsWith('dadari_')).forEach((k) => localStorage.removeItem(k)); } catch (e) { /* 지우지 못하면 아래 새로고침 후에도 잠금이 남는다 */ }
+    try { indexedDB.deleteDatabase('dadari'); indexedDB.deleteDatabase('dadari_dishes'); } catch (e) { /* 사진 저장소가 없어도 계속 */ }
+    setTimeout(() => location.reload(), 200);
+  });
+
+  function renderLockCard() {
+    const c = lockCfg();
+    const when = c ? (LOCK_AFTER.find((a) => a[0] === c.after) || LOCK_AFTER[1])[1] : '';
+    el('lock-status').textContent = c ? `켜져 있어요 · 숫자 ${c.len}자리 · 잠금 시점: ${when}` : '꺼져 있어요. 켜면 앱을 열 때마다 비밀번호를 물어요.';
+    el('lock-setup').textContent = c ? '비밀번호 바꾸기' : '잠금 설정';
+    el('lock-off').hidden = !c;
+  }
+  const lockInput = (name, label, extra) => `<label>${label}</label><input name="${name}" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="off" required ${extra || ''}>`;
+
+  el('lock-setup').addEventListener('click', () => {
+    if (!lockOk()) { showToast('이 브라우저에서는 앱 잠금을 쓸 수 없어요'); return; }
+    const c = lockCfg();
+    openSheet(`<form>
+      <h3>${c ? '비밀번호 바꾸기' : '앱 잠금 설정'}</h3>
+      ${c ? lockInput('cur', '현재 비밀번호') : ''}
+      ${lockInput('pin', '새 비밀번호 (숫자 4~6자리)', 'minlength="4"')}
+      ${lockInput('pin2', '새 비밀번호 한 번 더', 'minlength="4"')}
+      <label>자동 잠금</label>
+      <select name="after">${LOCK_AFTER.map(([k, n]) => `<option value="${k}"${(c ? c.after : 1) === k ? ' selected' : ''}>${n}</option>`).join('')}</select>
+      <p class="goal-hint">비밀번호를 잊으면 복구할 수 없고, 이 기기의 데이터를 지워야 열 수 있어요. GitHub 동기화를 연결해 두면 데이터를 되찾을 수 있어요.</p>
+      <div class="sheet-actions"><button type="button" data-cancel>취소</button><button type="submit">저장</button></div>
+    </form>`, (fd) => {
+      const cur = String(fd.get('cur') || ''), pin = String(fd.get('pin')), pin2 = String(fd.get('pin2')), after = parseInt(fd.get('after'), 10);
+      if (!/^\d{4,6}$/.test(pin)) { showToast('비밀번호는 숫자 4~6자리로 입력해 주세요'); return false; }
+      if (pin !== pin2) { showToast('두 비밀번호가 달라요'); return false; }
+      (async () => {
+        try {
+          if (c && (await pinHash(cur, c.salt)) !== c.hash) { showToast('현재 비밀번호가 달라요'); return; }
+          const salt = toB64(crypto.getRandomValues(new Uint8Array(16)));
+          if (!setLockCfg({ salt, hash: await pinHash(pin, salt), len: pin.length, after, fails: 0, until: 0 })) { showToast('저장하지 못했어요'); return; }
+          closeSheet();
+          renderLockCard();
+          showToast(c ? '비밀번호를 바꿨어요' : '앱 잠금을 켰어요');
+        } catch (e) { showToast('설정하지 못했어요'); }
+      })();
+      return false;
+    });
+  });
+  el('lock-off').addEventListener('click', () => {
+    const c = lockCfg();
+    if (!c) return;
+    openSheet(`<form>
+      <h3>앱 잠금 끄기</h3>
+      ${lockInput('cur', '현재 비밀번호')}
+      <div class="sheet-actions"><button type="button" data-cancel>취소</button><button type="submit">잠금 끄기</button></div>
+    </form>`, (fd) => {
+      (async () => {
+        try {
+          if ((await pinHash(String(fd.get('cur')), c.salt)) !== c.hash) { showToast('현재 비밀번호가 달라요'); return; }
+          setLockCfg(null);
+          closeSheet();
+          renderLockCard();
+          showToast('앱 잠금을 껐어요');
+        } catch (e) { showToast('끄지 못했어요'); }
+      })();
+      return false;
+    });
+  });
+
+  renderLockCard();
+  if (lockCfg()) { lockDraw(); lockCooldown(); } else hideLock();
+
   /* ---------- 캘린더 ---------- */
   // 병원·접종·납부일·보험·렌탈·학원비·카드 결제일·소비기한처럼 날짜가 있는 기록을 한 달력에 모아 보여 주고, 내 일정도 적는다.
   // 가계부 지출·수입은 날짜별 합계로 함께 보인다. 내 일정만 이 탭에 저장하고(`dadari_calendar_v1`), 나머지는 각 탭의 기록에서 계산한다.
@@ -5394,7 +5607,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v30'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v31'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span style="display:block;margin-bottom:4px">다다리, 매일의 기록이 모여 더 나은 생활이 됩니다.</span>다다리 ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
