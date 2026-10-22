@@ -1481,7 +1481,7 @@
     openSheet(`<form>
       <h3>${c ? '카드 정보 수정' : '카드 등록'}</h3>
       <label>카드 이름</label>
-      <input name="name" required maxlength="20" placeholder="예: 하나카드(SK), 국민 체크" value="${val(c && c.name)}">
+      <input name="name" required maxlength="20" placeholder="예: OO카드, OO 체크" value="${val(c && c.name)}">
       <label>종류</label>
       <select name="kind"><option value="credit"${c && c.kind === 'debit' ? '' : ' selected'}>신용카드</option><option value="debit"${c && c.kind === 'debit' ? ' selected' : ''}>체크카드</option></select>
       <label>결제일 (신용카드만, 선택)</label>
@@ -1492,7 +1492,7 @@
       <input name="brand" maxlength="20" list="card-brands" placeholder="예: VISA, 마스터" value="${val(c && c.brand)}" autocomplete="off">
       <datalist id="card-brands"><option value="VISA"><option value="마스터"><option value="BC"><option value="국내전용"><option value="유니온페이"><option value="JCB"><option value="아멕스"></datalist>
       <label>혜택 · 실적 (한 줄에 하나, 선택)</label>
-      <textarea name="benefits" maxlength="2000" placeholder="통신비할인 / 40-4천원 / 70-7천원 / 100-13천원&#10;SK주유소할인 / 리터당 40-100원 / 70-150원&#10;학원 5%">${escapeHtml(c && c.benefits ? c.benefits : '')}</textarea>
+      <textarea name="benefits" maxlength="2000" placeholder="통신비할인 / 40-4천원 / 70-7천원 / 100-13천원&#10;주유할인 / 리터당 40-100원 / 70-150원&#10;편의점 5%">${escapeHtml(c && c.benefits ? c.benefits : '')}</textarea>
       <p class="goal-hint">‘40-4천원’은 전월 실적 40만원 이상이면 4천원이라는 뜻이에요. 이렇게 쓰면 전월 사용액에 맞는 혜택을 골라 보여 줘요. 다른 형식은 적은 그대로 보여 줘요. 카드번호는 입력하지 않아요.</p>
       <div class="sheet-actions"><button type="button" data-cancel>취소</button><button type="submit">${c ? '저장' : '등록'}</button></div>
     </form>`, (fd) => {
@@ -2931,7 +2931,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v12'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v13'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').textContent = '다다리 가계부 ' + APP_VERSION;
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
