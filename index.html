@@ -1261,10 +1261,10 @@
     }
     if (list.length) {
       const sorted = [...list].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
-      html += '<div class="tx-list" style="margin-top:12px">' + sorted.slice(0, 100).map((x) => `<div class="tx-item">
+      html += '<div class="tx-list" style="margin-top:12px">' + sorted.slice(0, 100).map((x) => `<div class="tx-item" data-id="${x.id}">
           <div class="tx-main"><div class="tx-cat">${escapeHtml(x.category || '')}${x.memo ? ' · ' + escapeHtml(x.memo) : ''}</div>
           <div class="tx-meta">${x.date.slice(2).replace(/-/g, '.')}${payLabel(x) ? ' · ' + escapeHtml(payLabel(x)) : ''}${isFixed(x) ? ' · 고정' : ''}</div></div>
-          <div class="tx-amt ${x.type}">${x.type === 'income' ? '+' : '-'}${formatWon(x.amount)}</div></div>`).join('') + '</div>'
+          <div class="tx-amt ${x.type}">${x.type === 'income' ? '+' : '-'}${formatWon(x.amount)}</div><div class="tx-actions"><button class="del-btn" title="삭제" aria-label="삭제">🗑</button></div></div>`).join('') + '</div>'
         + (sorted.length > 100 ? `<p class="goal-hint" style="margin:8px 0 0">최근 100건만 보여 줘요. 합계에는 ${sorted.length}건이 모두 들어 있어요.</p>` : '');
     } else html += '<div class="empty-msg" style="padding:14px 0">조건에 맞는 내역이 없어요</div>';
     el('sq-result').innerHTML = html;
@@ -1273,6 +1273,7 @@
   ['sq-from', 'sq-to'].forEach((id) => el(id).addEventListener('change', () => { SQ.from = el('sq-from').value; SQ.to = el('sq-to').value; SQ.preset = ''; renderSearch(); }));
   el('sq-type').addEventListener('change', () => { SQ.type = el('sq-type').value; renderSearch(); });
   el('sq-cat').addEventListener('change', () => { SQ.cat = el('sq-cat').value; renderSearch(); });
+  el('sq-result').addEventListener('click', (e) => { const b = e.target.closest('.del-btn'); if (b) deleteTx(b.closest('.tx-item').dataset.id); });
   el('sq-q').addEventListener('input', () => { SQ.q = el('sq-q').value; renderSearch(); });
 
   function renderAll() {
@@ -1429,17 +1430,22 @@
     });
 
     wrap.querySelectorAll('.del-btn').forEach((btn) => {
-      btn.addEventListener('click', (e) => {
-        const item = e.target.closest('.tx-item');
-        const id = item.dataset.id;
-        transactions = transactions.filter((t) => t.id !== id);
-        delReceipt(id).catch(() => {});
-        tomb(id);
-        save();
-        renderAll();
-        showToast('삭제되었어요');
-      });
+      btn.addEventListener('click', (e) => deleteTx(e.target.closest('.tx-item').dataset.id));
     });
+  }
+
+  // 내역 삭제(월별 내역·검색 결과 공용). 지운 항목은 tomb로 남겨 동기화에서 되살아나지 않게 한다.
+  function deleteTx(id) {
+    const t = transactions.find((x) => x.id === id);
+    if (!t) return;
+    if (!confirm(`${t.date.slice(5).replace('-', '/')} ${t.category || ''}${t.memo ? ' · ' + t.memo : ''} ${t.type === 'income' ? '+' : '-'}${formatWon(t.amount)}
+이 내역을 삭제할까요?`)) return;
+    transactions = transactions.filter((x) => x.id !== id);
+    delReceipt(id).catch(() => {});
+    tomb(id);
+    save();
+    renderAll();
+    showToast('삭제되었어요');
   }
 
   function escapeHtml(str) {
@@ -5331,7 +5337,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v28'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v29'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span style="display:block;margin-bottom:4px">다다리, 매일의 기록이 모여 더 나은 생활이 됩니다.</span>다다리 ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
