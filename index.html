@@ -431,6 +431,36 @@
   .fx-row:first-child { border-top: none; }
   .fx-row span { color: var(--text-muted); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .fx-row span em { font-style: normal; color: var(--text); }
+  .viewtabs button { padding: 10px 4px; font-size: 13px; }
+  .h-sec { font-size: 12px; font-weight: 600; color: var(--text-muted); margin: 14px 0 4px; }
+  .h-sec:first-child { margin-top: 0; }
+  .visit { display: block; width: 100%; text-align: left; padding: 10px 4px; border: none; border-top: 1px solid var(--border); background: none; color: var(--text); font-size: 14px; cursor: pointer; }
+  .visit .v1 { display: flex; justify-content: space-between; gap: 8px; }
+  .visit .v2 { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  .visit .dd { font-weight: 700; color: var(--accent); }
+  .who-tag { font-size: 10px; background: var(--accent-soft); color: var(--accent); border-radius: 99px; padding: 1px 7px; margin-left: 6px; vertical-align: 1px; }
+  .cyc-sum { background: var(--accent-soft); border-radius: 12px; padding: 12px 14px; font-size: 13px; line-height: 1.7; }
+  .cyc-sum b { font-size: 15px; }
+  .cyc-note { font-size: 11px; color: var(--text-muted); margin: 8px 0 0; }
+  .cyc-nav { display: flex; align-items: center; justify-content: center; gap: 18px; margin: 14px 0 6px; font-weight: 600; }
+  .cyc-nav button { border: 1px solid var(--border); background: none; color: var(--text); border-radius: 8px; width: 30px; height: 30px; cursor: pointer; }
+  .cyc-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; text-align: center; font-size: 12px; }
+  .cyc-grid .dow { color: var(--text-muted); font-size: 11px; padding: 3px 0; }
+  .cyc-grid button { height: 36px; border: 1px solid transparent; border-radius: 8px; background: none; color: var(--text); font-size: 12px; cursor: pointer; padding: 0; }
+  .cyc-grid button.period { background: var(--expense); color: #fff; }
+  .cyc-grid button.pred { border: 1px dashed var(--expense); color: var(--expense); }
+  .cyc-grid button.fert { background: var(--accent-soft); color: var(--accent); }
+  .cyc-grid button.ovul { border-color: var(--accent); font-weight: 700; }
+  .cyc-grid button.today { outline: 2px solid var(--text); outline-offset: -2px; }
+  .cyc-legend { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; font-size: 11px; color: var(--text-muted); margin-top: 8px; }
+  .cyc-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
+  .rec-amt.inc { color: var(--income); }
+  .fx-row b.income { color: var(--income); }
+  .fx-row b.expense { color: var(--expense); }
+  .fx-group { display: flex; justify-content: space-between; gap: 8px; margin-top: 12px; padding-top: 8px; border-top: 1px solid var(--border); font-size: 12px; font-weight: 600; color: var(--text-muted); }
+  .fx-group:first-child { margin-top: 0; border-top: none; padding-top: 0; }
+  .fx-group b.income { color: var(--income); }
+  .fx-group b.expense { color: var(--expense); }
   .fix-btn { opacity: 0.3; }
   .fix-btn.on { opacity: 1; }
   .viewtabs { display: flex; gap: 8px; max-width: 720px; margin: 0 auto 12px; padding: 0 20px; }
@@ -524,7 +554,20 @@
 <nav class="viewtabs" id="viewtabs">
   <button type="button" data-view="ledger" class="active">💰 가계부</button>
   <button type="button" data-view="schedule">🗓 시간표</button>
+  <button type="button" data-view="health">🩺 건강</button>
 </nav>
+
+<main id="view-health" hidden>
+  <section class="card">
+    <div class="sch-modes" id="health-modes">
+      <button type="button" data-hm="visit" class="active">🏥 병원</button>
+      <button type="button" data-hm="cycle">🌸 생리주기</button>
+    </div>
+    <div class="member-chips" id="health-who" hidden></div>
+    <div id="health-body"></div>
+    <div class="cards-actions" id="health-actions"></div>
+  </section>
+</main>
 
 <main id="view-schedule" hidden>
   <section class="card">
@@ -567,7 +610,7 @@
   </section>
 
   <section class="card" id="fixed-card">
-    <h2 class="section-title">이번 달 고정비<span class="fx-sum" id="fixed-sum"></span></h2>
+    <h2 class="section-title">이번 달 고정 수입·지출<span class="fx-sum" id="fixed-sum"></span></h2>
     <div id="fixed-list"></div>
   </section>
 
@@ -582,7 +625,10 @@
   </section>
 
   <section class="card">
-    <h2 class="section-title">새 기록 추가</h2>
+    <div class="list-head">
+      <h2 class="section-title">새 기록 추가</h2>
+      <button type="button" class="mini-btn" id="cat-manage-btn" style="flex:none;padding:6px 10px;font-size:12px">카테고리 관리</button>
+    </div>
     <form id="entry-form">
       <div class="full type-toggle" id="type-toggle">
         <button type="button" data-type="expense" class="active">지출</button>
@@ -601,7 +647,7 @@
         <select id="f-card"></select>
       </div>
       <div class="full" id="fixed-wrap">
-        <label class="chk"><input type="checkbox" id="f-fixed"> 고정비 (월세·통신비처럼 매달 나가는 돈)</label>
+        <label class="chk"><input type="checkbox" id="f-fixed"><span id="fixed-label"> 고정비 (월세·통신비처럼 매달 나가는 돈)</span></label>
       </div>
       <div class="full">
         <label for="f-amount">금액</label>
@@ -635,14 +681,14 @@
     <div id="cards-list"></div>
     <div class="cards-actions">
       <button type="button" class="mini-btn" id="add-card-btn">＋ 카드 등록</button>
-      <button type="button" class="mini-btn" id="add-recur-btn">＋ 자동이체·정기결제</button>
+      <button type="button" class="mini-btn" id="add-recur-btn">＋ 자동이체·고정수입</button>
     </div>
   </section>
 
   <section class="card">
     <div class="list-head">
       <h2 class="section-title">내역</h2>
-      <label class="chk"><input type="checkbox" id="only-fixed"> 고정비만 보기</label>
+      <label class="chk"><input type="checkbox" id="only-fixed"> 고정만 보기</label>
     </div>
     <div class="tx-list" id="tx-list"></div>
   </section>
@@ -653,6 +699,15 @@
       <button id="export-btn" type="button">내보내기 (JSON)</button>
       <label for="import-input">가져오기</label>
       <input type="file" id="import-input" accept="application/json">
+    </div>
+  </section>
+
+  <section class="card" id="sync-card">
+    <h2 class="section-title">동기화 (폰 · 컴퓨터)</h2>
+    <p class="goal-hint" id="sync-status" style="margin:0 0 10px"></p>
+    <div class="backup-row">
+      <button type="button" id="sync-setup">연결 설정</button>
+      <button type="button" id="sync-now">지금 동기화</button>
     </div>
   </section>
 
@@ -690,12 +745,22 @@
   const CARDS_KEY = 'dadari_cards_v1';
   const RECURS_KEY = 'dadari_recurs_v1';
   const DONE_KEY = 'dadari_recur_done_v1';
+  const SYNC_KEY = 'dadari_sync_v1';   // 동기화 설정(저장소·토큰). 백업 파일에는 넣지 않는다
+  const TOMB_KEY = 'dadari_tombs_v1';  // 삭제한 항목 id. 동기화할 때 지운 항목이 되살아나지 않게 한다
+  const SYNC_PATH = 'dadari-data.json';
+  const CAT_KEY = 'dadari_categories_v1';
 
   let transactions = load();
   let goal = loadGoal();
   let cards = loadJson(CARDS_KEY, []);       // {id, name, kind: 'credit'|'debit', payDay}  카드번호는 받지 않는다
   let recurs = loadJson(RECURS_KEY, []);     // {id, cardId|null, name, amount, day, category, auto, start}
   let recurDone = new Set(loadJson(DONE_KEY, [])); // 자동 기록을 이미 만든 "정기결제id:YYYY-MM"
+  let tombs = new Set(loadJson(TOMB_KEY, []));
+  let categories = loadCategories(); // CATEGORIES는 기본값. 사용자가 고친 목록은 여기에 둔다
+  let applying = false;   // 동기화로 받은 데이터를 저장하는 중에는 "내가 고침"으로 보지 않는다
+  let syncTimer = null;
+  let syncing = false;
+  let syncAgain = false;
   let currentType = 'expense';
   let onlyFixed = false;
   let viewDate = new Date();
@@ -725,6 +790,7 @@
     } catch (e) {
       showToast('저장 공간이 부족해 저장하지 못했어요');
     }
+    markDirty();
   }
 
   function loadJson(key, fallback) {
@@ -742,6 +808,20 @@
     } catch (e) {
       showToast('저장 공간이 부족해 저장하지 못했어요');
     }
+    if (key !== SYNC_KEY && key !== VIEW_KEY) markDirty();
+  }
+
+  function loadCategories() {
+    const v = loadJson(CAT_KEY, null);
+    const ok = (a) => Array.isArray(a) && a.length > 0 && a.every((x) => typeof x === 'string' && x.trim());
+    return v && ok(v.expense) && ok(v.income)
+      ? { expense: v.expense, income: v.income }
+      : { expense: [...CATEGORIES.expense], income: [...CATEGORIES.income] };
+  }
+
+  function tomb(...ids) {
+    ids.forEach((id) => tombs.add(id));
+    saveJson(TOMB_KEY, [...tombs]);
   }
 
   const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -765,9 +845,11 @@
   }
 
   function renderCategoryOptions() {
-    categorySelect.innerHTML = CATEGORIES[currentType]
-      .map((c) => `<option value="${c}">${c}</option>`)
+    const prev = categorySelect.value;
+    categorySelect.innerHTML = categories[currentType]
+      .map((c) => `<option value="${escapeHtml(c).replace(/"/g, '&quot;')}">${escapeHtml(c)}</option>`)
       .join('');
+    if (categories[currentType].includes(prev)) categorySelect.value = prev;
   }
 
   typeToggle.addEventListener('click', (e) => {
@@ -795,7 +877,7 @@
       memo: el('f-memo').value.trim()
     };
     if (currentType === 'expense' && el('f-card').value) entry.cardId = el('f-card').value;
-    if (currentType === 'expense' && el('f-fixed').checked) entry.fixed = true;
+    if (el('f-fixed').checked) entry.fixed = true;
     if (pendingBlob) {
       try {
         await putReceipt(entry.id, pendingBlob);
@@ -954,7 +1036,7 @@
           </div>
           <div class="tx-amt ${t.type}">${sign}${formatWon(t.amount)}</div>
           <div class="tx-actions">
-            ${t.type === 'expense' ? `<button class="fix-btn${isFixed(t) ? ' on' : ''}" title="고정비 표시" aria-label="고정비 표시">📌</button>` : ''}
+            <button class="fix-btn${isFixed(t) ? ' on' : ''}" title="고정 표시" aria-label="고정 표시">📌</button>
             ${t.receipt ? '<button class="rc-btn" title="영수증 보기" aria-label="영수증 보기">📷</button>' : ''}
             <button class="del-btn" title="삭제" aria-label="삭제">🗑</button>
           </div>
@@ -969,7 +1051,7 @@
         t.fixed = !isFixed(t);
         save();
         renderAll();
-        showToast(t.fixed ? '고정비로 표시했어요' : '고정비 표시를 뺐어요');
+        showToast(t.fixed ? '고정으로 표시했어요' : '고정 표시를 뺐어요');
       });
     });
 
@@ -983,6 +1065,7 @@
         const id = item.dataset.id;
         transactions = transactions.filter((t) => t.id !== id);
         delReceipt(id).catch(() => {});
+        tomb(id);
         save();
         renderAll();
         showToast('삭제되었어요');
@@ -1007,7 +1090,7 @@
 
   el('export-btn').addEventListener('click', () => {
     // 예전 백업은 내역 배열만 있었다. 지금은 카드·자동이체·월 목표까지 한 파일에 담고, 불러올 때 두 형식을 모두 받는다.
-    const backup = { app: 'dadari', version: 2, transactions, cards, recurs, recurDone: [...recurDone], goal, schedule };
+    const backup = { app: 'dadari', version: 2, transactions, categories, cards, recurs, recurDone: [...recurDone], goal, schedule, health };
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -1054,6 +1137,22 @@
             saveJson(GOAL_KEY, goal);
           }
           renderCardOptions();
+          if (data.categories && typeof data.categories === 'object') {
+            ['expense', 'income'].forEach((k) => {
+              (Array.isArray(data.categories[k]) ? data.categories[k] : []).forEach((n) => {
+                if (typeof n === 'string' && n.trim() && !categories[k].includes(n)) categories[k].push(n);
+              });
+            });
+            saveJson(CAT_KEY, categories);
+            renderCategoryOptions();
+          }
+          if (data.health && typeof data.health === 'object') {
+            const h = normalizeHealth(data.health);
+            mergeById(health.visits, h.visits, (v) => validDate(v.date) && typeof v.hospital === 'string');
+            mergeById(health.periods, h.periods, (p) => validDate(p.start));
+            saveHealth();
+            renderHealth();
+          }
           if (data.schedule && typeof data.schedule === 'object') {
             mergeById(schedule.members, data.schedule.members, (m) => typeof m.name === 'string');
             const mids = new Set(schedule.members.map((m) => m.id));
@@ -1093,24 +1192,38 @@
 
   function updatePayVisibility() {
     el('pay-wrap').hidden = currentType !== 'expense';
-    el('fixed-wrap').hidden = currentType !== 'expense';
+    el('fixed-label').textContent = currentType === 'expense'
+      ? ' 고정비 (월세·통신비처럼 매달 나가는 돈)'
+      : ' 고정수입 (월급처럼 매달 들어오는 돈)';
   }
 
-  // 고정비: 직접 체크한 지출. 체크한 적 없는 자동이체 내역은 고정비로 본다.
-  const isFixed = (t) => t.type === 'expense' && (t.fixed === undefined ? !!t.recurId : t.fixed);
+  // 고정 항목: 직접 체크한 수입·지출. 체크한 적 없는 자동 기록 내역은 고정으로 본다.
+  const isFixed = (t) => (t.fixed === undefined ? !!t.recurId : t.fixed);
 
   function renderFixed(monthTx) {
-    const list = monthTx.filter(isFixed).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
-    const total = list.reduce((s, t) => s + t.amount, 0);
+    const fixed = monthTx.filter(isFixed).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+    const inc = fixed.filter((t) => t.type === 'income');
+    const exp = fixed.filter((t) => t.type === 'expense');
+    const sum = (l) => l.reduce((s, t) => s + t.amount, 0);
     const spent = monthTx.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
-    el('fixed-sum').textContent = list.length
-      ? `${formatWon(total)} · 지출의 ${spent ? Math.round((total / spent) * 100) : 0}%`
+    const row = (t) => `<div class="fx-row">
+        <span>${t.date.slice(5).replace('-', '/')} <em>${escapeHtml(t.memo || t.category)}</em>${cardName(t) ? ' · ' + escapeHtml(cardName(t)) : ''}</span>
+        <b class="${t.type}">${t.type === 'income' ? '+' : '-'}${formatWon(t.amount)}</b></div>`;
+    el('fixed-sum').textContent = fixed.length ? `수입 ${formatWon(sum(inc))} · 지출 ${formatWon(sum(exp))}` : '';
+    if (!fixed.length) {
+      el('fixed-list').innerHTML = '<div class="empty-msg">고정으로 표시한 수입·지출이 없어요<br>기록할 때 “고정”에 체크하거나, 내역의 📌를 눌러 표시하세요</div>';
+      return;
+    }
+    const group = (title, list, extra) => list.length
+      ? `<div class="fx-group"><span>${title}</span><span>${extra}</span></div>${list.map(row).join('')}`
       : '';
-    el('fixed-list').innerHTML = list.length
-      ? list.map((t) => `<div class="fx-row">
-          <span>${t.date.slice(5).replace('-', '/')} <em>${escapeHtml(t.memo || t.category)}</em>${cardName(t) ? ' · ' + escapeHtml(cardName(t)) : ''}</span>
-          <b>${formatWon(t.amount)}</b></div>`).join('')
-      : '<div class="empty-msg">고정비로 표시한 지출이 없어요<br>기록할 때 “고정비”에 체크하거나, 내역의 📌를 눌러 표시하세요</div>';
+    const net = sum(inc) - sum(exp);
+    el('fixed-list').innerHTML =
+      group('고정수입', inc, `<b class="income">+${formatWon(sum(inc))}</b>`)
+      + group('고정비', exp, `<b class="expense">-${formatWon(sum(exp))}</b> · 지출의 ${spent ? Math.round((sum(exp) / spent) * 100) : 0}%`)
+      + (inc.length && exp.length
+        ? `<div class="fx-group"><span>고정수입 − 고정비</span><span><b class="${net >= 0 ? 'income' : 'expense'}">${net < 0 ? '-' : ''}${formatWon(Math.abs(net))}</b></span></div>`
+        : '');
   }
 
   el('only-fixed').addEventListener('change', (e) => {
@@ -1122,7 +1235,7 @@
     return list.map((r) => `<div class="rec">
         <div><div class="rec-name">${escapeHtml(r.name)}</div>
         <div class="rec-sub">매월 ${r.day}일 · ${escapeHtml(r.category)}${r.auto ? ' · 자동 기록' : ' · 기록 안 함'}</div></div>
-        <div class="rec-amt">${formatWon(r.amount)}</div>
+        <div class="rec-amt${r.type === 'income' ? ' inc' : ''}">${r.type === 'income' ? '+' : ''}${formatWon(r.amount)}</div>
         <button type="button" class="icon-btn" data-del-recur="${r.id}" aria-label="자동이체 삭제">✕</button>
       </div>`).join('');
   }
@@ -1155,8 +1268,8 @@
     const acct = recurs.filter((r) => !r.cardId || !cardById(r.cardId));
     if (acct.length) {
       boxes.push(`<div class="cardbox">
-        <div class="cardhead"><div><b>계좌 자동이체</b>
-        <div class="cardsub">카드 없이 통장에서 빠지는 항목 · 월 ${formatWon(sum(acct))}</div></div></div>${recRows(acct)}</div>`);
+        <div class="cardhead"><div><b>계좌 자동이체 · 고정수입</b>
+        <div class="cardsub">카드 없이 통장으로 오가는 항목 · 월 지출 ${formatWon(sum(acct.filter((r) => r.type !== 'income')))}${acct.some((r) => r.type === 'income') ? ` · 월 수입 ${formatWon(sum(acct.filter((r) => r.type === 'income')))}` : ''}</div></div></div>${recRows(acct)}</div>`);
     }
     wrap.innerHTML = boxes.join('');
   }
@@ -1166,6 +1279,8 @@
   function closeSheet() {
     sheet.hidden = true;
     sheetBody.innerHTML = '';
+    sheetBody.onclick = null;
+    sheetBody.onsubmit = null;
   }
   function openSheet(html, onSubmit) {
     sheetBody.innerHTML = html;
@@ -1178,6 +1293,78 @@
     sheetBody.querySelector('[data-cancel]').addEventListener('click', closeSheet);
   }
   sheet.addEventListener('click', (e) => { if (e.target === sheet) closeSheet(); });
+
+  const attr = (s) => escapeHtml(s).replace(/"/g, '&quot;');
+  const catOptions = (kind) => categories[kind].map((c) => `<option value="${attr(c)}">${escapeHtml(c)}</option>`).join('');
+
+  // 카테고리 관리: 이름을 바꾸면 기존 내역의 카테고리도 같이 바뀌고, 목록에서 빼도 기존 내역은 그 이름으로 남는다.
+  function openCatSheet(kind) {
+    const persist = () => {
+      saveJson(CAT_KEY, categories);
+      renderCategoryOptions();
+    };
+    const draw = () => {
+      sheetBody.innerHTML = `<form>
+        <h3>카테고리 관리</h3>
+        <div class="sch-modes">
+          <button type="button" data-kind="expense" class="${kind === 'expense' ? 'active' : ''}">지출</button>
+          <button type="button" data-kind="income" class="${kind === 'income' ? 'active' : ''}">수입</button>
+        </div>
+        ${categories[kind].map((c, i) => `<div class="rec"><div class="rec-name">${escapeHtml(c)}</div>
+          <button type="button" class="icon-btn" data-ren="${i}" aria-label="이름 바꾸기">✎</button>
+          <button type="button" class="icon-btn" data-rm="${i}" aria-label="삭제">🗑</button></div>`).join('')}
+        <label>새 카테고리</label>
+        <div class="goal-row"><input id="cat-new" maxlength="12" placeholder="이름 입력" autocomplete="off"><button type="button" data-add>추가</button></div>
+        <div class="sheet-actions"><button type="button" data-cancel>닫기</button></div>
+      </form>`;
+    };
+    const add = () => {
+      const name = sheetBody.querySelector('#cat-new').value.trim();
+      if (!name) return;
+      if (categories[kind].includes(name)) { showToast('이미 있는 이름이에요'); return; }
+      categories[kind].push(name);
+      persist();
+      draw();
+      showToast('추가했어요');
+    };
+    const rename = (i) => {
+      const old = categories[kind][i];
+      const name = (prompt('새 이름을 입력하세요\n(기존 내역의 카테고리도 함께 바뀌어요)', old) || '').trim();
+      if (!name || name === old) return;
+      if (categories[kind].includes(name)) { showToast('이미 있는 이름이에요'); return; }
+      categories[kind][i] = name;
+      transactions.forEach((t) => { if (t.type === kind && t.category === old) t.category = name; });
+      recurs.forEach((r) => { if ((r.type || 'expense') === kind && r.category === old) r.category = name; });
+      save();
+      saveJson(RECURS_KEY, recurs);
+      persist();
+      renderAll();
+      draw();
+      showToast('이름을 바꿨어요');
+    };
+    const remove = (i) => {
+      if (categories[kind].length <= 1) { showToast('카테고리는 하나 이상 있어야 해요'); return; }
+      const name = categories[kind][i];
+      if (!confirm(`“${name}” 카테고리를 목록에서 뺄까요?\n이미 기록한 내역은 그대로 남아요.`)) return;
+      categories[kind].splice(i, 1);
+      persist();
+      draw();
+      showToast('뺐어요');
+    };
+    sheetBody.onsubmit = (e) => { e.preventDefault(); add(); };
+    sheetBody.onclick = (e) => {
+      const b = e.target.closest('button');
+      if (!b) return;
+      if (b.dataset.kind) { kind = b.dataset.kind; draw(); }
+      else if (b.dataset.add !== undefined) add();
+      else if (b.dataset.cancel !== undefined) closeSheet();
+      else if (b.dataset.ren !== undefined) rename(+b.dataset.ren);
+      else if (b.dataset.rm !== undefined) remove(+b.dataset.rm);
+    };
+    draw();
+    sheet.hidden = false;
+  }
+  el('cat-manage-btn').addEventListener('click', () => openCatSheet(currentType));
 
   el('add-card-btn').addEventListener('click', () => {
     openSheet(`<form>
@@ -1206,10 +1393,12 @@
   el('add-recur-btn').addEventListener('click', () => {
     const cardOpts = cards.map((c) => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('')
       + '<option value="">카드 없이 (계좌 자동이체)</option>';
-    const catOpts = CATEGORIES.expense.map((c) => `<option>${c}</option>`).join('');
+    const catOpts = catOptions('expense');
     openSheet(`<form>
-      <h3>자동이체 · 정기결제 등록</h3>
-      <label>결제 카드</label>
+      <h3>자동이체 · 고정수입 등록</h3>
+      <label>종류</label>
+      <select name="kind"><option value="expense">지출 (자동이체·정기결제)</option><option value="income">수입 (월급 등 고정수입)</option></select>
+      <label>결제 카드 (지출만)</label>
       <select name="card">${cardOpts}</select>
       <label>항목 이름</label>
       <input name="name" required maxlength="30" placeholder="예: 통신비, 넷플릭스">
@@ -1235,7 +1424,8 @@
       }
       recurs.push({
         id: newId(),
-        cardId: fd.get('card') || null,
+        type: fd.get('kind') === 'income' ? 'income' : 'expense',
+        cardId: fd.get('kind') === 'income' ? null : fd.get('card') || null,
         name,
         amount,
         day,
@@ -1246,7 +1436,14 @@
       saveJson(RECURS_KEY, recurs);
       applyRecurs();
       renderAll();
-      showToast('자동이체를 등록했어요');
+      showToast('등록했어요');
+    });
+    // 수입을 고르면 카드 선택을 끄고 카테고리를 수입 목록으로 바꾼다.
+    const kindSel = sheetBody.querySelector('[name=kind]');
+    kindSel.addEventListener('change', () => {
+      const income = kindSel.value === 'income';
+      sheetBody.querySelector('[name=card]').disabled = income;
+      sheetBody.querySelector('[name=category]').innerHTML = catOptions(income ? 'income' : 'expense');
     });
   });
 
@@ -1256,6 +1453,7 @@
     if (delCard) {
       const c = cardById(delCard.dataset.delCard);
       if (!c || !confirm(`“${c.name}” 카드를 삭제할까요?\n이 카드의 자동이체 등록도 함께 지워져요. 기존 내역은 남고 결제수단 표시만 사라져요.`)) return;
+      tomb(c.id, ...recurs.filter((r) => r.cardId === c.id).map((r) => r.id));
       cards = cards.filter((x) => x.id !== c.id);
       recurs = recurs.filter((r) => r.cardId !== c.id);
       transactions.forEach((t) => { if (t.cardId === c.id) delete t.cardId; });
@@ -1268,6 +1466,7 @@
     } else if (delRecur) {
       const r = recurs.find((x) => x.id === delRecur.dataset.delRecur);
       if (!r || !confirm(`“${r.name}” 자동이체를 삭제할까요?\n이미 기록된 내역은 그대로 남아요.`)) return;
+      tomb(r.id);
       recurs = recurs.filter((x) => x.id !== r.id);
       saveJson(RECURS_KEY, recurs);
       renderAll();
@@ -1289,7 +1488,8 @@
         const date = y + '-' + pad2(m + 1) + '-' + pad2(Math.min(r.day, last));
         const key = r.id + ':' + date.slice(0, 7);
         if (date >= r.start && date <= today && !recurDone.has(key)) {
-          const entry = { id: newId(), type: 'expense', date, category: r.category, amount: r.amount, memo: r.name, recurId: r.id };
+          // 기기마다 같은 달 항목을 따로 만들어도 동기화할 때 하나로 합쳐지도록 id를 고정한다.
+          const entry = { id: 'rc_' + r.id + '_' + date.slice(0, 7), type: r.type === 'income' ? 'income' : 'expense', date, category: r.category, amount: r.amount, memo: r.name, recurId: r.id };
           if (r.cardId) entry.cardId = r.cardId;
           transactions.push(entry);
           recurDone.add(key);
@@ -1332,9 +1532,11 @@
   function setView(v) {
     el('view-ledger').hidden = v !== 'ledger';
     el('view-schedule').hidden = v !== 'schedule';
+    el('view-health').hidden = v !== 'health';
     document.querySelectorAll('#viewtabs button').forEach((b) => b.classList.toggle('active', b.dataset.view === v));
     saveJson(VIEW_KEY, v);
     if (v === 'schedule') renderSchedule();
+    if (v === 'health') renderHealth();
   }
   el('viewtabs').addEventListener('click', (e) => {
     const b = e.target.closest('button[data-view]');
@@ -1468,6 +1670,7 @@
     const del = sheetBody.querySelector('[data-delete]');
     if (del) {
       del.addEventListener('click', () => {
+        tomb(item.id);
         schedule.items = schedule.items.filter((i) => i.id !== item.id);
         saveSchedule();
         closeSheet();
@@ -1484,6 +1687,7 @@
     if (dm) {
       const m = schedule.members.find((x) => x.id === dm.dataset.delMember);
       if (!m || !confirm(`“${m.name}”을(를) 삭제할까요?\n등록한 시간표 일정도 함께 지워져요.`)) return;
+      tomb(m.id, ...schedule.items.filter((i) => i.memberId === m.id).map((i) => i.id));
       schedule.members = schedule.members.filter((x) => x.id !== m.id);
       schedule.items = schedule.items.filter((i) => i.memberId !== m.id);
       saveSchedule();
@@ -1493,6 +1697,481 @@
   });
   // 켜 둔 채 시간이 흘러도 "지금" 표시가 맞도록 1분마다 갱신한다.
   setInterval(() => { if (!el('view-schedule').hidden && schMode === 'day') renderSchedule(); }, 60000);
+
+  /* ---------- 건강관리 (병원 · 생리주기) ---------- */
+  // 건강 정보는 코드에 넣지 않고 이 기기와(연결했다면) 내 비공개 저장소에만 둔다.
+  const HEALTH_KEY = 'dadari_health_v1';
+  const normalizeHealth = (h) => ({
+    visits: Array.isArray(h && h.visits) ? h.visits : [],
+    periods: Array.isArray(h && h.periods) ? h.periods : []
+  });
+  let health = normalizeHealth(loadJson(HEALTH_KEY, null));
+  let healthMode = 'visit';
+  let healthWho = 'all';
+  let cycleView = { y: new Date().getFullYear(), m: new Date().getMonth() };
+  const saveHealth = () => saveJson(HEALTH_KEY, health);
+  const people = () => [{ id: 'me', name: '나' }, ...schedule.members];
+  const whoName = (id) => (people().find((p) => p.id === id) || { name: '(삭제된 구성원)' }).name;
+
+  const parseD = (s) => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+  const fmtD = (d) => d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+  const addDays = (s, n) => { const d = parseD(s); d.setDate(d.getDate() + n); return fmtD(d); };
+  const diffDays = (a, b) => Math.round((parseD(a) - parseD(b)) / 86400000);
+  const mdOf = (s) => +s.slice(5, 7) + '/' + +s.slice(8, 10);
+  const validDate = (s) => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s);
+
+  function renderHealth() {
+    el('health-modes').querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.dataset.hm === healthMode));
+    el('health-who').hidden = healthMode !== 'visit' || people().length < 2;
+    el('health-actions').innerHTML = healthMode === 'visit'
+      ? '<button type="button" class="mini-btn" data-act="add-visit">＋ 진료 기록</button>'
+      : '<button type="button" class="mini-btn" data-act="add-period">＋ 생리 시작 기록</button>';
+    if (healthMode === 'visit') renderVisits(); else renderCycle();
+  }
+
+  function renderVisits() {
+    const ppl = people();
+    if (healthWho !== 'all' && !ppl.some((p) => p.id === healthWho)) healthWho = 'all';
+    el('health-who').innerHTML = [{ id: 'all', name: '전체' }, ...ppl]
+      .map((p) => `<button type="button" data-who="${p.id}" class="${p.id === healthWho ? 'active' : ''}">${escapeHtml(p.name)}</button>`).join('');
+    const list = health.visits.filter((v) => validDate(v.date) && (healthWho === 'all' || v.who === healthWho));
+    const today = todayStr();
+    const tag = (v) => (healthWho === 'all' && ppl.length > 1 ? `<span class="who-tag">${escapeHtml(whoName(v.who))}</span>` : '');
+    const title = (v) => escapeHtml(v.hospital || '') + (v.dept ? ` (${escapeHtml(v.dept)})` : '') + tag(v);
+
+    const upcoming = list.filter((v) => validDate(v.next) && v.next >= today).sort((a, b) => (a.next < b.next ? -1 : 1));
+    const past = [...list].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+    const year = today.slice(0, 4);
+    const yearList = list.filter((v) => v.date.startsWith(year));
+    const cost = yearList.reduce((s, v) => s + (+v.cost || 0), 0);
+
+    let html = '';
+    if (upcoming.length) {
+      html += '<div class="h-sec">다음 예약</div>' + upcoming.map((v) => {
+        const dd = diffDays(v.next, today);
+        return `<button type="button" class="visit" data-visit="${v.id}"><div class="v1"><span>${mdOf(v.next)} · ${title(v)}</span><span class="dd">${dd === 0 ? '오늘' : 'D-' + dd}</span></div>
+          ${v.reason ? `<div class="v2">${escapeHtml(v.reason)}</div>` : ''}</button>`;
+      }).join('');
+    }
+    html += `<div class="h-sec">진료 기록${list.length ? ` · 올해 ${yearList.length}회${cost ? ' · ' + formatWon(cost) : ''}` : ''}</div>`;
+    html += past.length ? past.map((v) => `<button type="button" class="visit" data-visit="${v.id}">
+        <div class="v1"><span>${v.date.slice(2).replace(/-/g, '.')} · ${title(v)}</span><span>${+v.cost ? formatWon(+v.cost) : ''}</span></div>
+        <div class="v2">${[v.reason, validDate(v.next) ? '다음 예약 ' + mdOf(v.next) : '', v.note].filter(Boolean).map(escapeHtml).join(' · ')}</div></button>`).join('')
+      : '<div class="empty-msg">진료 기록이 없어요<br>아래 “＋ 진료 기록”으로 추가하세요</div>';
+    el('health-body').innerHTML = html;
+  }
+
+  function openVisitSheet(v) {
+    const who = v ? v.who : healthWho === 'all' ? 'me' : healthWho;
+    const whoOpts = people().map((p) => `<option value="${attr(p.id)}"${p.id === who ? ' selected' : ''}>${escapeHtml(p.name)}</option>`).join('');
+    const val = (x) => attr(x == null ? '' : String(x));
+    openSheet(`<form>
+      <h3>${v ? '진료 기록 수정' : '진료 기록 추가'}</h3>
+      <label>누구</label><select name="who">${whoOpts}</select>
+      <label>진료일</label><input name="date" type="date" required value="${v ? val(v.date) : todayStr()}">
+      <label>병원</label><input name="hospital" required maxlength="30" placeholder="예: 우리소아과" value="${val(v && v.hospital)}">
+      <label>진료과 (선택)</label><input name="dept" maxlength="20" placeholder="예: 소아과, 치과" value="${val(v && v.dept)}">
+      <label>증상 · 진단 (선택)</label><input name="reason" maxlength="60" value="${val(v && v.reason)}">
+      <label>진료비 (원, 선택)</label><input name="cost" type="number" min="0" inputmode="numeric" value="${val(v && v.cost)}">
+      <label>다음 예약일 (선택)</label><input name="next" type="date" value="${val(v && v.next)}">
+      <label>메모 (선택)</label><input name="note" maxlength="80" value="${val(v && v.note)}">
+      ${v ? '' : '<label class="check"><input type="checkbox" name="ledger" checked> 진료비를 가계부에 지출로도 기록</label>'}
+      <div class="sheet-actions"><button type="button" data-cancel>취소</button>${v ? '<button type="button" data-delete>삭제</button>' : ''}<button type="submit">저장</button></div>
+    </form>`, (fd) => {
+      const hospital = String(fd.get('hospital')).trim();
+      const date = String(fd.get('date'));
+      if (!hospital || !validDate(date)) { showToast('병원 이름과 진료일을 확인해 주세요'); return false; }
+      const cost = Math.max(0, parseInt(fd.get('cost'), 10) || 0);
+      const next = validDate(String(fd.get('next'))) ? String(fd.get('next')) : '';
+      const rec = {
+        who: String(fd.get('who')), date, hospital, dept: String(fd.get('dept')).trim(),
+        reason: String(fd.get('reason')).trim(), cost, next, note: String(fd.get('note')).trim()
+      };
+      if (v) Object.assign(v, rec);
+      else {
+        health.visits.push({ id: newId(), ...rec });
+        if (fd.get('ledger') === 'on' && cost > 0) {
+          const cat = categories.expense.includes('의료/건강') ? '의료/건강' : categories.expense[0];
+          transactions.push({ id: newId(), type: 'expense', date, category: cat, amount: cost, memo: hospital + ' 진료' });
+          save();
+          renderAll();
+        }
+      }
+      saveHealth();
+      renderHealth();
+      showToast(v ? '수정했어요' : '추가했어요');
+    });
+    const del = sheetBody.querySelector('[data-delete]');
+    if (del) {
+      del.addEventListener('click', () => {
+        tomb(v.id);
+        health.visits = health.visits.filter((x) => x.id !== v.id);
+        saveHealth();
+        closeSheet();
+        renderHealth();
+        showToast('삭제했어요');
+      });
+    }
+  }
+
+  // 생리주기: 시작일 기록으로 평균 주기·기간을 계산해 다음 예정일을 추정한다. 참고용이다.
+  function cycleStats() {
+    const ps = health.periods.filter((p) => validDate(p.start)).sort((a, b) => (a.start < b.start ? -1 : a.start > b.start ? 1 : 0));
+    const starts = ps.map((p) => p.start);
+    const gaps = starts.slice(1).map((s, i) => diffDays(s, starts[i])).filter((g) => g >= 15 && g <= 60).slice(-6);
+    const avg = (a, d) => (a.length ? Math.round(a.reduce((x, y) => x + y, 0) / a.length) : d);
+    const lens = ps.filter((p) => validDate(p.end)).map((p) => diffDays(p.end, p.start) + 1).filter((l) => l >= 1 && l <= 15).slice(-6);
+    return { ps, cycle: avg(gaps, 28), len: avg(lens, 5), last: ps[ps.length - 1] || null, learned: gaps.length > 0 };
+  }
+
+  function renderCycle() {
+    const { ps, cycle, len, last, learned } = cycleStats();
+    const today = todayStr();
+    const period = new Set(), pred = new Set(), fert = new Set(), ovul = new Set();
+    const span = (set, s, n) => { for (let i = 0; i < n; i++) set.add(addDays(s, i)); };
+    const endOf = (p) => (validDate(p.end) ? p.end : addDays(p.start, len - 1));
+    ps.forEach((p) => span(period, p.start, Math.max(1, diffDays(endOf(p), p.start) + 1)));
+    let next = null;
+    if (last) {
+      for (let k = 1; k <= 3; k++) {
+        const s = addDays(last.start, cycle * k);
+        if (k === 1) next = s;
+        span(pred, s, len);
+        const o = addDays(s, -14);
+        ovul.add(o);
+        span(fert, addDays(o, -5), 7);
+      }
+    }
+
+    let sum;
+    if (!last) {
+      sum = '<div class="empty-msg">아직 기록이 없어요<br>생리가 시작된 날을 기록하면 주기를 계산해 드려요</div>';
+    } else {
+      const dd = diffDays(next, today);
+      const ongoing = !validDate(last.end) && diffDays(today, last.start) >= 0 && diffDays(today, last.start) <= 14;
+      sum = `<div class="cyc-sum">다음 생리 예정 <b>${mdOf(next)}</b> (${dd > 0 ? 'D-' + dd : dd === 0 ? '오늘' : -dd + '일 지남'})<br>
+        이번 주기 배란 예정 ${mdOf(addDays(next, -14))} · 가임기 ${mdOf(addDays(next, -19))}~${mdOf(addDays(next, -13))} (추정)<br>
+        평균 주기 ${cycle}일${learned ? '' : ' (기록이 쌓이면 계산해요)'} · 평균 기간 ${len}일
+        ${ongoing ? '<br><button type="button" class="mini-btn" data-cyc-end style="margin-top:6px">오늘 생리 끝남으로 기록</button>' : ''}</div>`;
+    }
+
+    const { y, m } = cycleView;
+    const first = new Date(y, m, 1).getDay();
+    const days = new Date(y, m + 1, 0).getDate();
+    let cells = DAYS.map((d) => `<div class="dow">${d}</div>`).join('') + '<div></div>'.repeat(first);
+    for (let d = 1; d <= days; d++) {
+      const key = y + '-' + pad2(m + 1) + '-' + pad2(d);
+      const cls = [period.has(key) ? 'period' : pred.has(key) ? 'pred' : fert.has(key) ? 'fert' : '', ovul.has(key) ? 'ovul' : '', key === today ? 'today' : ''].filter(Boolean).join(' ');
+      cells += `<button type="button" data-cd="${key}" class="${cls}">${d}</button>`;
+    }
+
+    const history = [...ps].reverse().map((p, i, arr) => {
+      const prev = arr[i + 1];
+      const gap = prev ? `${diffDays(p.start, prev.start)}일 주기` : '';
+      const lenTxt = validDate(p.end) ? `${diffDays(p.end, p.start) + 1}일간` : '진행 중/종료일 없음';
+      return `<button type="button" class="visit" data-period="${p.id}"><div class="v1"><span>${p.start}${validDate(p.end) ? ' ~ ' + p.end : ''}</span><span>${lenTxt}</span></div>
+        <div class="v2">${[gap, p.note].filter(Boolean).map(escapeHtml).join(' · ')}</div></button>`;
+    }).join('');
+
+    el('health-body').innerHTML = `${sum}
+      <div class="cyc-nav"><button type="button" data-cn="-1" aria-label="이전 달">‹</button><span>${y}년 ${m + 1}월</span><button type="button" data-cn="1" aria-label="다음 달">›</button></div>
+      <div class="cyc-grid">${cells}</div>
+      <div class="cyc-legend"><span><i style="background:var(--expense)"></i>생리</span><span><i style="border:1px dashed var(--expense)"></i>예정</span><span><i style="background:var(--accent-soft);border:1px solid var(--accent)"></i>가임기(추정)</span></div>
+      <p class="cyc-note">날짜를 누르면 기록하거나 고칠 수 있어요. 예정일·가임기는 내 기록으로 계산한 추정값이라 참고용이에요(피임·진단 용도로 쓰지 마세요).</p>
+      ${history ? `<div class="h-sec">기록</div>${history}` : ''}`;
+  }
+
+  function openPeriodSheet(p, presetStart) {
+    const val = (x) => attr(x == null ? '' : String(x));
+    openSheet(`<form>
+      <h3>${p ? '생리 기록 수정' : '생리 기록 추가'}</h3>
+      <label>시작일</label><input name="start" type="date" required value="${p ? val(p.start) : presetStart || todayStr()}">
+      <label>종료일 (아직이면 비워 두세요)</label><input name="end" type="date" value="${val(p && p.end)}">
+      <label>메모 (선택)</label><input name="note" maxlength="80" placeholder="예: 통증 심함" value="${val(p && p.note)}">
+      <div class="sheet-actions"><button type="button" data-cancel>취소</button>${p ? '<button type="button" data-delete>삭제</button>' : ''}<button type="submit">저장</button></div>
+    </form>`, (fd) => {
+      const start = String(fd.get('start'));
+      const end = validDate(String(fd.get('end'))) ? String(fd.get('end')) : '';
+      if (!validDate(start) || (end && end < start)) { showToast('시작일과 종료일을 확인해 주세요'); return false; }
+      const rec = { start, end, note: String(fd.get('note')).trim() };
+      if (p) Object.assign(p, rec); else health.periods.push({ id: newId(), ...rec });
+      saveHealth();
+      cycleView = { y: +start.slice(0, 4), m: +start.slice(5, 7) - 1 };
+      renderHealth();
+      showToast(p ? '수정했어요' : '기록했어요');
+    });
+    const del = sheetBody.querySelector('[data-delete]');
+    if (del) {
+      del.addEventListener('click', () => {
+        tomb(p.id);
+        health.periods = health.periods.filter((x) => x.id !== p.id);
+        saveHealth();
+        closeSheet();
+        renderHealth();
+        showToast('삭제했어요');
+      });
+    }
+  }
+
+  el('health-modes').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-hm]');
+    if (b) { healthMode = b.dataset.hm; renderHealth(); }
+  });
+  el('health-who').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-who]');
+    if (b) { healthWho = b.dataset.who; renderHealth(); }
+  });
+  el('health-actions').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-act]');
+    if (!b) return;
+    if (b.dataset.act === 'add-visit') openVisitSheet(null); else openPeriodSheet(null);
+  });
+  el('health-body').addEventListener('click', (e) => {
+    const visit = e.target.closest('[data-visit]');
+    if (visit) { openVisitSheet(health.visits.find((v) => v.id === visit.dataset.visit)); return; }
+    const per = e.target.closest('[data-period]');
+    if (per) { openPeriodSheet(health.periods.find((p) => p.id === per.dataset.period)); return; }
+    const nav = e.target.closest('[data-cn]');
+    if (nav) {
+      const d = new Date(cycleView.y, cycleView.m + +nav.dataset.cn, 1);
+      cycleView = { y: d.getFullYear(), m: d.getMonth() };
+      renderHealth();
+      return;
+    }
+    if (e.target.closest('[data-cyc-end]')) {
+      const { last } = cycleStats();
+      if (last) { last.end = todayStr(); saveHealth(); renderHealth(); showToast('종료일을 기록했어요'); }
+      return;
+    }
+    const cd = e.target.closest('[data-cd]');
+    if (cd) {
+      const { ps, len } = cycleStats();
+      const key = cd.dataset.cd;
+      const hit = ps.find((p) => key >= p.start && key <= (validDate(p.end) ? p.end : addDays(p.start, len - 1)));
+      openPeriodSheet(hit || null, key);
+    }
+  });
+
+  /* ---------- 동기화 (GitHub 비공개 저장소) ---------- */
+  // 모든 데이터를 비공개 저장소의 파일 하나(dadari-data.json)에 모은다. 토큰은 이 기기에만 저장하고 백업에는 넣지 않는다.
+  const GH_API = 'https://api.github.com';
+  const b64enc = (str) => {
+    let bin = '';
+    new TextEncoder().encode(str).forEach((b) => { bin += String.fromCharCode(b); });
+    return btoa(bin);
+  };
+  const b64dec = (b64) => new TextDecoder().decode(Uint8Array.from(atob(b64.replace(/\s/g, '')), (c) => c.charCodeAt(0)));
+  const getCfg = () => loadJson(SYNC_KEY, null);
+  const setCfg = (cfg) => { try { localStorage.setItem(SYNC_KEY, JSON.stringify(cfg)); } catch (e) {} };
+  const defaultCats = () => ({ expense: [...CATEGORIES.expense], income: [...CATEGORIES.income] });
+  const sameCats = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  const hasData = () => transactions.length || cards.length || recurs.length || schedule.members.length
+    || health.visits.length || health.periods.length || goal > 0 || !sameCats(categories, defaultCats());
+
+  function markDirty() {
+    if (applying) return;
+    const cfg = getCfg();
+    if (!cfg || !cfg.token) return;
+    cfg.dirty = true;
+    cfg.seq = (cfg.seq || 0) + 1;
+    setCfg(cfg);
+    clearTimeout(syncTimer);
+    syncTimer = setTimeout(() => syncNow(), 2000);
+    showSync();
+  }
+
+  const snapshot = () => ({
+    app: 'dadari', version: 3, updatedAt: new Date().toISOString(),
+    transactions, categories, cards, recurs, recurDone: [...recurDone], goal, schedule, health, tombs: [...tombs]
+  });
+
+  // 두 기기가 따로 고친 내용을 합친다. 같은 id가 양쪽에 있으면 이 기기 것을 쓰고, 지운 항목(tombs)은 되살리지 않는다.
+  function mergeSnapshots(local, remote) {
+    const dead = new Set([...(local.tombs || []), ...(remote.tombs || [])]);
+    const union = (l, r) => {
+      const m = new Map();
+      [r, l].forEach((list) => (Array.isArray(list) ? list : []).forEach((x) => { if (x && x.id) m.set(x.id, x); }));
+      return [...m.values()].filter((x) => !dead.has(x.id));
+    };
+    const members = union(local.schedule && local.schedule.members, remote.schedule && remote.schedule.members);
+    const ids = new Set(members.map((m) => m.id));
+    const lh = local.health || {}, rh = remote.health || {};
+    return {
+      ...local,
+      transactions: union(local.transactions, remote.transactions),
+      cards: union(local.cards, remote.cards),
+      recurs: union(local.recurs, remote.recurs),
+      recurDone: [...new Set([...(local.recurDone || []), ...(remote.recurDone || [])])],
+      schedule: { members, items: union(local.schedule && local.schedule.items, remote.schedule && remote.schedule.items).filter((i) => ids.has(i.memberId)) },
+      health: { visits: union(lh.visits, rh.visits), periods: union(lh.periods, rh.periods) },
+      categories: remote.categories && sameCats(local.categories, defaultCats()) ? remote.categories : local.categories,
+      goal: local.goal || remote.goal || 0,
+      tombs: [...dead]
+    };
+  }
+
+  function applySnapshot(s) {
+    applying = true;
+    try {
+      if (Array.isArray(s.transactions)) transactions = s.transactions;
+      if (Array.isArray(s.cards)) cards = s.cards;
+      if (Array.isArray(s.recurs)) recurs = s.recurs;
+      if (Array.isArray(s.recurDone)) recurDone = new Set(s.recurDone);
+      if (s.goal !== undefined) goal = Math.max(0, parseInt(s.goal, 10) || 0);
+      if (s.schedule) schedule = { members: s.schedule.members || [], items: s.schedule.items || [] };
+      if (s.health) health = normalizeHealth(s.health);
+      if (s.categories) { saveJson(CAT_KEY, s.categories); categories = loadCategories(); }
+      if (Array.isArray(s.tombs)) tombs = new Set([...tombs, ...s.tombs]);
+      save();
+      saveJson(CARDS_KEY, cards);
+      saveJson(RECURS_KEY, recurs);
+      saveJson(DONE_KEY, [...recurDone]);
+      saveJson(GOAL_KEY, goal);
+      saveJson(TOMB_KEY, [...tombs]);
+      saveSchedule();
+      saveHealth();
+    } finally {
+      applying = false;
+    }
+    renderCardOptions();
+    renderCategoryOptions();
+    renderAll();
+    renderSchedule();
+    renderHealth();
+    if (applyRecurs()) renderAll();
+  }
+
+  function httpError(r) {
+    if (r.status === 401) return new Error('토큰이 올바르지 않아요');
+    if (r.status === 403) return new Error('토큰 권한이 부족해요 (Contents 읽기·쓰기 필요)');
+    return new Error('서버 응답 오류 ' + r.status);
+  }
+  const ghFetch = (cfg, method, path, body) => fetch((cfg.api || GH_API) + path, {
+    method,
+    headers: Object.assign({ Authorization: 'Bearer ' + cfg.token, Accept: 'application/vnd.github+json' }, body ? { 'Content-Type': 'application/json' } : {}),
+    body: body ? JSON.stringify(body) : undefined,
+    cache: 'no-store'
+  });
+
+  async function ghGetFile(cfg) {
+    const r = await ghFetch(cfg, 'GET', `/repos/${cfg.repo}/contents/${SYNC_PATH}`);
+    if (r.status === 404) {
+      const repo = await ghFetch(cfg, 'GET', `/repos/${cfg.repo}`);
+      if (repo.status === 404) throw new Error('저장소를 찾을 수 없어요. 이름과 토큰 권한을 확인해 주세요');
+      if (!repo.ok) throw httpError(repo);
+      return null;
+    }
+    if (!r.ok) throw httpError(r);
+    const j = await r.json();
+    if (typeof j.content !== 'string' || !j.content) throw new Error('데이터 파일을 읽지 못했어요(크기 초과일 수 있어요)');
+    return { sha: j.sha, data: JSON.parse(b64dec(j.content)) };
+  }
+
+  async function ghPutFile(cfg, obj, sha) {
+    const body = { message: 'dadari sync', content: b64enc(JSON.stringify(obj)) };
+    if (sha) body.sha = sha;
+    const r = await ghFetch(cfg, 'PUT', `/repos/${cfg.repo}/contents/${SYNC_PATH}`, body);
+    if (r.status === 409 || r.status === 422) return { conflict: true };
+    if (!r.ok) throw httpError(r);
+    return { sha: (await r.json()).content.sha };
+  }
+
+  function showSync(text) {
+    const cfg = getCfg();
+    let msg;
+    if (text) msg = text;
+    else if (!cfg || !cfg.token) msg = '연결 안 됨 · 연결하면 폰과 컴퓨터에서 같은 데이터를 쓸 수 있어요';
+    else {
+      const t = cfg.last ? new Date(cfg.last).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '아직 안 함';
+      msg = `${cfg.repo} · ` + (cfg.error ? '⚠ ' + cfg.error : '마지막 동기화 ' + t) + (cfg.dirty ? ' · 보낼 변경 있음' : '');
+    }
+    el('sync-status').textContent = msg;
+  }
+
+  async function syncNow(manual) {
+    const cfg0 = getCfg();
+    if (!cfg0 || !cfg0.token || !cfg0.repo) {
+      if (manual) openSyncSheet();
+      return;
+    }
+    if (syncing) { syncAgain = true; return; }
+    syncing = true;
+    showSync('동기화 중…');
+    try {
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const cfg = getCfg();
+        const seq0 = cfg.seq || 0;
+        const remote = await ghGetFile(cfg);
+        let out;
+        let sha = remote && remote.sha;
+        if (!remote) out = snapshot();
+        else if (remote.sha === cfg.sha && !cfg.dirty) { out = null; }
+        else if (remote.sha === cfg.sha) out = snapshot();
+        else if (!cfg.dirty) { applySnapshot(remote.data); out = null; }
+        else { out = mergeSnapshots(snapshot(), remote.data); applySnapshot(out); }
+        if (out) {
+          const res = await ghPutFile(cfg, out, sha);
+          if (res.conflict) continue;
+          sha = res.sha;
+        }
+        const cur = getCfg();
+        cur.sha = sha;
+        cur.dirty = (cur.seq || 0) !== seq0 ? true : false;
+        cur.last = Date.now();
+        cur.error = '';
+        setCfg(cur);
+        return;
+      }
+      throw new Error('다른 기기와 동시에 저장돼 충돌했어요. 잠시 뒤 다시 시도해 주세요');
+    } catch (e) {
+      const cur = getCfg();
+      if (cur) {
+        cur.error = e instanceof TypeError || navigator.onLine === false ? '오프라인이에요. 연결되면 다시 동기화해요' : e.message;
+        setCfg(cur);
+      }
+    } finally {
+      syncing = false;
+      showSync();
+      if (syncAgain) { syncAgain = false; syncNow(); }
+    }
+  }
+
+  function openSyncSheet() {
+    const cfg = getCfg();
+    if (cfg && cfg.token) {
+      openSheet(`<form>
+        <h3>동기화 연결됨</h3>
+        <p class="goal-hint">저장소: ${escapeHtml(cfg.repo)}<br>연결을 해제해도 이 기기의 데이터는 그대로 남아요.</p>
+        <div class="sheet-actions"><button type="button" data-cancel>닫기</button><button type="submit" style="background:var(--expense)">연결 해제</button></div>
+      </form>`, () => {
+        localStorage.removeItem(SYNC_KEY);
+        showSync();
+        showToast('연결을 해제했어요');
+      });
+      return;
+    }
+    openSheet(`<form>
+      <h3>동기화 연결</h3>
+      <label>비공개 저장소 (소유자/이름)</label>
+      <input name="repo" required placeholder="예: 내아이디/dadari-data" autocomplete="off" autocapitalize="off">
+      <label>접근 토큰</label>
+      <input name="token" type="password" required autocomplete="off" autocapitalize="off">
+      <p class="goal-hint">그 저장소 하나에만 Contents 읽기·쓰기 권한을 준 토큰을 넣어 주세요. 토큰은 이 기기에만 저장되고 백업 파일에는 들어가지 않아요. 폰과 컴퓨터에서 각각 한 번씩 연결하면 돼요.</p>
+      <div class="sheet-actions"><button type="button" data-cancel>취소</button><button type="submit">연결</button></div>
+    </form>`, (fd) => {
+      const repo = String(fd.get('repo')).trim().replace(/^https?:\/\/github\.com\//, '').replace(/\.git$/, '').replace(/\/$/, '');
+      const token = String(fd.get('token')).trim();
+      if (!/^[\w.-]+\/[\w.-]+$/.test(repo) || !token) { showToast('저장소 이름(소유자/이름)과 토큰을 확인해 주세요'); return false; }
+      setCfg({ repo, token, sha: null, dirty: !!hasData(), seq: 0, last: 0, error: '' });
+      showSync();
+      syncNow();
+    });
+  }
+  el('sync-setup').addEventListener('click', openSyncSheet);
+  el('sync-now').addEventListener('click', () => syncNow(true));
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') syncNow(); });
+  window.addEventListener('online', () => syncNow());
+  setInterval(() => { if (document.visibilityState === 'visible') syncNow(); }, 60000);
 
   /* ---------- 영수증 사진 ---------- */
   // 사진은 localStorage에 들어가기엔 커서 IndexedDB에 기록 id로 저장한다. 백업 JSON에는 포함되지 않는다.
@@ -1651,7 +2330,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v7'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v8'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').textContent = '다다리 가계부 ' + APP_VERSION;
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
@@ -1697,7 +2376,10 @@
   renderCardOptions();
   updatePayVisibility();
   renderAll();
-  setView(loadJson(VIEW_KEY, 'ledger') === 'schedule' ? 'schedule' : 'ledger');
+  const savedView = loadJson(VIEW_KEY, 'ledger');
+  setView(savedView === 'schedule' || savedView === 'health' ? savedView : 'ledger');
+  showSync();
+  syncNow();
 })();
 </script>
 
