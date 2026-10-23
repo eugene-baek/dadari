@@ -3073,7 +3073,7 @@
   function removeMemberFromMenu(id, menu) {
     const d = MENU_DATA[menu], menuName = (MEMBER_MENUS.find((x) => x[0] === menu) || [])[1] || '';
     if (!d) return false;
-    if (people(menu).filter((x) => menu !== 'schedule' || x.id !== 'me').length <= 1 && !memberOff(id).includes(menu)) { showToast('이 메뉴에는 구성원이 한 명은 있어야 해요'); return false; }
+    if (menu !== 'schedule' && people(menu).length <= 1 && !memberOff(id).includes(menu)) { showToast('마지막 한 명은 삭제할 수 없어요. 이 메뉴에는 구성원이 한 명은 있어야 해요'); return false; }
     const [del, keep] = d.count(id);
     if (!confirm(`“${whoName(id)}”을(를) “${menuName}”에서 삭제할까요?` + (del ? String.fromCharCode(10) + `${del}도 함께 지워져요.` : '') + (keep ? String.fromCharCode(10) + keep : '') + String.fromCharCode(10, 10) + '다른 메뉴의 기록은 그대로 남아요.')) return false;
     d.purge(id);
@@ -3187,7 +3187,7 @@
       else if (b.dataset.cancel !== undefined) closeSheet();
       else if (b.dataset.muse) {
         const on = memberOff(b.dataset.muse).includes(menu);   // 지금 꺼져 있으면 켠다
-        if (!on && people(menu).filter((x) => menu !== 'schedule' || x.id !== 'me').length <= 1) { showToast('이 메뉴에는 구성원이 한 명은 있어야 해요'); return; }
+        if (!on && menu !== 'schedule' && people(menu).length <= 1) { showToast('마지막 한 명은 끌 수 없어요. 이 메뉴에는 구성원이 한 명은 있어야 해요'); return; }
         setMemberUse(b.dataset.muse, menu, on);
         refreshNames();
         draw();
@@ -7744,7 +7744,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v69'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v70'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span style="display:block;margin-bottom:4px">다달이, 매일의 기록이 모여 더 나은 생활이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
