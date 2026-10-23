@@ -124,7 +124,7 @@
       { id: nid(), who: 'demom2', name: '미술 문화센터', subject: '미술', fee: 120000, payDay: 5, cardId: null, status: 'active', auto: false, recurId: '', paid: {}, start: ds(Y, M - 2, 1) }
     ]);
 
-    // ⑤ 저축 · 나는 N잡러 · 나는 샐러리 · 나는CEO
+    // ⑤ 저축 · 나는 N잡러 · 나는 샐러리 · 나는 CEO
     var sv = [
       { id: 'demos1', who: 'me', name: '비상금', kind: '비상금', goal: 3000000, goalDate: '', monthly: 200000, payDay: 25, note: '' },
       { id: 'demos2', who: 'me', name: '여행 적금', kind: '적금', goal: 1200000, goalDate: off(180), monthly: 100000, payDay: 31, note: '' },
@@ -149,7 +149,7 @@
     });
     put('dadari_biz_v1', { entries: be, shops: [{ id: 'bz_main', name: '내 사업', target: 2000000 }, { id: 'demobz2', name: '온라인 클래스', target: 800000 }], target: 0 });
 
-    // ⑥ 캘린더 · 냉장고(오늘뭐먹지) · 프로필
+    // ⑥ 캘린더 · 냉장고(오늘 뭐 먹지) · 프로필
     put('dadari_caltabs_v1', [{ id: 'demot1', name: '가족', color: '#e87ba4' }, { id: 'demot2', name: '업무', color: '#6250d6' }, { id: 'demot3', name: '학교', color: '#2a78d6' }]);
     put('dadari_calendar_v1', [
       { id: nid(), title: '학부모 상담', date: off(2), time: '14:30', endTime: '15:30', repeat: 'none', alarm: '30m', who: 'demom1', tab: 'demot3', color: '#2a78d6', memo: '' },
@@ -165,7 +165,7 @@
     put('dadari_goallog_v1', [{ id: nid(), gid: '', text: '10km 완주', date: off(-35), note: '처음으로 쉬지 않고 달렸어요' }, { id: nid(), gid: '', text: '자격증 시험 합격', date: off(-70), note: '' }, { id: nid(), gid: '', text: '월 100만원 저축', date: off(-12), note: '3개월 연속!' }]);
     put('dadari_profile_v1', { show: true, emoji: '🚀', name: '체험', intro: '샘플 데이터로 둘러보는 중이에요', birth: (Y - 34) + '-05-20', goals: [{ id: nid(), text: 'N잡 수입 월 50만원', done: false }, { id: nid(), text: '책 12권 읽기', done: false }, { id: nid(), text: '운동 주 3회', done: false }], updatedAt: new Date().toISOString() });
 
-    // ⑦ 운동관리
+    // ⑦ 운동 관리
     var fl = [], types = ['run', 'gym', 'walk', 'yoga', 'swim'];
     for (var fi = 0; fi < 45; fi++) { if (fi % 3 === 2) continue; fl.push({ id: nid(), who: 'me', date: off(-fi), type: types[fi % 5], level: fi % 4 === 0 ? 'high' : 'mid', min: 25 + (fi * 7) % 40, km: types[fi % 5] === 'run' || types[fi % 5] === 'walk' ? Math.round((3 + (fi % 4) * 1.3) * 10) / 10 : 0, kcal: fi % 2 ? 150 + (fi * 23) % 250 : 0, memo: '' }); }
     put('dadari_fit_v1', { log: fl, weights: [{ id: nid(), who: 'me', date: off(-60), kg: 65.4 }, { id: nid(), who: 'me', date: off(-40), kg: 64.8 }, { id: nid(), who: 'me', date: off(-20), kg: 64.1 }, { id: nid(), who: 'me', date: off(-2), kg: 63.5 }], goals: { me: { perWeek: 3, minWeek: 150, days: [1, 3, 5] } }, body: { me: { height: 165, goalKg: 62 } } });
@@ -1181,7 +1181,7 @@
   <button type="button" data-view="calendar"><span class="ic">📅</span>캘린더</button>
   <button type="button" data-view="salary"><span class="ic">💵</span>나는 샐러리</button>
   <button type="button" data-view="side"><span class="ic">💼</span>나는 N잡러</button>
-  <button type="button" data-view="biz"><span class="ic">📈</span>나는CEO</button>
+  <button type="button" data-view="biz"><span class="ic">📈</span>나는 CEO</button>
   <button type="button" data-view="ledger" class="active"><span class="ic">💰</span>가계부</button>
   <button type="button" data-view="savings"><span class="ic">🐷</span>저축</button>
   <button type="button" data-view="rental"><span class="ic">🧰</span>렌탈·구독</button>
@@ -1189,8 +1189,8 @@
   <button type="button" data-view="insurance"><span class="ic">🛡</span>보험</button>
   <button type="button" data-view="schedule"><span class="ic">🗓</span>시간표</button>
   <button type="button" data-view="academy"><span class="ic">📚</span>학원비</button>
-  <button type="button" data-view="food"><span class="ic">🍳</span>오늘뭐먹지</button>
-  <button type="button" data-view="fit"><span class="ic">💪</span>운동관리</button>
+  <button type="button" data-view="food"><span class="ic">🍳</span>오늘 뭐 먹지</button>
+  <button type="button" data-view="fit"><span class="ic">💪</span>운동 관리</button>
 </nav>
 <div class="viewtabs-foot"><button type="button" class="tab-order-btn" id="tab-order-btn">⚙ 메뉴 관리 (순서·사용 여부)</button></div>
 
@@ -1324,7 +1324,7 @@
 </main>
 
 <main id="view-fit" hidden>
-  <nav class="subtabs" id="sub-fit" aria-label="운동관리 메뉴"></nav>
+  <nav class="subtabs" id="sub-fit" aria-label="운동 관리 메뉴"></nav>
   <div class="ad-slot" id="ad-slot-fit-1" data-slot="fit-1" role="complementary" aria-label="광고 자리"><span class="ad-tag">AD</span>광고 배너 자리</div>
   <section class="card">
     <div class="member-chips" id="fit-who" hidden></div>
@@ -3339,7 +3339,7 @@
     const draw = () => {
       sheetBody.innerHTML = `<form>
         <h3>구성원 관리${menuName ? ' · ' + escapeHtml(menuName) : ''}</h3>
-        ${menuName ? `<p class="goal-hint" style="margin:0 0 6px">“${escapeHtml(menuName)}”에서 쓸 구성원을 이 화면에서 따로 관리해요. 스위치는 잠깐 감추기(기록은 그대로), ✎는 이 메뉴에서만 쓸 이름, 🗑는 이 메뉴의 기록만 지워요. 생년월일은 모든 메뉴가 같이 써요.${menu === 'fit' ? ' 📏로 키·목표 체중을 적어 둘 수 있어요(운동관리에서만 써요).' : ''}</p>` : ''}
+        ${menuName ? `<p class="goal-hint" style="margin:0 0 6px">“${escapeHtml(menuName)}”에서 쓸 구성원을 이 화면에서 따로 관리해요. 스위치는 잠깐 감추기(기록은 그대로), ✎는 이 메뉴에서만 쓸 이름, 🗑는 이 메뉴의 기록만 지워요. 생년월일은 모든 메뉴가 같이 써요.${menu === 'fit' ? ' 📏로 키·목표 체중을 적어 둘 수 있어요(운동 관리에서만 써요).' : ''}</p>` : ''}
         ${menu === 'schedule' || memberGone('me').includes(menu) ? '' : `<div class="rec" data-me="1"><span class="grip" style="visibility:hidden" aria-hidden="true">☰</span><div><div class="rec-name">${escapeHtml(dn('me'))}</div><div class="rec-sub">${validDate(profile.birth) ? profile.birth.replace(/-/g, '.') + ' · ' + ageText(monthsBetween(profile.birth, todayStr())) : '생년월일 미입력'}${bodySub('me')} · 기본 구성원</div></div>
           ${useBtn('me')}${bodyBtn('me')}<button type="button" class="icon-btn" data-mbirth="me" aria-label="생년월일">🎂</button>
           <button type="button" class="icon-btn" data-mren="me" aria-label="이 메뉴에서 쓸 이름 바꾸기">✎</button>${delBtn('me')}</div>`}
@@ -3515,7 +3515,7 @@
   }
   // 구성원 목록(이름·생년월일)은 모든 메뉴가 함께 쓰지만, 메뉴마다 쓸 구성원을 따로 고른다.
   // `off`: 그 구성원을 감춘 메뉴 목록(구성원 객체, "나"는 프로필). 감춰도 기록은 지워지지 않고 그 메뉴에서만 안 보인다. 없으면 모든 메뉴에서 보인다.
-  const MEMBER_MENUS = [['schedule', '시간표'], ['health', '건강'], ['insurance', '보험'], ['rental', '렌탈·구독'], ['academy', '학원비'], ['savings', '저축'], ['side', '나는 N잡러'], ['salary', '나는 샐러리'], ['fit', '운동관리'], ['calendar', '캘린더']];
+  const MEMBER_MENUS = [['schedule', '시간표'], ['health', '건강'], ['insurance', '보험'], ['rental', '렌탈·구독'], ['academy', '학원비'], ['savings', '저축'], ['side', '나는 N잡러'], ['salary', '나는 샐러리'], ['fit', '운동 관리'], ['calendar', '캘린더']];
   let curMenu = 'ledger';   // 지금 보는 메뉴(setView가 바꾸고, 메뉴 그리기 함수는 자기 메뉴로 잠깐 바꿨다가 되돌린다)
   function memberOff(id) {
     if (id === 'me') { try { const o = JSON.parse(localStorage.getItem('dadari_profile_v1')).off; return Array.isArray(o) ? o : []; } catch (e) { return []; } }
@@ -3569,7 +3569,7 @@
         : healthMode === 'meds'
           ? '<button type="button" class="mini-btn" data-act="add-med">＋ 약 추가</button>' + member
           : healthMode === 'fit'
-            ? '<button type="button" class="mini-btn" data-act="open-fit">💪 운동관리에서 기록·목표 바꾸기</button>' + member
+            ? '<button type="button" class="mini-btn" data-act="open-fit">💪 운동 관리에서 기록·목표 바꾸기</button>' + member
             : '<button type="button" class="mini-btn" data-act="add-period">＋ 생리 시작 기록</button>';
     if (healthMode === 'visit') renderVisits();
     else if (healthMode === 'vaccine') renderVaccines();
@@ -5793,7 +5793,7 @@
   function barLabel(x, many) { return many ? String(x.y).slice(2) + '.' + x.m : x.m + '월'; }   // 12개월 넘으면 "26.3"처럼
 
   /* ---------- N잡·부수입 ---------- */
-  // N잡(배달·프리랜서·온라인 판매·콘텐츠 등)마다 달별 수입·비용·투자 시간을 기록해 순수익·시급·월 목표 달성을 본다. 정식 사업 관리("나는CEO")와는 따로다.
+  // N잡(배달·프리랜서·온라인 판매·콘텐츠 등)마다 달별 수입·비용·투자 시간을 기록해 순수익·시급·월 목표 달성을 본다. 정식 사업 관리("나는 CEO")와는 따로다.
   // 수입을 기록할 때 "가계부에도 수입(부수입)으로 기록"을 고르면 가계부 수입에도 넣고(`txId`), 기본은 가계부와 따로 둔다.
   const SIDE_KEY = 'dadari_side_v1';
   let side = loadJson(SIDE_KEY, { jobs: [], log: [] });   // jobs: {id,name,kind,status,goal(월 목표 순수익),who,start,note,pay('free'|'count'|'hour'|'day'),rate(단가 원)}, log: {id,jid,date,income,expense,hours,qty(건수·일수),memo,txId}
@@ -5806,7 +5806,7 @@
   const SIDE_RATE = { count: '건당 단가', hour: '시급', day: '일당' };
   const SIDE_STATUS = [['on', '진행 중'], ['pause', '쉬는 중'], ['end', '종료']];
   const sideWho = (j) => j.who || 'me';   // 구성원이 없던 항목은 "나"의 것으로 본다
-  let sideSel = 'all';   // N잡 선택('all' 또는 N잡 id): 나는CEO의 사업 칩처럼 한 N잡만 따로 본다
+  let sideSel = 'all';   // N잡 선택('all' 또는 N잡 id): 나는 CEO의 사업 칩처럼 한 N잡만 따로 본다
   let sideSt = 'all';   // 상태 필터. 구성원 필터는 보험·렌탈·저축과 같은 conWho를 쓴다
   let sideView = { y: new Date().getFullYear(), m: new Date().getMonth() };
   const sidePer = { mode: 'month', from: '', to: '' };   // 보는 방식: month 월별 | year 연간 | custom 기간 지정
@@ -6237,7 +6237,7 @@
     if (sl) openSalLogSheet(salary.log.find((x) => x.id === sl.dataset.sl));
   });
 
-  /* ---------- 운동관리 ---------- */
+  /* ---------- 운동 관리 ---------- */
   // 운동 기록(종류·시간·거리·칼로리)과 체중을 적어 주간 횟수·시간, 주간 목표, 연속 운동일, 최근 6주 추이를 본다. 구성원마다 따로 볼 수 있다.
   const FIT_KEY = 'dadari_fit_v1';
   let fit = loadJson(FIT_KEY, { log: [], weights: [], goals: {}, body: {} });   // body: {구성원id: {height(cm), goalKg}}, log: {id,who,date,type,min,km,kcal,memo}, weights: {id,who,date,kg}, goals: {구성원id: {perWeek(회), minWeek(분)}}
@@ -6275,7 +6275,7 @@
     met *= { low: 0.85, mid: 1, high: 1.15 }[l.level || 'mid'] || 1;
     return { kcal: Math.round(met * kg * hrs), est: true, kg: kgRec };
   }
-  // 신체 정보: 키(cm)·목표 체중(kg)은 운동관리에서만 쓰고(`fit.body`), 현재 체중은 체중 기록의 가장 최근 값이다.
+  // 신체 정보: 키(cm)·목표 체중(kg)은 운동 관리에서만 쓰고(`fit.body`), 현재 체중은 체중 기록의 가장 최근 값이다.
   const fitBodyText = (id) => { const b = fit.body[id] || {}; return [b.height ? '키 ' + b.height + 'cm' : '', b.goalKg ? '목표 ' + b.goalKg + 'kg' : ''].filter(Boolean).join(' · '); };
   const fitBirth = (id) => (id === 'me' ? profile.birth : (schedule.members.find((m) => m.id === id) || {}).birth) || '';
   function openBodySheet(id) {
@@ -6389,7 +6389,7 @@
     return `<div data-sub="log">${listHtml}${weightHtml}</div><div data-sub="stats">${html}</div>`;
   }
 
-  // 건강 메뉴 "운동" 탭: 운동관리의 이번 주 횟수·목표, 연속 운동, 최근 운동, 체중·BMI를 사람별로 요약한다(읽기 전용; 입력·수정은 운동관리).
+  // 건강 메뉴 "운동" 탭: 운동 관리의 이번 주 횟수·목표, 연속 운동, 최근 운동, 체중·BMI를 사람별로 요약한다(읽기 전용; 입력·수정은 운동 관리).
   function renderHealthFit() {
     const ppl = people();
     if (healthWho !== 'all' && !ppl.some((p) => p.id === healthWho)) healthWho = 'all';
@@ -6414,9 +6414,9 @@
       if (kg) rows.push(row('체중', `${kg}kg${bmi ? ` · BMI ${bmi}(${cat})` : ''}${gap === null ? '' : gap === 0 ? ' · 목표 달성' : ` · 목표 ${b.goalKg}kg까지 ${gap > 0 ? '-' : '+'}${Math.abs(gap)}kg`}`));
       return (multi ? `<div class="h-sec">${esc(p.name)}</div>` : '') + rows.join('');
     });
-    el('health-body').innerHTML = (blocks.join('') || '<div class="empty-msg">아직 운동·체중 기록이 없어요<br>아래 “운동관리에서 기록·목표 바꾸기”로 시작해 보세요</div>')
+    el('health-body').innerHTML = (blocks.join('') || '<div class="empty-msg">아직 운동·체중 기록이 없어요<br>아래 “운동 관리에서 기록·목표 바꾸기”로 시작해 보세요</div>')
       + (empty.length && blocks.join('') ? `<p class="goal-hint" style="margin:12px 0 0">${empty.map(esc).join(', ')}: 아직 운동·체중 기록이 없어요</p>` : '')
-      + '<p class="goal-hint" style="margin:10px 0 0">운동관리에 적은 기록·목표·체중을 모아 보여 줘요. 캘린더의 “운동” 칸을 켜면 날짜별로도 볼 수 있어요.</p>';
+      + '<p class="goal-hint" style="margin:10px 0 0">운동 관리에 적은 기록·목표·체중을 모아 보여 줘요. 캘린더의 “운동” 칸을 켜면 날짜별로도 볼 수 있어요.</p>';
   }
 
   function renderFit() {
@@ -6722,7 +6722,7 @@
       health.vaccines.filter((v) => hOk(v.who)).forEach((v) => add('health', v.date, { icon: '💉', text: `${whoName(v.who)} · ${v.name}${v.dose ? ' ' + v.dose : ''} 접종${v.done ? ' 완료' : ' 예정'}`, view: 'health' }));
     }
     if (on('fit')) {
-      // 운동관리의 기록은 한 일(💪)로, 주간 목표 요일은 아직 안 한 오늘·앞으로의 날에 "목표일"로 보여 준다(그날 이미 운동했으면 표시하지 않는다)
+      // 운동 관리의 기록은 한 일(💪)로, 주간 목표 요일은 아직 안 한 오늘·앞으로의 날에 "목표일"로 보여 준다(그날 이미 운동했으면 표시하지 않는다)
       fit.log.filter((l) => hOk(fitWho(l))).forEach((l) => add('fit', l.date, { icon: '💪', text: `${whoName(fitWho(l))} · ${fitName(l.type).replace(/^\S+\s/, '')}${+l.min ? ' ' + fmtMin(+l.min) : ''}`, view: 'fit' }));
       const t0 = todayStr();
       Object.keys(fit.goals).filter((w) => hOk(w)).forEach((w) => {
@@ -7408,7 +7408,7 @@
   // 대시보드는 설정(백업·동기화·앱 잠금)이 들어 있어 항상 사용한다.
   const TAB_KEY = 'dadari_tab_order_v1';
   const TAB_HIDE_KEY = 'dadari_tab_hidden_v1';
-  const TAB_LABELS = { status: '📊 대시보드', calendar: '📅 캘린더', salary: '💵 나는 샐러리', side: '💼 나는 N잡러', biz: '📈 나는CEO', ledger: '💰 가계부', savings: '🐷 저축', rental: '🧰 렌탈·구독', health: '🩺 건강', insurance: '🛡 보험', schedule: '🗓 시간표', academy: '📚 학원비', food: '🍳 오늘뭐먹지', fit: '💪 운동관리' };
+  const TAB_LABELS = { status: '📊 대시보드', calendar: '📅 캘린더', salary: '💵 나는 샐러리', side: '💼 나는 N잡러', biz: '📈 나는 CEO', ledger: '💰 가계부', savings: '🐷 저축', rental: '🧰 렌탈·구독', health: '🩺 건강', insurance: '🛡 보험', schedule: '🗓 시간표', academy: '📚 학원비', food: '🍳 오늘 뭐 먹지', fit: '💪 운동 관리' };
   const TAB_FIXED = ['status'];
   var tabsReady = false;   // 처음 화면을 그리기 전에는 메뉴를 옮기지 않는다(아래 초기화에서 true)
   function tabOrder() {
@@ -7553,7 +7553,7 @@
       if (dd !== null) add(dd, `${c.name} 결제일`, 'ledger', '💳');
     });
     fridge.forEach((f) => { const dd = within(f.expiry, -30, 2); if (dd !== null) add(dd, `냉장고 · ${f.name} 소비기한${dd < 0 ? ' 지남' : ''}`, 'food', '🧊'); });
-    // 운동 주간 목표(운동관리): 이번 주(일~토) 목표를 아직 못 채웠고 시간이 빠듯할 때만 올린다 — 주말(금·토)이거나, 오늘이 정한 요일인데 아직 안 했거나, 횟수 목표가 남은 날로 겨우 채울 수준일 때.
+    // 운동 주간 목표(운동 관리): 이번 주(일~토) 목표를 아직 못 채웠고 시간이 빠듯할 때만 올린다 — 주말(금·토)이거나, 오늘이 정한 요일인데 아직 안 했거나, 횟수 목표가 남은 날로 겨우 채울 수준일 때.
     // 남은 횟수·시간·요일을 한 줄로 알린다(예: "민지 · 이번 주 운동 2회·45분 남음 (남은 요일 금·토)"). 이미 지난 요일은 만회할 수 없으니 알리지 않는다.
     {
       const ws = weekStartOf(today), dayIdx = diffDays(today, ws), left = 7 - dayIdx, dnm = ['일', '월', '화', '수', '목', '금', '토'];
@@ -7892,9 +7892,9 @@
       row('🩺', '건강', `접종 예정 ${planned.length} · 병원 예약 ${visitsNext}${medsLeft ? ` · 오늘 복약 ${medsLeft}개 남음` : ''}`, [overdueVac ? `접종 ${overdueVac}건 지남` : '', claimTodo ? `실비 청구 필요 ${claimTodo}건` : ''].filter(Boolean).join(' · '), '-', 'health'),
       row('🗓', '시간표', `오늘 일정 ${todaySch}개 · 구성원 ${schedule.members.length}명`, '', '-', 'schedule'),
       row('💼', '나는 N잡러', side.jobs.length ? `N잡 ${side.jobs.length}개 · 이번 달 수입 ${money(sideMonth.income)}${sideMonth.hours > 0 ? ' · ' + hoursTxt(sideMonth.hours) : ''}` : '등록한 N잡이 없어요', '', side.jobs.length ? `${sideMonth.net < 0 ? '-' : ''}${formatWon(Math.abs(sideMonth.net))}` : '-', 'side'),
-      row('💪', '운동관리', fit.log.length ? `이번 주 ${fitWk.n}회 · ${fitWk.min ? fmtMin(fitWk.min) : '0분'}` : '아직 운동 기록이 없어요', '', fit.log.length ? `🔥 ${fitStreak(fit.log)}일` : '-', 'fit'),
+      row('💪', '운동 관리', fit.log.length ? `이번 주 ${fitWk.n}회 · ${fitWk.min ? fmtMin(fitWk.min) : '0분'}` : '아직 운동 기록이 없어요', '', fit.log.length ? `🔥 ${fitStreak(fit.log)}일` : '-', 'fit'),
       row('💵', '나는 샐러리', salary.jobs.length ? `직장 ${salary.jobs.length}개 · 이번 달 실수령 ${money(salMonth.net)}` : '등록한 직장이 없어요', '', salary.jobs.length ? formatWon(salMonth.net) : '-', 'salary'),
-      row('📈', '나는CEO', (biz.shops.length > 1 ? `사업 ${biz.shops.length}개 · ` : '') + (bizMonth.length ? `매출 ${formatWon(bizSales)} · 비용 ${formatWon(bizCost)}` : '이번 달 입력 없음'), bizTarget > 0 && bizSales < bizTarget ? `목표 ${formatWon(bizTarget)} 중 ${Math.round((bizSales / bizTarget) * 100)}%` : '', bizMonth.length ? `${bizSales - bizCost < 0 ? '-' : ''}${formatWon(Math.abs(bizSales - bizCost))}` : '-', 'biz'),
+      row('📈', '나는 CEO', (biz.shops.length > 1 ? `사업 ${biz.shops.length}개 · ` : '') + (bizMonth.length ? `매출 ${formatWon(bizSales)} · 비용 ${formatWon(bizCost)}` : '이번 달 입력 없음'), bizTarget > 0 && bizSales < bizTarget ? `목표 ${formatWon(bizTarget)} 중 ${Math.round((bizSales / bizTarget) * 100)}%` : '', bizMonth.length ? `${bizSales - bizCost < 0 ? '-' : ''}${formatWon(Math.abs(bizSales - bizCost))}` : '-', 'biz'),
       row('🐷', '저축', savings.accounts.length ? `통장·목표 ${savings.accounts.length}개 · 이번 달 입금 ${money(savMonthIn)}` : '등록한 통장이 없어요', savMiss ? `이번 달 저축 계획 미달 ${savMiss}건` : '', savings.accounts.length ? formatWon(savTotal) : '-', 'savings'),
       row('🍳', '냉장고', `재료 ${fridge.length}개 · 임박 ${soonFood.length - expiredFood}개`, expiredFood ? `기한 지남 ${expiredFood}개` : '', '-', 'food')
     ];
@@ -8420,7 +8420,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v107'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v108'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span class="slogan">다달이, 매일의 기록이 모여<br><b>더 나은 생활</b>이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
