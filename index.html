@@ -158,7 +158,8 @@
       { id: nid(), title: '팀 회식', date: off(7), time: '18:30', endTime: '21:00', repeat: 'none', alarm: '30m', who: 'me', tab: 'demot2', color: '#2a78d6', memo: '' }
     ]);
     put('dadari_fridge_v1', [['우유', '1L', 'fridge', 2], ['두부', '1모', 'fridge', 1], ['달걀', '10구', 'fridge', 9], ['김치', '1통', 'fridge', 30], ['양파', '3개', 'room', 14], ['밥', '2공기', 'freezer', 20], ['돼지고기', '300g', 'freezer', 25], ['애호박', '1개', 'fridge', 3], ['대파', '1단', 'fridge', 5], ['어묵', '1봉', 'fridge', -1]].map(function (x) { return { id: nid(), name: x[0], qty: x[1], store: x[2], bought: off(-3), expiry: off(x[3]), note: '' }; }));
-    put('dadari_profile_v1', { show: true, emoji: '🚀', name: '체험', intro: '샘플 데이터로 둘러보는 중이에요', birth: (Y - 34) + '-05-20', goals: [{ id: nid(), text: '월 100만원 저축', done: true }, { id: nid(), text: '부업 수입 월 50만원', done: false }, { id: nid(), text: '책 12권 읽기', done: false }, { id: nid(), text: '운동 주 3회', done: false }], updatedAt: new Date().toISOString() });
+    put('dadari_goallog_v1', [{ id: nid(), gid: '', text: '10km 완주', date: off(-35), note: '처음으로 쉬지 않고 달렸어요' }, { id: nid(), gid: '', text: '자격증 시험 합격', date: off(-70), note: '' }, { id: nid(), gid: '', text: '월 100만원 저축', date: off(-12), note: '3개월 연속!' }]);
+    put('dadari_profile_v1', { show: true, emoji: '🚀', name: '체험', intro: '샘플 데이터로 둘러보는 중이에요', birth: (Y - 34) + '-05-20', goals: [{ id: nid(), text: '월 100만원 저축', done: true, doneAt: off(-12) }, { id: nid(), text: '부업 수입 월 50만원', done: false }, { id: nid(), text: '책 12권 읽기', done: false }, { id: nid(), text: '운동 주 3회', done: false }], updatedAt: new Date().toISOString() });
 
     // ⑦ 운동관리
     var fl = [], types = ['run', 'gym', 'walk', 'yoga', 'swim'];
@@ -168,7 +169,7 @@
     s.call(localStorage, P + 'demo_seeded', SEED_V);
   }
   // 샘플 내용을 고치면 SEED_V를 올린다: 이미 체험판을 열어 본 기기도 새 샘플로 다시 채운다(체험 중 입력은 사라진다).
-  var SEED_V = '7';
+  var SEED_V = '8';
   try {
     if (g.call(localStorage, P + 'demo_seeded') !== SEED_V) {
       var olds = [], oi;
@@ -190,7 +191,7 @@
       var ks = [], i;
       for (i = 0; i < localStorage.length; i++) { var kk = k.call(localStorage, i); if (kk.indexOf(P) === 0) ks.push(kk); }
       for (i = 0; i < ks.length; i++) r.call(localStorage, ks[i]);
-      try { dd.call(indexedDB, 'demo_dadari'); dd.call(indexedDB, 'demo_dadari_dishes'); } catch (e) { /* 사진 저장소가 없어도 계속 */ }
+      try { dd.call(indexedDB, 'demo_dadari'); dd.call(indexedDB, 'demo_dadari_dishes'); dd.call(indexedDB, 'demo_dadari_goalpics'); } catch (e) { /* 사진 저장소가 없어도 계속 */ }
       location.reload();
     });
   });
@@ -759,6 +760,9 @@
   .pf-txt { min-width: 0; display: flex; flex-direction: column; }
   .pf-txt b { font-size: 15px; }
   .pf-txt small { font-size: 12px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .gl-thumb { width: 46px; height: 46px; border-radius: 9px; object-fit: cover; flex: none; margin-left: 8px; }
+  .gl-big { display: block; width: 100%; max-height: 260px; object-fit: contain; border-radius: 10px; background: var(--bg); margin: 6px 0; }
+  .pf-goal em { font-style: normal; font-size: 11px; color: var(--text-muted); margin-left: 4px; }
   .pf-fold { flex: none; padding: 6px 10px; border: 1px solid var(--border); border-radius: 99px; background: var(--bg); color: var(--text); font-size: 12px; font-weight: 600; cursor: pointer; }
   .pf-goals { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border); }
   .pf-goal { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 13px; margin: 0; cursor: pointer; }
@@ -2013,7 +2017,7 @@
 
   el('export-btn').addEventListener('click', () => {
     // 예전 백업은 내역 배열만 있었다. 지금은 카드·자동이체·월 목표까지 한 파일에 담고, 불러올 때 두 형식을 모두 받는다.
-    const backup = { app: 'dadari', version: 2, transactions, categories, cards, recurs, recurDone: [...recurDone], goal, schedule, health, insurance, rentals, academies, biz, fridge, calendar: calItems, calTabs, savings, side, salary, fit, profile };
+    const backup = { app: 'dadari', version: 2, transactions, categories, cards, recurs, recurDone: [...recurDone], goal, schedule, health, insurance, rentals, academies, biz, fridge, calendar: calItems, calTabs, savings, side, salary, fit, profile, goalLog };
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -2156,6 +2160,11 @@
             mergeById(savings.log, data.savings.log, (l) => validDate(l.date) && typeof l.amount === 'number' && savings.accounts.some((a) => a.id === l.sid));
             saveSav();
             renderSavings();
+          }
+          if (Array.isArray(data.goalLog)) {
+            mergeById(goalLog, data.goalLog, (x) => typeof x.text === 'string' && x.text && validDate(x.date));
+            saveGoalLog();
+            renderProfile();
           }
           if (Array.isArray(data.calTabs)) {
             mergeById(calTabs, data.calTabs, (t) => typeof t.name === 'string' && t.name);
@@ -5376,7 +5385,7 @@
     if (!confirm('이 기기의 다달이 데이터(가계부·건강·시간표·사진 등)를 모두 지우고 처음 상태로 되돌려요. 되돌릴 수 없어요.\n\nGitHub 동기화를 연결해 두었다면 다시 연결해서 데이터를 되찾을 수 있어요.\n\n계속할까요?')) return;
     if ((prompt('정말 지우려면 “초기화”라고 입력하세요') || '').trim() !== '초기화') { alert('입력이 달라 취소했어요'); return; }
     try { Object.keys(localStorage).filter((k) => k.startsWith('dadari_')).forEach((k) => localStorage.removeItem(k)); } catch (err) { /* 지우지 못하면 아래 새로고침 후에도 잠금이 남는다 */ }
-    try { indexedDB.deleteDatabase('dadari'); indexedDB.deleteDatabase('dadari_dishes'); } catch (err) { /* 사진 저장소가 없어도 계속 */ }
+    try { indexedDB.deleteDatabase('dadari'); indexedDB.deleteDatabase('dadari_dishes'); indexedDB.deleteDatabase('dadari_goalpics'); } catch (err) { /* 사진 저장소가 없어도 계속 */ }
     setTimeout(() => location.reload(), 200);
   });
 
@@ -6753,6 +6762,122 @@
   const PF_EMOJI = ['🙂', '😎', '🧑‍💻', '👩‍🍳', '👨‍👩‍👧', '💪', '🌱', '🚀', '🎯', '💰', '📚', '🏡'];
   const PF_NL = String.fromCharCode(10), PF_CR = String.fromCharCode(13);
   const saveProfile = () => { profile.updatedAt = new Date().toISOString(); saveJson(PF_KEY, profile); };
+  // 달성 기록(`dadari_goallog_v1`): 목표를 체크하면 그날 기록이 남고, 직접 적을 수도 있다. {id, gid(목표 id, 직접 적은 건 ''), text, date, note}.
+  // 사진은 이 기기의 IndexedDB(`dadari_goalpics`, 기록 id가 키)에만 두고 동기화·백업에 넣지 않는다(영수증·메뉴 사진과 같다).
+  const GL_KEY = 'dadari_goallog_v1';
+  let goalLog = loadJson(GL_KEY, []);
+  if (!Array.isArray(goalLog)) goalLog = [];
+  const saveGoalLog = () => saveJson(GL_KEY, goalLog);
+  const goalPics = new Map();   // 기록 id → 사진 blob 주소
+  function goalPicTx(mode, fn) {
+    return new Promise((resolve, reject) => {
+      const open = indexedDB.open('dadari_goalpics', 1);
+      open.onupgradeneeded = () => open.result.createObjectStore('p');
+      open.onerror = () => reject(open.error);
+      open.onsuccess = () => {
+        const db = open.result, tx = db.transaction('p', mode), req = fn(tx.objectStore('p'));
+        tx.oncomplete = () => { db.close(); resolve(req); };
+        tx.onerror = tx.onabort = () => { db.close(); reject(tx.error); };
+      };
+    });
+  }
+  async function loadGoalPics() {
+    try {
+      const keys = (await goalPicTx('readonly', (st) => st.getAllKeys())).result, vals = (await goalPicTx('readonly', (st) => st.getAll())).result;
+      keys.forEach((k, i) => { if (vals[i]) goalPics.set(k, URL.createObjectURL(vals[i])); });
+    } catch (err) { /* 사진 저장소를 못 열어도 글 기록은 보인다 */ }
+  }
+  async function setGoalPic(id, blob) {
+    await goalPicTx('readwrite', (st) => st.put(blob, id));
+    if (goalPics.has(id)) URL.revokeObjectURL(goalPics.get(id));
+    goalPics.set(id, URL.createObjectURL(blob));
+  }
+  async function delGoalPic(id) {
+    try { await goalPicTx('readwrite', (st) => st.delete(id)); } catch (err) { /* 이미 없으면 무시 */ }
+    if (goalPics.has(id)) { URL.revokeObjectURL(goalPics.get(id)); goalPics.delete(id); }
+  }
+  const mdDot = (d) => d.slice(5).replace('-', '.');
+  function goalLogHtml() {
+    const list = [...goalLog].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0)), yr = todayStr().slice(0, 4);
+    const thisYear = list.filter((x) => x.date.startsWith(yr)).length;
+    let html = `<div class="ins-sum">지금까지 <b>${list.length}개</b> 기록 · 올해 <b>${thisYear}개</b></div>`;
+    if (!list.length) return html + '<div class="empty-msg" style="padding:12px 0">아직 기록이 없어요<br>목표를 체크하면 기록이 남고, 아래에서 직접 적을 수도 있어요</div>';
+    let cur = '';
+    list.forEach((x) => {
+      if (x.date.slice(0, 4) !== cur) { cur = x.date.slice(0, 4); html += `<h2 class="section-title" style="margin:14px 0 4px">${cur}년 · ${list.filter((y) => y.date.startsWith(cur)).length}개</h2>`; }
+      html += `<button type="button" class="visit" data-gl="${attr(x.id)}"><div class="v1" style="align-items:center"><span>${mdDot(x.date)} · ${esc(x.text)}</span>${goalPics.has(x.id) ? `<img class="gl-thumb" src="${attr(goalPics.get(x.id))}" alt="">` : ''}</div>${x.note ? `<div class="v2">${esc(x.note)}</div>` : ''}</button>`;
+    });
+    return html;
+  }
+  // 기록 목록
+  function openGoalLogSheet() {
+    const draw = () => { sheetBody.innerHTML = `<form><h3>🏆 달성 기록</h3>${goalLogHtml()}<div class="sheet-actions" style="margin-top:12px"><button type="button" data-cancel>닫기</button><button type="button" data-gladd>＋ 직접 기록</button></div></form>`; };
+    sheetBody.onclick = (e) => {
+      const b = e.target.closest('button');
+      if (!b) return;
+      if (b.dataset.cancel !== undefined) closeSheet();
+      else if (b.dataset.gladd !== undefined) openGoalEntrySheet(null, true);
+      else if (b.dataset.gl) openGoalEntrySheet(goalLog.find((x) => x.id === b.dataset.gl), true);
+    };
+    draw();
+    sheet.hidden = false;
+  }
+  // 기록 하나 쓰기·고치기. back이면 저장·취소 뒤 기록 목록으로 돌아간다. 사진은 저장할 때 함께 저장한다.
+  function openGoalEntrySheet(entry, back) {
+    const val = (x) => attr(x == null ? '' : String(x));
+    let pending = null, removePic = false;
+    openSheet(`<form>
+      <h3>${entry ? '기록 보기·고치기' : '직접 기록'}</h3>
+      <label>무엇을 이뤘나요</label><input name="text" required maxlength="40" placeholder="예: 10km 완주, 자격증 합격" value="${val(entry && entry.text)}" autocomplete="off">
+      <label>날짜</label><input name="date" type="date" required max="${todayStr()}" value="${val(entry ? entry.date : todayStr())}">
+      <label>한마디 (선택)</label><input name="note" maxlength="100" placeholder="소감, 어떻게 했는지 등" value="${val(entry && entry.note)}" autocomplete="off">
+      <div id="gl-pic">${entry && goalPics.has(entry.id) ? `<img class="gl-big" src="${attr(goalPics.get(entry.id))}" alt="">` : ''}</div>
+      <label class="mini-btn" style="display:block;text-align:center;margin-top:8px;cursor:pointer">📷 <span id="gl-pic-lbl">${entry && goalPics.has(entry.id) ? '사진 바꾸기' : '사진 넣기'}</span><input type="file" accept="image/*" id="gl-file" hidden></label>
+      <button type="button" class="mini-btn" id="gl-pic-del" style="width:100%;margin-top:6px"${entry && goalPics.has(entry.id) ? '' : ' hidden'}>사진 지우기</button>
+      <p class="goal-hint">사진은 이 기기에만 저장돼요(다른 기기와 동기화되지 않아요). 글 기록은 비공개 동기화에 올라가요.</p>
+      <div class="sheet-actions"><button type="button" data-cancel>${back ? '취소' : '나중에'}</button>${entry ? '<button type="button" data-delete>삭제</button>' : ''}<button type="submit">저장</button></div>
+    </form>`, (fd) => {
+      const text = String(fd.get('text')).trim().slice(0, 40), date = String(fd.get('date')), note = String(fd.get('note')).trim();
+      if (!text || !validDate(date)) { showToast('내용과 날짜를 확인해 주세요'); return false; }
+      const e2 = entry || { id: newId(), gid: '' };
+      Object.assign(e2, { text, date, note });
+      if (!entry) goalLog.push(e2);
+      saveGoalLog();
+      showToast('기록했어요');
+      (async () => {   // 사진은 저장이 끝난 뒤에 화면을 다시 그린다
+        try { if (pending) await setGoalPic(e2.id, pending); else if (removePic) await delGoalPic(e2.id); } catch (err) { showToast('사진을 저장하지 못했어요'); }
+        renderProfile();
+        if (back) openGoalLogSheet();
+      })();
+    });
+    const q = (sel) => sheetBody.querySelector(sel);
+    q('#gl-file').addEventListener('change', async (ev) => {
+      const f = ev.target.files[0];
+      if (!f) return;
+      try {
+        pending = await shrinkImage(f, 1000);
+        removePic = false;
+        q('#gl-pic').innerHTML = `<img class="gl-big" src="${attr(URL.createObjectURL(pending))}" alt="">`;
+        q('#gl-pic-lbl').textContent = '사진 바꾸기';
+        q('#gl-pic-del').hidden = false;
+      } catch (err) { showToast('사진을 읽지 못했어요'); }
+    });
+    q('#gl-pic-del').addEventListener('click', () => { pending = null; removePic = true; q('#gl-pic').innerHTML = ''; q('#gl-pic-lbl').textContent = '사진 넣기'; q('#gl-pic-del').hidden = true; });
+    if (back) q('[data-cancel]').addEventListener('click', () => setTimeout(openGoalLogSheet, 0));
+    const del = q('[data-delete]');
+    if (del) del.addEventListener('click', async () => {
+      if (!confirm('이 기록을 지울까요?')) return;
+      tomb(entry.id);
+      goalLog = goalLog.filter((x) => x.id !== entry.id);
+      saveGoalLog();
+      await delGoalPic(entry.id);
+      closeSheet();
+      renderProfile();
+      showToast('지웠어요');
+      if (back) setTimeout(openGoalLogSheet, 0);
+    });
+  }
+  loadGoalPics();
 
   function renderProfile() {
     const box = el('profile-card');
@@ -6764,8 +6889,8 @@
     const empty = !profile.name && !profile.intro && !goals.length;
     box.innerHTML = `<div class="pf"><div class="pf-top">
       <button type="button" class="pf-main" data-pf="edit" aria-label="프로필 고치기"><span class="pf-av">${esc(profile.emoji || '🙂')}</span><span class="pf-txt">${empty ? '<b>프로필·목표를 적어 보세요</b><small>눌러서 이름, 한 줄 소개, 올해 목표를 정해요</small>' : `<b>${esc(profile.name || '나')}${validDate(profile.birth) ? ` <small style="font-weight:400">· ${ageText(monthsBetween(profile.birth, todayStr()))}</small>` : ''}</b>${profile.intro ? `<small>${esc(profile.intro)}</small>` : ''}`}</span></button>
-      ${goals.length ? `<button type="button" class="pf-fold" data-pf="fold" aria-expanded="${!fold}">🎯 ${done}/${goals.length} ${fold ? '▼' : '▲'}</button>` : ''}</div>
-      ${goals.length && !fold ? `<div class="pf-goals">${goals.map((g) => `<label class="pf-goal${g.done ? ' done' : ''}"><input type="checkbox" data-pg="${attr(g.id)}"${g.done ? ' checked' : ''}><span>${esc(g.text)}</span></label>`).join('')}<div class="bar" style="margin-top:8px"><i style="width:${Math.round((done / goals.length) * 100)}%"></i></div></div>` : ''}</div>`;
+      ${goals.length || goalLog.length ? `<button type="button" class="pf-fold" data-pf="log" aria-label="달성 기록">🏆 ${goalLog.length}</button>` : ''}${goals.length ? `<button type="button" class="pf-fold" data-pf="fold" aria-expanded="${!fold}">🎯 ${done}/${goals.length} ${fold ? '▼' : '▲'}</button>` : ''}</div>
+      ${goals.length && !fold ? `<div class="pf-goals">${goals.map((g) => `<label class="pf-goal${g.done ? ' done' : ''}"><input type="checkbox" data-pg="${attr(g.id)}"${g.done ? ' checked' : ''}><span>${esc(g.text)}</span>${g.done && validDate(g.doneAt) ? `<em>${mdDot(g.doneAt)} 달성</em>` : ''}</label>`).join('')}<div class="bar" style="margin-top:8px"><i style="width:${Math.round((done / goals.length) * 100)}%"></i></div></div>` : ''}</div>`;
   }
 
   function openProfileSheet() {
@@ -6811,6 +6936,7 @@
     const b = e.target.closest('[data-pf]');
     if (!b) return;
     if (b.dataset.pf === 'edit') openProfileSheet();
+    else if (b.dataset.pf === 'log') openGoalLogSheet();
     else {
       let fold = false;
       try { fold = localStorage.getItem(PF_FOLD_KEY) === '1'; localStorage.setItem(PF_FOLD_KEY, fold ? '0' : '1'); } catch (err) { /* 접기를 못 기억해도 괜찮다 */ }
@@ -6822,6 +6948,21 @@
     const g = c && profile.goals.find((x) => x.id === c.dataset.pg);
     if (!g) return;
     g.done = c.checked;
+    if (g.done) {
+      g.doneAt = todayStr();
+      let en = goalLog.find((x) => x.gid === g.id);
+      if (!en) { en = { id: newId(), gid: g.id, text: g.text, date: g.doneAt, note: '' }; goalLog.push(en); }
+      saveGoalLog();
+      saveProfile();
+      renderProfile();
+      showToast('달성! 기록에 남겼어요 🎉');
+      setTimeout(() => openGoalEntrySheet(en, false), 400);   // 한마디·사진을 바로 남길 수 있게 연다(“나중에”로 닫아도 기록은 남는다)
+      return;
+    }
+    g.doneAt = '';
+    // 한마디·사진을 적어 둔 기록은 지우지 않고, 아무것도 안 적은 자동 기록만 지운다
+    const gone = goalLog.filter((x) => x.gid === g.id && !x.note && !goalPics.has(x.id));
+    if (gone.length) { tomb(...gone.map((x) => x.id)); goalLog = goalLog.filter((x) => !gone.includes(x)); saveGoalLog(); }
     saveProfile();
     renderProfile();
   });
@@ -7411,7 +7552,7 @@
 
   const snapshot = () => ({
     app: 'dadari', version: 3, updatedAt: new Date().toISOString(),
-    transactions, categories, cards, recurs, recurDone: [...recurDone], goal, schedule, health, insurance, rentals, academies, biz, fridge, calendar: calItems, calTabs, savings, side, salary, fit, profile, tombs: [...tombs]
+    transactions, categories, cards, recurs, recurDone: [...recurDone], goal, schedule, health, insurance, rentals, academies, biz, fridge, calendar: calItems, calTabs, savings, side, salary, fit, profile, goalLog, tombs: [...tombs]
   });
 
   // 두 기기가 따로 고친 내용을 합친다. 같은 id가 양쪽에 있으면 이 기기 것을 쓰고, 지운 항목(tombs)은 되살리지 않는다.
@@ -7440,6 +7581,7 @@
       fridge: union(local.fridge, remote.fridge),
       calendar: union(local.calendar, remote.calendar),
       calTabs: union(local.calTabs, remote.calTabs),
+      goalLog: union(local.goalLog, remote.goalLog),
       profile: (remote.profile && (!local.profile || String(remote.profile.updatedAt || '') > String(local.profile.updatedAt || ''))) ? remote.profile : local.profile,
       fit: {
         log: union(local.fit && local.fit.log, remote.fit && remote.fit.log),
@@ -7489,6 +7631,7 @@
       if (Array.isArray(s.fridge)) fridge = s.fridge;
       if (Array.isArray(s.calendar)) calItems = s.calendar;
       if (Array.isArray(s.calTabs)) calTabs = s.calTabs;
+      if (Array.isArray(s.goalLog)) goalLog = s.goalLog;
       if (s.profile && typeof s.profile === 'object') { profile = { show: true, emoji: '🙂', name: '', intro: '', ...s.profile, goals: Array.isArray(s.profile.goals) ? s.profile.goals : [] }; saveJson(PF_KEY, profile); }
       if (s.fit && Array.isArray(s.fit.log)) fit = { log: s.fit.log, weights: Array.isArray(s.fit.weights) ? s.fit.weights : [], goals: s.fit.goals && typeof s.fit.goals === 'object' ? s.fit.goals : {}, body: s.fit.body && typeof s.fit.body === 'object' ? s.fit.body : {} };
       if (s.salary && Array.isArray(s.salary.jobs)) salary = { jobs: s.salary.jobs, log: Array.isArray(s.salary.log) ? s.salary.log : [] };
@@ -7512,6 +7655,7 @@
       saveFridge();
       saveCal();
       saveCalTabs();
+      saveGoalLog();
       saveSav();
       saveSide();
       saveSal();
@@ -7860,7 +8004,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v72'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v73'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span style="display:block;margin-bottom:4px">다달이, 매일의 기록이 모여 더 나은 생활이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
