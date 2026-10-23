@@ -115,6 +115,9 @@
     ]);
     put('dadari_fridge_v1', [['우유', '1L', 'fridge', 2], ['두부', '1모', 'fridge', 1], ['달걀', '10구', 'fridge', 9], ['김치', '1통', 'fridge', 30], ['양파', '3개', 'room', 14], ['밥', '2공기', 'freezer', 20]].map(function (x) { return { id: nid(), name: x[0], qty: x[1], store: x[2], bought: off(-3), expiry: off(x[3]), note: '' }; }));
     put('dadari_profile_v1', { show: true, emoji: '🚀', name: '체험', intro: '샘플 데이터로 둘러보는 중이에요', birth: '', goals: [{ id: nid(), text: '월 100만원 저축', done: true }, { id: nid(), text: '부업 수입 월 50만원', done: false }, { id: nid(), text: '책 12권 읽기', done: false }], updatedAt: new Date().toISOString() });
+    var fl = [], types = ['run', 'gym', 'walk', 'yoga', 'swim'];
+    for (var fi = 0; fi < 30; fi++) { if (fi % 3 === 2) continue; fl.push({ id: nid(), who: 'me', date: off(-fi), type: types[fi % 5], min: 25 + (fi * 7) % 40, km: types[fi % 5] === 'run' || types[fi % 5] === 'walk' ? Math.round((3 + (fi % 4) * 1.3) * 10) / 10 : 0, kcal: 150 + (fi * 23) % 250, memo: '' }); }
+    put('dadari_fit_v1', { log: fl, weights: [{ id: nid(), who: 'me', date: off(-40), kg: 64.8 }, { id: nid(), who: 'me', date: off(-20), kg: 64.1 }, { id: nid(), who: 'me', date: off(-2), kg: 63.5 }], goals: { me: { perWeek: 3, minWeek: 150 } } });
     put('dadari_view_v1', 'status');
     s.call(localStorage, P + 'demo_seeded', '1');
   }
@@ -1012,6 +1015,7 @@
   <button type="button" data-view="schedule"><span class="ic">🗓</span>시간표</button>
   <button type="button" data-view="academy"><span class="ic">📚</span>학원비</button>
   <button type="button" data-view="food"><span class="ic">🍳</span>오늘뭐먹지</button>
+  <button type="button" data-view="fit"><span class="ic">💪</span>운동관리</button>
 </nav>
 <div class="viewtabs-foot"><button type="button" class="tab-order-btn" id="tab-order-btn">⚙ 메뉴 관리 (순서·사용 여부)</button></div>
 
@@ -1104,6 +1108,24 @@
       <button type="button" class="mini-btn" id="add-saljob-btn">＋ 직장 추가</button>
       <button type="button" class="mini-btn" id="add-sallog-btn">＋ 급여 기록</button>
       <button type="button" class="mini-btn" id="sal-member-btn">👥 구성원 관리</button>
+    </div>
+  </section>
+</main>
+
+<main id="view-fit" hidden>
+  <section class="card">
+    <div class="member-chips" id="fit-who" hidden></div>
+    <div class="month-nav">
+      <button id="fit-prev" type="button" aria-label="이전 주">◀</button>
+      <div class="label" id="fit-label"></div>
+      <button id="fit-next" type="button" aria-label="다음 주">▶</button>
+    </div>
+    <div id="fit-body"></div>
+    <div class="cards-actions" style="flex-wrap:wrap">
+      <button type="button" class="mini-btn" id="add-fit-btn">＋ 운동 기록</button>
+      <button type="button" class="mini-btn" id="add-fitw-btn">＋ 체중 기록</button>
+      <button type="button" class="mini-btn" id="fit-goal-btn">🎯 주간 목표</button>
+      <button type="button" class="mini-btn" id="fit-member-btn">👥 구성원 관리</button>
     </div>
   </section>
 </main>
@@ -1904,7 +1926,7 @@
 
   el('export-btn').addEventListener('click', () => {
     // 예전 백업은 내역 배열만 있었다. 지금은 카드·자동이체·월 목표까지 한 파일에 담고, 불러올 때 두 형식을 모두 받는다.
-    const backup = { app: 'dadari', version: 2, transactions, categories, cards, recurs, recurDone: [...recurDone], goal, schedule, health, insurance, rentals, academies, biz, fridge, calendar: calItems, savings, side, salary, profile };
+    const backup = { app: 'dadari', version: 2, transactions, categories, cards, recurs, recurDone: [...recurDone], goal, schedule, health, insurance, rentals, academies, biz, fridge, calendar: calItems, savings, side, salary, fit, profile };
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -2021,6 +2043,13 @@
             profile = { show: true, emoji: '🙂', name: '', intro: '', ...data.profile, goals: Array.isArray(data.profile.goals) ? data.profile.goals : [] };
             saveJson(PF_KEY, profile);
             renderProfile();
+          }
+          if (data.fit && Array.isArray(data.fit.log)) {
+            mergeById(fit.log, data.fit.log, (l) => validDate(l.date) && typeof l.type === 'string');
+            mergeById(fit.weights, data.fit.weights, (w) => validDate(w.date) && w.kg > 0);
+            Object.keys(data.fit.goals || {}).forEach((k) => { if (!fit.goals[k]) fit.goals[k] = data.fit.goals[k]; });
+            saveFit();
+            renderFit();
           }
           if (data.salary && Array.isArray(data.salary.jobs)) {
             mergeById(salary.jobs, data.salary.jobs, (j) => typeof j.name === 'string' && j.name);
@@ -2688,6 +2717,7 @@
     el('view-savings').hidden = v !== 'savings';
     el('view-side').hidden = v !== 'side';
     el('view-salary').hidden = v !== 'salary';
+    el('view-fit').hidden = v !== 'fit';
     document.querySelectorAll('#viewtabs button').forEach((b) => b.classList.toggle('active', b.dataset.view === v));
     saveJson(VIEW_KEY, v);
     if (v === 'schedule') renderSchedule();
@@ -2701,6 +2731,7 @@
     if (v === 'savings') renderSavings();
     if (v === 'side') renderSide();
     if (v === 'salary') renderSalary();
+    if (v === 'fit') renderFit();
     if (SUBS[v]) applySub(v);
     renderTodo();   // 현황 탭이면 확인할 일 배너와 현황표를 그리고, 아니면 배너를 숨긴다
   }
@@ -2892,6 +2923,8 @@
     if (sides.length) parts.push(`부업 ${sides.length}개`);
     const sals = salary.jobs.filter((j) => salWho(j) === id);
     if (sals.length) parts.push(`직장 ${sals.length}개`);
+    const fitN = fit.log.filter((l) => fitWho(l) === id).length + fit.weights.filter((w) => fitWho(w) === id).length;
+    if (fitN) parts.push(`운동·체중 기록 ${fitN}건`);
     if (!confirm(`“${m.name}”을(를) 삭제할까요?` + (parts.length ? `\n${parts.join(', ')}도 함께 지워져요.` : ''))) return false;
     // 보험·렌탈·학원에 연결된 가계부 자동 기록 항목도 함께 지운다(이미 기록된 내역은 남는다).
     policies.forEach((p) => syncRecur(p, false, null));
@@ -2919,6 +2952,13 @@
     salary.jobs = salary.jobs.filter((j) => salWho(j) !== id);
     saveSal();
     renderSalary();
+    // 이 사람의 운동·체중 기록과 목표도 지운다
+    tomb(...fit.log.filter((l) => fitWho(l) === id).map((l) => l.id), ...fit.weights.filter((w) => fitWho(w) === id).map((w) => w.id));
+    fit.log = fit.log.filter((l) => fitWho(l) !== id);
+    fit.weights = fit.weights.filter((w) => fitWho(w) !== id);
+    delete fit.goals[id];
+    saveFit();
+    renderFit();
     schedule.members = schedule.members.filter((x) => x.id !== id);
     schedule.items = schedule.items.filter((i) => i.memberId !== id);
     health.visits = health.visits.filter((v) => v.who !== id);
@@ -5664,6 +5704,168 @@
     if (sl) openSalLogSheet(salary.log.find((x) => x.id === sl.dataset.sl));
   });
 
+  /* ---------- 운동관리 ---------- */
+  // 운동 기록(종류·시간·거리·칼로리)과 체중을 적어 주간 횟수·시간, 주간 목표, 연속 운동일, 최근 6주 추이를 본다. 구성원마다 따로 볼 수 있다.
+  const FIT_KEY = 'dadari_fit_v1';
+  let fit = loadJson(FIT_KEY, { log: [], weights: [], goals: {} });   // log: {id,who,date,type,min,km,kcal,memo}, weights: {id,who,date,kg}, goals: {구성원id: {perWeek(회), minWeek(분)}}
+  if (!fit || !Array.isArray(fit.log) || !Array.isArray(fit.weights)) fit = { log: [], weights: [], goals: {} };
+  if (!fit.goals || typeof fit.goals !== 'object') fit.goals = {};
+  const saveFit = () => saveJson(FIT_KEY, fit);
+  const FIT_TYPES = [['run', '🏃 러닝'], ['walk', '🚶 걷기'], ['gym', '🏋️ 헬스'], ['yoga', '🧘 요가·필라테스'], ['swim', '🏊 수영'], ['bike', '🚴 자전거'], ['hike', '⛰️ 등산'], ['ball', '⚽ 구기·라켓'], ['etc', '✨ 기타']];
+  const fitName = (k) => (FIT_TYPES.find((t) => t[0] === k) || FIT_TYPES[8])[1];
+  const fitWho = (x) => x.who || 'me';
+  const fmtMin = (m) => (m >= 60 ? Math.floor(m / 60) + '시간' + (m % 60 ? ' ' + (m % 60) + '분' : '') : m + '분');
+  const weekStartOf = (date) => { const y = +date.slice(0, 4), m = +date.slice(5, 7) - 1, dd = +date.slice(8, 10), x = new Date(y, m, dd - new Date(y, m, dd).getDay()); return x.getFullYear() + '-' + pad2(x.getMonth() + 1) + '-' + pad2(x.getDate()); };   // 일요일 시작(이 블록은 달력 블록보다 앞이라 dstr·dparse를 쓰지 않는다)
+  let fitWeek = weekStartOf(todayStr());
+  const fitScope = () => fit.log.filter((l) => conWho === 'all' || fitWho(l) === conWho);
+  const fitSum = (logs) => ({ n: logs.length, min: logs.reduce((a, l) => a + (+l.min || 0), 0), km: logs.reduce((a, l) => a + (+l.km || 0), 0), kcal: logs.reduce((a, l) => a + (+l.kcal || 0), 0) });
+
+  function fitStreak(logs) {
+    const days = new Set(logs.map((l) => l.date));
+    let d = todayStr(), n = 0;
+    if (!days.has(d)) d = addDays(d, -1);
+    while (days.has(d)) { n++; d = addDays(d, -1); }
+    return n;
+  }
+
+  function fitHtml() {
+    const ppl = people(), scope = fitScope(), wEnd = addDays(fitWeek, 6);
+    const inWeek = (l) => l.date >= fitWeek && l.date <= wEnd, wk = scope.filter(inWeek), sum = fitSum(wk);
+    const single = conWho !== 'all' ? conWho : ppl.length === 1 ? 'me' : '';
+    let html = `<div class="summary-grid">
+      <div class="summary-item balance"><div class="lbl">운동 횟수</div><div class="val">${sum.n}회</div></div>
+      <div class="summary-item income"><div class="lbl">운동 시간</div><div class="val">${sum.min ? fmtMin(sum.min) : '0분'}</div></div>
+      <div class="summary-item expense"><div class="lbl">소모 칼로리</div><div class="val">${sum.kcal ? sum.kcal.toLocaleString('ko-KR') + 'kcal' : '-'}</div></div></div>
+      <p class="goal-hint" style="margin:8px 0 0">${sum.km ? `거리 ${Math.round(sum.km * 10) / 10}km · ` : ''}🔥 연속 운동 ${fitStreak(scope)}일</p>`;
+    const g = single && fit.goals[single];
+    if (g && (g.perWeek || g.minWeek)) {
+      html += '<div style="margin-top:12px">';
+      if (g.perWeek) { const p = Math.round((sum.n / g.perWeek) * 100); html += `<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-muted);margin-bottom:5px"><span>이번 주 목표 ${g.perWeek}회</span><span>${sum.n}/${g.perWeek}회${sum.n >= g.perWeek ? ' 달성 💪' : ''}</span></div><div class="bar"><i class="${p >= 100 ? '' : p < 40 ? 'near' : ''}" style="width:${Math.min(100, p)}%"></i></div>`; }
+      if (g.minWeek) { const p = Math.round((sum.min / g.minWeek) * 100); html += `<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-muted);margin:10px 0 5px"><span>주간 시간 목표 ${fmtMin(g.minWeek)}</span><span>${fmtMin(sum.min)}${sum.min >= g.minWeek ? ' 달성 💪' : ''}</span></div><div class="bar"><i class="${p >= 100 ? '' : p < 40 ? 'near' : ''}" style="width:${Math.min(100, p)}%"></i></div>`; }
+      html += '</div>';
+    } else if (!single) html += '<p class="goal-hint" style="margin:10px 0 0">위에서 구성원을 고르면 그 사람의 주간 목표 달성률이 보여요.</p>';
+
+    // 최근 6주 운동 시간
+    const weeks = [];
+    for (let i = 5; i >= 0; i--) { const ws = addDays(fitWeek, -7 * i); weeks.push({ ws, label: ws.slice(5).replace('-', '/'), ...fitSum(scope.filter((l) => l.date >= ws && l.date <= addDays(ws, 6))) }); }
+    if (weeks.some((x) => x.min)) {
+      const max = Math.max(1, ...weeks.map((x) => x.min)), hp = (v) => (v > 0 ? Math.max(3, Math.round((v / max) * 100)) : 0);
+      html += `<h2 class="section-title" style="margin:18px 0 6px">최근 6주 운동 시간</h2>
+        <div class="vz-key"><span class="vz-max">최대 ${fmtMin(max)}</span></div>
+        <div class="vz-plot" role="img" aria-label="최근 6주 주간 운동 시간 막대그래프">${weeks.map((x) => `<div class="vz-col${x.ws === fitWeek ? ' sel' : ''}" aria-label="${x.label} 주 ${fmtMin(x.min)}, ${x.n}회"><i class="c1" style="height:${hp(x.min)}%"></i></div>`).join('')}</div>
+        <div class="vz-labels">${weeks.map((x) => `<span class="${x.ws === fitWeek ? 'sel' : ''}">${x.label}</span>`).join('')}</div>`;
+    }
+    // 이번 주 종류별
+    const by = {};
+    wk.forEach((l) => { by[l.type] = (by[l.type] || 0) + (+l.min || 0); });
+    const ent = Object.entries(by).sort((a, b) => b[1] - a[1]);
+    if (ent.length) html += '<h2 class="section-title" style="margin:18px 0 6px">종류별 (선택한 주)</h2>' + ent.map(([k, v]) => `<div class="vz-h"><span class="n">${esc(fitName(k))}</span><span class="t"><i style="width:${Math.max(3, Math.round((v / ent[0][1]) * 100))}%"></i></span><span class="a">${fmtMin(v)}</span></div>`).join('');
+
+    // 체중
+    const ws = fit.weights.filter((w) => conWho === 'all' || fitWho(w) === conWho).sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+    if (ws.length) {
+      const latest = ws[0], old = ws.find((w) => fitWho(w) === fitWho(latest) && w.date <= addDays(latest.date, -28)) || ws.filter((w) => fitWho(w) === fitWho(latest)).slice(-1)[0];
+      const diff = old && old.id !== latest.id ? Math.round((latest.kg - old.kg) * 10) / 10 : null;
+      html += `<h2 class="section-title" style="margin:18px 0 4px">체중</h2><div class="ins-sum">최근 <b>${latest.kg}kg</b> (${latest.date.slice(5).replace('-', '/')}${ppl.length > 1 && conWho === 'all' ? ' · ' + esc(whoName(fitWho(latest))) : ''})${diff !== null ? `<br>${old.date.slice(5).replace('-', '/')} 대비 <b style="color:${diff > 0 ? 'var(--expense)' : 'var(--income)'}">${diff > 0 ? '+' : ''}${diff}kg</b>` : ''}</div>`
+        + ws.slice(0, 5).map((w) => `<button type="button" class="visit" data-fw="${attr(w.id)}"><div class="v1"><span>${w.date.slice(2).replace(/-/g, '.')}${ppl.length > 1 && conWho === 'all' ? ' · ' + esc(whoName(fitWho(w))) : ''}</span><b>${w.kg}kg</b></div></button>`).join('');
+    }
+
+    // 선택한 주 기록
+    const list = wk.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+    html += `<h2 class="section-title" style="margin:18px 0 4px">이번 선택 주 기록${list.length ? ' · ' + list.length + '건' : ''}</h2>`
+      + (list.length ? list.map((l) => `<button type="button" class="visit" data-fl="${attr(l.id)}"><div class="v1"><span>${l.date.slice(5).replace('-', '/')} · ${esc(fitName(l.type))}${ppl.length > 1 && conWho === 'all' ? ' · ' + esc(whoName(fitWho(l))) : ''}</span><b>${l.min ? fmtMin(+l.min) : (l.km ? l.km + 'km' : '')}</b></div><div class="v2">${[l.km ? l.km + 'km' : '', l.kcal ? l.kcal + 'kcal' : '', l.memo || ''].filter(Boolean).map(esc).join(' · ')}</div></button>`).join('')
+        : '<div class="empty-msg" style="padding:12px 0">이 주 운동 기록이 없어요<br>아래 “＋ 운동 기록”으로 적어 보세요</div>');
+    return html;
+  }
+
+  function renderFit() {
+    drawContractWho(el('fit-who'));
+    const a = fitWeek, b = addDays(fitWeek, 6), md = (d) => d.slice(5).replace('-', '/');
+    el('fit-label').textContent = md(a) + ' ~ ' + md(b) + (a === weekStartOf(todayStr()) ? ' (이번 주)' : '');
+    el('fit-body').innerHTML = fitHtml();
+  }
+
+  function openFitLogSheet(l) {
+    const val = (x) => attr(x == null ? '' : String(x));
+    const who = l ? fitWho(l) : conWho === 'all' ? 'me' : conWho;
+    openSheet(`<form>
+      <h3>${l ? '운동 기록 수정' : '운동 기록'}</h3>
+      <label>누가 했나요</label><select name="who">${people().map((x) => `<option value="${attr(x.id)}"${x.id === who ? ' selected' : ''}>${esc(x.name)}</option>`).join('')}</select>
+      <label>날짜</label><input name="date" type="date" required value="${val(l ? l.date : (todayStr() >= fitWeek && todayStr() <= addDays(fitWeek, 6) ? todayStr() : fitWeek))}">
+      <label>운동 종류</label><select name="type">${FIT_TYPES.map(([k, n]) => `<option value="${k}"${(l ? l.type : 'run') === k ? ' selected' : ''}>${n}</option>`).join('')}</select>
+      <label>운동 시간 (분)</label><input name="min" type="number" min="0" inputmode="numeric" value="${val(l && l.min ? l.min : '')}" placeholder="예: 40">
+      <label>거리 (km, 선택)</label><input name="km" type="number" min="0" step="0.1" inputmode="decimal" value="${val(l && l.km ? l.km : '')}" placeholder="러닝·걷기·자전거 등">
+      <label>소모 칼로리 (선택)</label><input name="kcal" type="number" min="0" inputmode="numeric" value="${val(l && l.kcal ? l.kcal : '')}" placeholder="워치·기구에 나온 값">
+      <label>메모 (선택)</label><input name="memo" maxlength="60" value="${val(l && l.memo)}" placeholder="예: 한강 러닝, 상체 루틴">
+      <div class="sheet-actions"><button type="button" data-cancel>취소</button>${l ? '<button type="button" data-delete>삭제</button>' : ''}<button type="submit">저장</button></div>
+    </form>`, (fd) => {
+      const min = Math.max(0, parseInt(fd.get('min'), 10) || 0), km = Math.max(0, parseFloat(fd.get('km')) || 0), kcal = Math.max(0, parseInt(fd.get('kcal'), 10) || 0), date = String(fd.get('date'));
+      if (!validDate(date) || (!min && !km)) { showToast('날짜와 운동 시간(또는 거리)을 입력해 주세요'); return false; }
+      const rec = { who: String(fd.get('who')), date, type: String(fd.get('type')), min, km, kcal, memo: String(fd.get('memo')).trim() };
+      if (l) Object.assign(l, rec); else fit.log.push({ id: newId(), ...rec });
+      saveFit();
+      fitWeek = weekStartOf(date);
+      renderFit();
+      showToast(l ? '수정했어요' : '기록했어요');
+    });
+    const del = sheetBody.querySelector('[data-delete]');
+    if (del) del.addEventListener('click', () => { tomb(l.id); fit.log = fit.log.filter((x) => x.id !== l.id); saveFit(); closeSheet(); renderFit(); showToast('삭제했어요'); });
+  }
+
+  function openFitWeightSheet(w) {
+    const val = (x) => attr(x == null ? '' : String(x));
+    const who = w ? fitWho(w) : conWho === 'all' ? 'me' : conWho;
+    openSheet(`<form>
+      <h3>${w ? '체중 수정' : '체중 기록'}</h3>
+      <label>누구의 체중인가요</label><select name="who">${people().map((x) => `<option value="${attr(x.id)}"${x.id === who ? ' selected' : ''}>${esc(x.name)}</option>`).join('')}</select>
+      <label>날짜</label><input name="date" type="date" required value="${val(w ? w.date : todayStr())}">
+      <label>체중 (kg)</label><input name="kg" type="number" min="1" step="0.1" inputmode="decimal" required value="${val(w && w.kg)}" placeholder="예: 62.4">
+      <div class="sheet-actions"><button type="button" data-cancel>취소</button>${w ? '<button type="button" data-delete>삭제</button>' : ''}<button type="submit">저장</button></div>
+    </form>`, (fd) => {
+      const kg = Math.round(parseFloat(fd.get('kg')) * 10) / 10, date = String(fd.get('date'));
+      if (!(kg > 0) || !validDate(date)) { showToast('날짜와 체중을 확인해 주세요'); return false; }
+      const rec = { who: String(fd.get('who')), date, kg };
+      if (w) Object.assign(w, rec); else fit.weights.push({ id: newId(), ...rec });
+      saveFit();
+      renderFit();
+      showToast('저장했어요');
+    });
+    const del = sheetBody.querySelector('[data-delete]');
+    if (del) del.addEventListener('click', () => { tomb(w.id); fit.weights = fit.weights.filter((x) => x.id !== w.id); saveFit(); closeSheet(); renderFit(); showToast('삭제했어요'); });
+  }
+
+  function openFitGoalSheet() {
+    const who = conWho === 'all' ? 'me' : conWho, g = fit.goals[who] || {};
+    openSheet(`<form>
+      <h3>주간 운동 목표</h3>
+      <label>누구의 목표인가요</label><select name="who">${people().map((x) => `<option value="${attr(x.id)}"${x.id === who ? ' selected' : ''}>${esc(x.name)}</option>`).join('')}</select>
+      <label>일주일에 몇 번 (선택)</label><input name="perWeek" type="number" min="0" max="14" inputmode="numeric" value="${attr(g.perWeek || '')}" placeholder="예: 3">
+      <label>일주일에 몇 분 (선택)</label><input name="minWeek" type="number" min="0" inputmode="numeric" value="${attr(g.minWeek || '')}" placeholder="예: 150">
+      <p class="goal-hint">둘 다 0으로 두면 목표가 지워져요. 구성원을 고른 화면(또는 구성원이 나 혼자일 때)에서 달성률이 보여요.</p>
+      <div class="sheet-actions"><button type="button" data-cancel>취소</button><button type="submit">저장</button></div>
+    </form>`, (fd) => {
+      const perWeek = Math.max(0, parseInt(fd.get('perWeek'), 10) || 0), minWeek = Math.max(0, parseInt(fd.get('minWeek'), 10) || 0), w = String(fd.get('who'));
+      if (perWeek || minWeek) fit.goals[w] = { perWeek, minWeek }; else delete fit.goals[w];
+      saveFit();
+      renderFit();
+      showToast(perWeek || minWeek ? '목표를 저장했어요' : '목표를 지웠어요');
+    });
+  }
+
+  el('add-fit-btn').addEventListener('click', () => openFitLogSheet(null));
+  el('add-fitw-btn').addEventListener('click', () => openFitWeightSheet(null));
+  el('fit-goal-btn').addEventListener('click', openFitGoalSheet);
+  el('fit-member-btn').addEventListener('click', () => openMemberManager());
+  el('fit-prev').addEventListener('click', () => { fitWeek = addDays(fitWeek, -7); renderFit(); });
+  el('fit-next').addEventListener('click', () => { fitWeek = addDays(fitWeek, 7); renderFit(); });
+  el('fit-who').addEventListener('click', (e) => { const b = e.target.closest('button[data-cw]'); if (b) { conWho = b.dataset.cw; renderFit(); } });
+  el('fit-body').addEventListener('click', (e) => {
+    const fl = e.target.closest('[data-fl]');
+    if (fl) { openFitLogSheet(fit.log.find((x) => x.id === fl.dataset.fl)); return; }
+    const fw = e.target.closest('[data-fw]');
+    if (fw) openFitWeightSheet(fit.weights.find((x) => x.id === fw.dataset.fw));
+  });
+
   /* ---------- 캘린더 (일정 다이어리) · 금융 캘린더(가계부 안) ---------- */
   // 캘린더 메뉴는 내 일정(기간·반복·색)과 건강·냉장고 소비기한·공휴일을 다이어리처럼 보여 준다.
   // 돈과 관련된 날짜(납부일·결제일·수입 예정·보험 갱신·저축일과 날짜별 실제 수입·지출)는 가계부의 "금융캘린더" 탭에 따로 모은다.
@@ -6187,7 +6389,7 @@
   // 대시보드는 설정(백업·동기화·앱 잠금)이 들어 있어 항상 사용한다.
   const TAB_KEY = 'dadari_tab_order_v1';
   const TAB_HIDE_KEY = 'dadari_tab_hidden_v1';
-  const TAB_LABELS = { status: '📊 대시보드', calendar: '📅 캘린더', salary: '💵 나는 샐러리', side: '💼 나는 N잡러', biz: '📈 나는CEO', ledger: '💰 가계부', savings: '🐷 저축', rental: '🧰 렌탈·구독', health: '🩺 건강', insurance: '🛡 보험', schedule: '🗓 시간표', academy: '📚 학원비', food: '🍳 오늘뭐먹지' };
+  const TAB_LABELS = { status: '📊 대시보드', calendar: '📅 캘린더', salary: '💵 나는 샐러리', side: '💼 나는 N잡러', biz: '📈 나는CEO', ledger: '💰 가계부', savings: '🐷 저축', rental: '🧰 렌탈·구독', health: '🩺 건강', insurance: '🛡 보험', schedule: '🗓 시간표', academy: '📚 학원비', food: '🍳 오늘뭐먹지', fit: '💪 운동관리' };
   const TAB_FIXED = ['status'];
   var tabsReady = false;   // 처음 화면을 그리기 전에는 메뉴를 옮기지 않는다(아래 초기화에서 true)
   function tabOrder() {
@@ -6634,6 +6836,7 @@
     const savMiss = savings.accounts.filter((a) => a.monthly > 0 && a.payDay >= 1 && now.getDate() >= a.payDay && savMonthOf(a.id, ym) < a.monthly).length;
     const sideMonth = sideStats(side.log.filter((l) => l.date.startsWith(ym)));
     const salMonth = salSum(salary.log.filter((l) => l.date.startsWith(ym)));
+    const fitWk = fitSum(fit.log.filter((l) => l.date >= weekStartOf(today) && l.date <= addDays(weekStartOf(today), 6)));
     const soonFood = fridge.filter((f) => { const d = ddOf(f); return d !== null && d <= 3; });
     const expiredFood = soonFood.filter((f) => ddOf(f) < 0).length;
 
@@ -6651,6 +6854,7 @@
       row('🩺', '건강', `접종 예정 ${planned.length} · 병원 예약 ${visitsNext}${medsLeft ? ` · 오늘 복약 ${medsLeft}개 남음` : ''}`, [overdueVac ? `접종 ${overdueVac}건 지남` : '', claimTodo ? `실비 청구 필요 ${claimTodo}건` : ''].filter(Boolean).join(' · '), '-', 'health'),
       row('🗓', '시간표', `오늘 일정 ${todaySch}개 · 구성원 ${schedule.members.length}명`, '', '-', 'schedule'),
       row('💼', '나는 N잡러', side.jobs.length ? `부업 ${side.jobs.length}개 · 이번 달 수입 ${money(sideMonth.income)}${sideMonth.hours > 0 ? ' · ' + hoursTxt(sideMonth.hours) : ''}` : '등록한 부업이 없어요', '', side.jobs.length ? `${sideMonth.net < 0 ? '-' : ''}${formatWon(Math.abs(sideMonth.net))}` : '-', 'side'),
+      row('💪', '운동관리', fit.log.length ? `이번 주 ${fitWk.n}회 · ${fitWk.min ? fmtMin(fitWk.min) : '0분'}` : '아직 운동 기록이 없어요', '', fit.log.length ? `🔥 ${fitStreak(fit.log)}일` : '-', 'fit'),
       row('💵', '나는 샐러리', salary.jobs.length ? `직장 ${salary.jobs.length}개 · 이번 달 실수령 ${money(salMonth.net)}` : '등록한 직장이 없어요', '', salary.jobs.length ? formatWon(salMonth.net) : '-', 'salary'),
       row('📈', '나는CEO', (biz.shops.length > 1 ? `사업 ${biz.shops.length}개 · ` : '') + (bizMonth.length ? `매출 ${formatWon(bizSales)} · 비용 ${formatWon(bizCost)}` : '이번 달 입력 없음'), bizTarget > 0 && bizSales < bizTarget ? `목표 ${formatWon(bizTarget)} 중 ${Math.round((bizSales / bizTarget) * 100)}%` : '', bizMonth.length ? `${bizSales - bizCost < 0 ? '-' : ''}${formatWon(Math.abs(bizSales - bizCost))}` : '-', 'biz'),
       row('🐷', '저축', savings.accounts.length ? `통장·목표 ${savings.accounts.length}개 · 이번 달 입금 ${money(savMonthIn)}` : '등록한 통장이 없어요', savMiss ? `이번 달 저축 계획 미달 ${savMiss}건` : '', savings.accounts.length ? formatWon(savTotal) : '-', 'savings'),
@@ -6708,7 +6912,7 @@
   const defaultCats = () => ({ expense: [...CATEGORIES.expense], income: [...CATEGORIES.income] });
   const sameCats = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   const hasData = () => transactions.length || cards.length || recurs.length || schedule.members.length
-    || health.visits.length || health.periods.length || health.vaccines.length || health.meds.length || insurance.length || rentals.length || academies.length || biz.entries.length || biz.shops.length > 1 || biz.shops.some((s) => s.target > 0 || s.id !== 'bz_main') || fridge.length || calItems.length || savings.accounts.length || side.jobs.length || salary.jobs.length || profile.name || profile.intro || profile.goals.length || goal > 0 || !sameCats(categories, defaultCats());
+    || health.visits.length || health.periods.length || health.vaccines.length || health.meds.length || insurance.length || rentals.length || academies.length || biz.entries.length || biz.shops.length > 1 || biz.shops.some((s) => s.target > 0 || s.id !== 'bz_main') || fridge.length || calItems.length || savings.accounts.length || side.jobs.length || salary.jobs.length || fit.log.length || fit.weights.length || profile.name || profile.intro || profile.goals.length || goal > 0 || !sameCats(categories, defaultCats());
 
   function markDirty() {
     if (applying) return;
@@ -6724,7 +6928,7 @@
 
   const snapshot = () => ({
     app: 'dadari', version: 3, updatedAt: new Date().toISOString(),
-    transactions, categories, cards, recurs, recurDone: [...recurDone], goal, schedule, health, insurance, rentals, academies, biz, fridge, calendar: calItems, savings, side, salary, profile, tombs: [...tombs]
+    transactions, categories, cards, recurs, recurDone: [...recurDone], goal, schedule, health, insurance, rentals, academies, biz, fridge, calendar: calItems, savings, side, salary, fit, profile, tombs: [...tombs]
   });
 
   // 두 기기가 따로 고친 내용을 합친다. 같은 id가 양쪽에 있으면 이 기기 것을 쓰고, 지운 항목(tombs)은 되살리지 않는다.
@@ -6753,6 +6957,11 @@
       fridge: union(local.fridge, remote.fridge),
       calendar: union(local.calendar, remote.calendar),
       profile: (remote.profile && (!local.profile || String(remote.profile.updatedAt || '') > String(local.profile.updatedAt || ''))) ? remote.profile : local.profile,
+      fit: {
+        log: union(local.fit && local.fit.log, remote.fit && remote.fit.log),
+        weights: union(local.fit && local.fit.weights, remote.fit && remote.fit.weights),
+        goals: { ...((remote.fit && remote.fit.goals) || {}), ...((local.fit && local.fit.goals) || {}) }
+      },
       salary: (() => {
         const jobs = union(local.salary && local.salary.jobs, remote.salary && remote.salary.jobs);
         const ids = new Set(jobs.map((x) => x.id));
@@ -6795,6 +7004,7 @@
       if (Array.isArray(s.fridge)) fridge = s.fridge;
       if (Array.isArray(s.calendar)) calItems = s.calendar;
       if (s.profile && typeof s.profile === 'object') { profile = { show: true, emoji: '🙂', name: '', intro: '', ...s.profile, goals: Array.isArray(s.profile.goals) ? s.profile.goals : [] }; saveJson(PF_KEY, profile); }
+      if (s.fit && Array.isArray(s.fit.log)) fit = { log: s.fit.log, weights: Array.isArray(s.fit.weights) ? s.fit.weights : [], goals: s.fit.goals && typeof s.fit.goals === 'object' ? s.fit.goals : {} };
       if (s.salary && Array.isArray(s.salary.jobs)) salary = { jobs: s.salary.jobs, log: Array.isArray(s.salary.log) ? s.salary.log : [] };
       if (s.side && Array.isArray(s.side.jobs)) side = { jobs: s.side.jobs, log: Array.isArray(s.side.log) ? s.side.log : [] };
       if (s.savings && Array.isArray(s.savings.accounts)) savings = { accounts: s.savings.accounts, log: Array.isArray(s.savings.log) ? s.savings.log : [] };
@@ -6818,6 +7028,7 @@
       saveSav();
       saveSide();
       saveSal();
+      saveFit();
     } finally {
       applying = false;
     }
@@ -6836,6 +7047,7 @@
     renderSavings();
     renderSide();
     renderSalary();
+    renderFit();
     renderProfile();
     if (applyRecurs()) renderAll();
   }
@@ -7161,7 +7373,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v59'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v60'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span style="display:block;margin-bottom:4px">다달이, 매일의 기록이 모여 더 나은 생활이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
@@ -7208,7 +7420,7 @@
   updatePayVisibility();
   renderAll();
   const savedView = loadJson(VIEW_KEY, 'ledger');
-  setView(['status', 'calendar', 'savings', 'schedule', 'health', 'insurance', 'rental', 'academy', 'biz', 'side', 'salary', 'food'].includes(savedView) ? savedView : 'ledger');
+  setView(['status', 'calendar', 'savings', 'schedule', 'health', 'insurance', 'rental', 'academy', 'biz', 'side', 'salary', 'food', 'fit'].includes(savedView) ? savedView : 'ledger');
   if (tabHidden(savedView)) setView('status');   // 마지막에 보던 메뉴를 감춰 두었으면 대시보드로 연다
   tabsReady = true;
   applyTabOrder();
