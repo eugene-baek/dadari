@@ -2883,7 +2883,8 @@
 
   // 칸 색: 기본 색(#rrggbb)을 윤곽선 없는 부드러운 단색으로 바꾼다. 같은 종류(같은 기본 색)는 비슷한 계열이고,
   // 항목 이름(key)에 따라 밝기와 색조를 조금씩 달리해 칸마다 약간씩 다르게 보인다. 글씨는 어두운 고정색(#1c1e21)을 쓴다.
-  function tone(hex, key) {
+  // soft=true(캘린더)면 더 옅게(밝기 0.9, 채도 0.55) 만든다. 시간표는 기본(0.8)을 그대로 쓴다.
+  function tone(hex, key, soft) {
     const n = parseInt(String(hex).slice(1), 16) || 0;
     const r = ((n >> 16) & 255) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
     const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
@@ -2893,7 +2894,7 @@
     let k = 5381;
     for (const ch of String(key || '')) k = (k * 33 + ch.charCodeAt(0)) % 100003;
     const l0 = (mx + mn) / 2, s0 = d ? d / (1 - Math.abs(2 * l0 - 1)) : 0;   // 회색 계열은 회색 그대로 둔다
-    const hue = (h + ((k % 7) - 3) * 3 + 360) % 360, light = 0.8 + (((k >> 3) % 5) - 2) * 0.03, sat = s0 < 0.2 ? 0.08 : 0.62;
+    const hue = (h + ((k % 7) - 3) * 3 + 360) % 360, light = (soft ? 0.9 : 0.8) + (((k >> 3) % 5) - 2) * (soft ? 0.015 : 0.03), sat = s0 < 0.2 ? 0.08 : soft ? 0.55 : 0.62;
     const c = (1 - Math.abs(2 * light - 1)) * sat, x = c * (1 - Math.abs(((hue / 60) % 2) - 1)), m = light - c / 2;
     const [rr, gg, bb] = hue < 60 ? [c, x, 0] : hue < 120 ? [x, c, 0] : hue < 180 ? [0, c, x] : hue < 240 ? [0, x, c] : hue < 300 ? [x, 0, c] : [c, 0, x];
     const to = (v) => Math.round((v + m) * 255).toString(16).padStart(2, '0');
@@ -6507,7 +6508,7 @@
     if (e.kind === 'hol') return `<span class="dc-chip hol">${esc(e.text)}</span>`;
     const c = e.color || CAL_COLORS[0];
     // 칸에서는 한 줄로 줄여 보여 준다(전체 글씨·시간 범위는 날짜를 눌렀을 때 아래 목록에 나온다)
-    return `<span class="dc-chip" style="background:${tone(c, e.text)}">${e.time ? `<b class="tm">${e.time}</b> ` : ''}${esc(e.text)}</span>`;
+    return `<span class="dc-chip" style="background:${tone(c, e.text, true)}">${e.time ? `<b class="tm">${e.time}</b> ` : ''}${esc(e.text)}</span>`;
   }
   function calFilterHtml(cal) {
     const chips = cal === 'diary' ? [CAL_CHIPS.diary[0], ...calTabs.map((t) => ['t:' + t.id, t.name, t.color]), ...CAL_CHIPS.diary.slice(1)] : CAL_CHIPS[cal];
@@ -6541,7 +6542,7 @@
       });
       list.forEach((g) => {
         const col = g.e.color || CAL_COLORS[0];
-        h += `<span class="dc-chip bar${g.contL ? ' nl' : ''}${g.contR ? ' nr' : ''}" style="grid-column:${g.s0 + 1} / span ${g.s1 - g.s0 + 1};grid-row:${g.lane + 2};background:${tone(col, g.e.text)}">${esc(g.e.text)}</span>`;
+        h += `<span class="dc-chip bar${g.contL ? ' nl' : ''}${g.contR ? ' nr' : ''}" style="grid-column:${g.s0 + 1} / span ${g.s1 - g.s0 + 1};grid-row:${g.lane + 2};background:${tone(col, g.e.text, true)}">${esc(g.e.text)}</span>`;
       });
       days.forEach((x, c) => {
         const mo = money && money[x.date], single = x.evs.filter((e) => !(e.kind === 'mine' && e.multi)), maxChips = cal === 'fin' ? 2 : 3;
@@ -6558,7 +6559,7 @@
   };
   function calItemHtml(e) {
     const c = e.color || CAL_COLORS[0], tm = calTime(e), md = (d) => d.slice(5).replace('-', '/');
-    return `<button type="button" class="dc-item${e.kind === 'hol' ? ' hol' : ''}"${e.kind === 'hol' ? '' : ` style="background:${tone(c, e.text)}"`}${e.id ? ` data-cid="${attr(e.id)}"${e.occ ? ` data-cocc="${attr(e.occ)}"` : ''}` : e.view ? ` data-cv="${e.view}"` : ''}${e.sub ? ` data-csub="${e.sub}"` : ''}>`
+    return `<button type="button" class="dc-item${e.kind === 'hol' ? ' hol' : ''}"${e.kind === 'hol' ? '' : ` style="background:${tone(c, e.text, true)}"`}${e.id ? ` data-cid="${attr(e.id)}"${e.occ ? ` data-cocc="${attr(e.occ)}"` : ''}` : e.view ? ` data-cv="${e.view}"` : ''}${e.sub ? ` data-csub="${e.sub}"` : ''}>`
       + `<span class="t">${tm ? `<b>${tm}</b> ` : ''}${e.icon ? e.icon + ' ' : ''}${esc(e.text)}${e.repeat ? ' <small>↻</small>' : ''}${e.multi ? ` <small>(${md(e.occ)} ~ ${md(e.occEnd)})</small>` : ''}</span>${e.amt ? `<span class="a">${formatWon(e.amt)}</span>` : ''}</button>`;
   }
   function calDayHtml(cal, date, map) {
@@ -8097,7 +8098,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v85'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v86'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span style="display:block;margin-bottom:4px">다달이, 매일의 기록이 모여 더 나은 생활이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
