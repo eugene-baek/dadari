@@ -290,7 +290,7 @@
     padding: 0 20px;
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 12px;   /* 메뉴·배너·카드 사이 세로 간격은 모두 12px로 같게(배너·카드 자체에 위아래 여백을 따로 주지 않는다) */
   }
   .card {
     background: var(--card-bg);
@@ -737,7 +737,7 @@
   .dash-welcome .foot button { border: none; background: none; color: var(--text-muted); font: inherit; cursor: pointer; padding: 4px; }
   @keyframes flashrow { 0%, 60% { background: var(--accent-soft); box-shadow: 0 0 0 3px var(--accent-soft); } 100% { background: transparent; box-shadow: none; } }
   .flash { animation: flashrow 2.2s ease-out; border-radius: 8px; }
-  .set-group { font-size: 13px; font-weight: 800; color: var(--text-muted); margin: 6px 2px -8px; }
+  .set-group { font-size: 13px; font-weight: 800; color: var(--text-muted); margin: 4px 2px -6px; }
   .viewtabs-foot { max-width: 720px; margin: 0 auto 10px; padding: 0 20px; text-align: right; }
   #viewtabs button[hidden] { display: none; }
   .rec.tab-off .rec-name { color: var(--text-muted); text-decoration: line-through; }
@@ -824,7 +824,7 @@
   .cal-sw input { position: absolute; opacity: 0; pointer-events: none; width: 1px; height: 1px; }
   .cal-sw i { display: block; width: 32px; height: 32px; border-radius: 50%; border: 3px solid transparent; box-shadow: 0 0 0 1px var(--border); cursor: pointer; }
   .cal-sw input:checked + i { border-color: var(--card-bg); box-shadow: 0 0 0 3px var(--text); }
-  .pf-wrap { max-width: 720px; margin: 0 auto; padding: 0 20px 10px; }
+  .pf-wrap { max-width: 720px; margin: 0 auto; padding: 0 20px 12px; }
   .pf { background: var(--card-bg); border: 1px solid var(--border); border-radius: 14px; padding: 10px 12px; box-shadow: var(--shadow); }
   .pf-top { display: flex; align-items: center; gap: 8px; }
   .pf-main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 0; border: 0; background: none; color: var(--text); text-align: left; cursor: pointer; }
@@ -838,12 +838,11 @@
   .pf-goal { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 13px; margin: 0; cursor: pointer; }
   .pf-goal input { width: 18px; height: 18px; margin: 0; flex: none; }
   .pf-goal.done span { color: var(--text-muted); text-decoration: line-through; }
-  .ad-slot { position: relative; display: flex; align-items: center; justify-content: center; min-height: 84px; margin: 0 0 12px; border: 1px dashed var(--border); border-radius: 12px; background: var(--bg); color: var(--text-muted); font-size: 12px; }
+  .ad-slot { position: relative; display: flex; align-items: center; justify-content: center; min-height: 84px; margin: 0; border: 1px dashed var(--border); border-radius: 12px; background: var(--bg); color: var(--text-muted); font-size: 12px; }
   .ad-slot.has-ad { padding: 0; border-style: solid; overflow: hidden; background: none; }
   .ad-slot.has-ad a { display: block; width: 100%; }
   .ad-slot.has-ad img { display: block; width: 100%; height: auto; }
   .ad-slot.has-ad .ad-tag { background: rgba(0, 0, 0, .5); color: #fff; padding: 1px 5px; border-radius: 4px; opacity: 1; z-index: 1; }
-  main > .ad-slot:last-child { margin: 12px 0 0; }
   .ad-slot .ad-tag { position: absolute; top: 6px; left: 8px; font-size: 10px; font-weight: 700; letter-spacing: .5px; opacity: .7; }
   .pf-av img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: block; }
   .pf-photo-row { display: flex; align-items: center; gap: 10px; margin: 4px 0 8px; }
@@ -878,7 +877,7 @@
   .fg-day.miss em { color: var(--expense); }
   .fg-day.today { color: var(--text); font-weight: 800; }
   .fg-day.today i { border-color: var(--accent); }
-  .subtabs { position: sticky; top: 0; z-index: 8; display: flex; gap: 4px; overflow-x: auto; padding: 8px 0; margin: 0 0 4px; background: var(--bg); scrollbar-width: none; }
+  .subtabs { position: sticky; top: 0; z-index: 8; display: flex; gap: 4px; overflow-x: auto; padding: 6px 0; margin: 0 0 -6px; background: var(--bg); scrollbar-width: none; }
   .subtabs::-webkit-scrollbar { display: none; }
   .subtabs button { flex: 1 0 auto; padding: 9px 8px; border: 1px solid var(--border); border-radius: 99px; background: var(--card-bg); color: var(--text-muted); font-size: 12.5px; font-weight: 600; white-space: nowrap; cursor: pointer; }
   .subtabs button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
@@ -1047,7 +1046,7 @@
   .fix-btn { opacity: 0.3; }
   .fix-btn.on { opacity: 1; }
   /* 메뉴는 한 줄에 4개씩 아래로 내려 쌓는다(아이콘 위, 이름 아래). 순서는 "메뉴 순서 바꾸기"로 바꾼다. */
-  .viewtabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; max-width: 720px; margin: 0 auto 6px; padding: 0 20px; }
+  .viewtabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; max-width: 720px; margin: 0 auto 12px; padding: 0 20px; }
   .viewtabs button {
     padding: 9px 0;
     border-radius: 10px;
@@ -8570,7 +8569,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v115'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v116'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span class="slogan">다달이, 매일의 기록이 모여<br><b>더 나은 생활</b>이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
