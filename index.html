@@ -490,6 +490,20 @@
   .bk-row .bk-amt { width: 92px; text-align: right; font-variant-numeric: tabular-nums; }
   .bk-more { width: 100%; margin-top: 6px; border: none; background: none; color: var(--text-muted); font-size: 13px; padding: 8px; cursor: pointer; }
 
+  /* 긴 화면에서 맨 위로 올라가지 않고 다른 메뉴로 가는 떠 있는 "메뉴" 버튼 */
+  .fab { position: fixed; right: 14px; bottom: calc(16px + env(safe-area-inset-bottom)); z-index: 12; width: 54px; height: 54px; border-radius: 50%; border: none; background: var(--accent); color: #fff; font-size: 20px; line-height: 1; box-shadow: 0 4px 14px rgba(0,0,0,0.3); cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
+  .fab small { font-size: 10px; font-weight: 700; }
+  .fab[hidden], .quick-nav[hidden] { display: none; }
+  .quick-nav { position: fixed; right: 14px; bottom: calc(80px + env(safe-area-inset-bottom)); z-index: 12; width: min(340px, calc(100vw - 28px)); max-height: 72vh; overflow-y: auto; background: var(--card-bg); border: 1px solid var(--border); border-radius: 16px; padding: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+  .qn-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .quick-nav button { min-height: 52px; padding: 8px 4px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); color: var(--text); font-size: 12.5px; line-height: 1.25; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; word-break: keep-all; }
+  .quick-nav button .ic { font-size: 18px; }
+  .quick-nav button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .quick-nav .qn-top { grid-column: 1 / -1; min-height: 44px; flex-direction: row; justify-content: center; font-weight: 700; }
+  @media (max-width: 600px) { input, select, textarea { font-size: 16px; } }
+  @media (max-width: 360px) { .month-nav .label { font-size: 14px; } .month-nav button { padding: 8px 10px; } }
+  body { padding-bottom: 80px; }   /* 떠 있는 메뉴 버튼이 맨 아래 내용을 가리지 않게 */
+
   .tx-list { display: flex; flex-direction: column; gap: 8px; }
   .tx-item {
     display: flex;
@@ -672,7 +686,8 @@
   .sheet-body label { margin-top: 10px; }
   .sheet-body .check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text); margin-top: 14px; }
   .sheet-body .check input { width: auto; }
-  .sheet-actions { display: flex; gap: 10px; margin-top: 18px; }
+  /* 긴 입력창에서도 저장·취소 버튼이 아래에 항상 보이게 붙인다 */
+  .sheet-actions { display: flex; gap: 10px; margin-top: 18px; position: sticky; bottom: 0; z-index: 2; background: var(--card-bg); padding: 10px 0 calc(6px + env(safe-area-inset-bottom)); box-shadow: 0 -10px 10px -10px rgba(0,0,0,0.25); }
   .sheet-actions button { flex: 1; padding: 12px; border-radius: 10px; border: none; font-size: 14px; font-weight: 600; cursor: pointer; }
   .sheet-actions [data-cancel] { background: var(--bg); color: var(--text); }
   .sheet-actions [type="submit"] { background: var(--accent); color: white; flex: 2; }
@@ -732,7 +747,7 @@
   .dc-modes button { flex: 1; padding: 8px 4px; border: 1px solid var(--border); border-radius: 10px; background: var(--card-bg); color: var(--text-muted); font-size: 13px; font-weight: 600; cursor: pointer; }
   .dc-modes button.active { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
   .dc-filters { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px; }
-  .dc-filters button { padding: 4px 10px; border: 1px solid var(--border); border-radius: 99px; background: none; color: var(--text-muted); font-size: 12px; cursor: pointer; text-decoration: line-through; opacity: .7; }
+  .dc-filters button { padding: 6px 12px; min-height: 32px; border: 1px solid var(--border); border-radius: 99px; background: none; color: var(--text-muted); font-size: 12px; cursor: pointer; text-decoration: line-through; opacity: .7; }
   .dc-filters button.cf-edit { text-decoration: none; opacity: 1; border-style: dashed; }
   .dc-filters .cf-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; vertical-align: 0; }
   .dc-filters button.on { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); text-decoration: none; opacity: 1; }
@@ -770,7 +785,7 @@
   .dc-none { font-size: 12px; color: var(--text-muted); }
   .dc-times { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .cal-sw-row { display: flex; gap: 10px; margin-bottom: 8px; }
-  .cal-sw input { position: absolute; opacity: 0; pointer-events: none; }
+  .cal-sw input { position: absolute; opacity: 0; pointer-events: none; width: 1px; height: 1px; }
   .cal-sw i { display: block; width: 32px; height: 32px; border-radius: 50%; border: 3px solid transparent; box-shadow: 0 0 0 1px var(--border); cursor: pointer; }
   .cal-sw input:checked + i { border-color: var(--card-bg); box-shadow: 0 0 0 3px var(--text); }
   .pf-wrap { max-width: 720px; margin: 0 auto; padding: 0 20px 10px; }
@@ -863,7 +878,7 @@
   .shop-row input { min-width: 0; margin: 0; }
   .shop-row input[data-f=name] { flex: 3; }
   .shop-row input[data-f=target] { flex: 2; }
-  .shop-row button { border: 1px solid var(--border); background: var(--card-bg); border-radius: 8px; padding: 8px; cursor: pointer; }
+  .shop-row button { border: 1px solid var(--border); background: var(--card-bg); border-radius: 8px; padding: 8px; min-width: 40px; min-height: 40px; cursor: pointer; }
   #biz-body tr[data-bsel] { cursor: pointer; }
   .biz-trend { display: flex; align-items: flex-end; gap: 8px; height: 120px; margin-top: 8px; }
   .biz-trend .col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 3px; font-size: 10px; color: var(--text-muted); }
@@ -1639,6 +1654,9 @@
 </main>
 
 <p class="ver" id="ver"></p>
+
+<button type="button" class="fab" id="fab" aria-label="메뉴로 이동" aria-expanded="false" hidden>☰<small>메뉴</small></button>
+<div class="quick-nav" id="quick-nav" role="dialog" aria-label="메뉴로 이동" hidden></div>
 
 <div class="sheet-wrap" id="sheet" hidden>
   <div class="sheet-body" id="sheet-body"></div>
@@ -2986,6 +3004,31 @@
     const b = e.target.closest('button[data-view]');
     if (b) setView(b.dataset.view);
   });
+
+  // 긴 화면(조금 내려가면 나타남)에서 위로 올라가지 않고 다른 메뉴로 가는 떠 있는 "메뉴" 버튼. 이름·순서·사용 여부는 위쪽 메뉴 칸을 그대로 따른다.
+  (function quickNav() {
+    const fab = el('fab'), panel = el('quick-nav');
+    const close = () => { panel.hidden = true; fab.setAttribute('aria-expanded', 'false'); };
+    const sync = () => { const show = window.scrollY > 360; fab.hidden = !show; if (!show) close(); };
+    window.addEventListener('scroll', sync, { passive: true });
+    window.addEventListener('resize', sync);
+    fab.addEventListener('click', () => {
+      if (!panel.hidden) { close(); return; }
+      const tabs = [...el('viewtabs').querySelectorAll('button[data-view]')].filter((b) => !b.hidden && getComputedStyle(b).display !== 'none');
+      panel.innerHTML = `<div class="qn-grid">${tabs.map((b) => `<button type="button" data-qv="${attr(b.dataset.view)}" class="${b.classList.contains('active') ? 'active' : ''}">${b.innerHTML}</button>`).join('')}<button type="button" class="qn-top" data-qtop>▲ 맨 위로</button></div>`;
+      panel.hidden = false;
+      fab.setAttribute('aria-expanded', 'true');
+    });
+    panel.addEventListener('click', (e) => {
+      const b = e.target.closest('button');
+      if (!b) return;
+      if (b.dataset.qv) { setView(b.dataset.qv); const t = el('view-' + b.dataset.qv); if (t) t.scrollIntoView(); else window.scrollTo(0, 0); } else window.scrollTo(0, 0);
+      close();
+    });
+    document.addEventListener('click', (e) => { if (!panel.hidden && !panel.contains(e.target) && !fab.contains(e.target)) close(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+    sync();
+  })();
 
   // 섹션 제목 "이름 · N건"을 "이름 [N건]"(배지)로 통일해서 보여 준다. 제목이 새로 그려질 때마다 한 번씩 바꾼다.
   (function decorateCounts() {
@@ -8377,7 +8420,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v106'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v107'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span class="slogan">다달이, 매일의 기록이 모여<br><b>더 나은 생활</b>이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
