@@ -161,12 +161,12 @@
     // ⑦ 운동관리
     var fl = [], types = ['run', 'gym', 'walk', 'yoga', 'swim'];
     for (var fi = 0; fi < 45; fi++) { if (fi % 3 === 2) continue; fl.push({ id: nid(), who: 'me', date: off(-fi), type: types[fi % 5], level: fi % 4 === 0 ? 'high' : 'mid', min: 25 + (fi * 7) % 40, km: types[fi % 5] === 'run' || types[fi % 5] === 'walk' ? Math.round((3 + (fi % 4) * 1.3) * 10) / 10 : 0, kcal: fi % 2 ? 150 + (fi * 23) % 250 : 0, memo: '' }); }
-    put('dadari_fit_v1', { log: fl, weights: [{ id: nid(), who: 'me', date: off(-60), kg: 65.4 }, { id: nid(), who: 'me', date: off(-40), kg: 64.8 }, { id: nid(), who: 'me', date: off(-20), kg: 64.1 }, { id: nid(), who: 'me', date: off(-2), kg: 63.5 }], goals: { me: { perWeek: 3, minWeek: 150 } } });
+    put('dadari_fit_v1', { log: fl, weights: [{ id: nid(), who: 'me', date: off(-60), kg: 65.4 }, { id: nid(), who: 'me', date: off(-40), kg: 64.8 }, { id: nid(), who: 'me', date: off(-20), kg: 64.1 }, { id: nid(), who: 'me', date: off(-2), kg: 63.5 }], goals: { me: { perWeek: 3, minWeek: 150, days: [1, 3, 5] } } });
     put('dadari_view_v1', 'status');
     s.call(localStorage, P + 'demo_seeded', SEED_V);
   }
   // 샘플 내용을 고치면 SEED_V를 올린다: 이미 체험판을 열어 본 기기도 새 샘플로 다시 채운다(체험 중 입력은 사라진다).
-  var SEED_V = '2';
+  var SEED_V = '3';
   try {
     if (g.call(localStorage, P + 'demo_seeded') !== SEED_V) {
       var olds = [], oi;
@@ -784,6 +784,10 @@
   .fg-day { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11px; color: var(--text-muted); }
   .fg-day i { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--border); font-style: normal; font-size: 14px; font-weight: 800; color: #fff; }
   .fg-day.on i { background: var(--c1); border-color: var(--c1); }
+  .fg-day em { font-style: normal; font-size: 9px; font-weight: 700; color: var(--accent); margin-top: -2px; }
+  .fg-day.tgt i { border-style: dashed; border-color: var(--accent); }
+  .fg-day.miss i { border-color: var(--expense); color: var(--expense); background: none; }
+  .fg-day.miss em { color: var(--expense); }
   .fg-day.today { color: var(--text); font-weight: 800; }
   .fg-day.today i { border-color: var(--accent); }
   .subtabs { position: sticky; top: 0; z-index: 8; display: flex; gap: 4px; overflow-x: auto; padding: 8px 0; margin: 0 0 4px; background: var(--bg); scrollbar-width: none; }
@@ -2779,6 +2783,7 @@
   const saveSchedule = () => saveJson(SCH_KEY, schedule);
 
   function setView(v) {
+    curMenu = v;
     el('view-ledger').hidden = v !== 'ledger';
     el('view-schedule').hidden = v !== 'schedule';
     el('view-health').hidden = v !== 'health';
@@ -2856,6 +2861,8 @@
   }
   const schColor = (i) => schFixedColor(i) || schOtherMap()[schKey(i.title)] || '#eb6834';
 
+  const schMembers = () => schedule.members.filter((m) => !memberOff(m.id).includes('schedule'));
+
   function itemButton(i, now) {
     return `<button type="button" class="sch-item${now ? ' now' : ''}" data-item="${i.id}">
       <span class="sch-time">${i.end && i.end > i.time ? i.time + '~' + i.end : fmtTime(i.time)}</span>
@@ -2864,7 +2871,7 @@
   }
 
   function renderSchedule() {
-    const { members, items } = schedule;
+    const items = schedule.items, members = schMembers();
     const today = new Date().getDay();
     el('sch-modes').querySelectorAll('button').forEach((b) => b.classList.toggle('active', b.dataset.mode === schMode));
     el('day-tabs').hidden = schMode !== 'day';
@@ -2885,7 +2892,7 @@
         // 오늘이면 이미 시작한 마지막 일정을 "지금"으로 표시한다.
         const cur = schDay === today ? list.filter((i) => i.time <= nowStr).pop() : null;
         return `<div class="sch-member"><div class="sch-head"><b>${escapeHtml(m.name)}</b>
-          <button type="button" class="icon-btn" data-del-member="${m.id}" aria-label="구성원 삭제">🗑</button></div>
+          <button type="button" class="icon-btn" data-del-member="${m.id}" aria-label="시간표에서 빼기" title="시간표에서 빼기">✕</button></div>
           ${list.length ? list.map((i) => itemButton(i, cur && cur.id === i.id)).join('') : '<div class="empty-msg" style="padding:10px 0">이 요일 일정이 없어요</div>'}</div>`;
       }).join('');
       return;
@@ -2964,11 +2971,10 @@
     </form>`, (fd) => {
       const name = String(fd.get('name')).trim();
       if (!name) return false;
-      schedule.members.push({ id: newId(), name });
+      schedule.members.push({ id: newId(), name, off: othersOff() });
       saveSchedule();
-      renderSchedule();
-      renderHealth();
-      showToast('추가했어요');
+      refreshNames();
+      showToast('추가했어요 (지금 보는 메뉴에서만 써요. 다른 메뉴는 구성원 관리에서 켤 수 있어요)');
     });
   }
   el('add-member-btn').addEventListener('click', openMemberSheet);
@@ -3000,7 +3006,7 @@
     if (sals.length) parts.push(`직장 ${sals.length}개`);
     const fitN = fit.log.filter((l) => fitWho(l) === id).length + fit.weights.filter((w) => fitWho(w) === id).length;
     if (fitN) parts.push(`운동·체중 기록 ${fitN}건`);
-    if (!confirm(`“${m.name}”을(를) 삭제할까요?` + (parts.length ? `\n${parts.join(', ')}도 함께 지워져요.` : ''))) return false;
+    if (!confirm(`“${m.name}”을(를) 삭제할까요?` + (parts.length ? `\n${parts.join(', ')}도 함께 지워져요.` : '') + String.fromCharCode(10, 10) + '※ 모든 메뉴에서 완전히 지워지고 되돌릴 수 없어요. 이 메뉴에서만 안 보이게 하려면 취소하고 “사용” 스위치를 끄세요.')) return false;
     // 보험·렌탈·학원에 연결된 가계부 자동 기록 항목도 함께 지운다(이미 기록된 내역은 남는다).
     policies.forEach((p) => syncRecur(p, false, null));
     rents.forEach((r) => syncRecur(r, false, null));
@@ -3078,22 +3084,29 @@
     if (back) sheetBody.querySelector('[data-cancel]').addEventListener('click', () => setTimeout(openMemberManager, 0));
   }
 
+  // 구성원 관리(메뉴별): 구성원 목록은 하나지만 "이 메뉴에서 쓰기"는 메뉴마다 따로 정한다.
+  // 스위치를 꺼도 기록은 지워지지 않는다(그 메뉴에서만 안 보임). 모든 메뉴에서 완전히 지우는 것은 🗑로 따로 하고 확인을 받는다.
   function openMemberManager() {
+    const menu = curMenu, menuName = (MEMBER_MENUS.find((x) => x[0] === menu) || [])[1] || '';
+    const useBtn = (id) => (menuName ? (memberOff(id).includes(menu)
+      ? `<button type="button" class="tt-sw" data-muse="${id}" role="switch" aria-checked="false">안 씀</button>`
+      : `<button type="button" class="tt-sw on" data-muse="${id}" role="switch" aria-checked="true">사용</button>`) : '');
     const draw = () => {
       sheetBody.innerHTML = `<form>
-        <h3>구성원 관리</h3>
-        <div class="rec" data-me="1"><span class="grip" style="visibility:hidden" aria-hidden="true">☰</span><div><div class="rec-name">${escapeHtml(meName())}</div><div class="rec-sub">${validDate(profile.birth) ? profile.birth.replace(/-/g, '.') + ' · ' + ageText(monthsBetween(profile.birth, todayStr())) : '생년월일 미입력'} · 기본 구성원(삭제 불가)</div></div>
-          <button type="button" class="icon-btn" data-mbirth="me" aria-label="생년월일">🎂</button>
+        <h3>구성원 관리${menuName ? ' · ' + escapeHtml(menuName) : ''}</h3>
+        ${menuName ? `<p class="goal-hint" style="margin:0 0 6px">“${escapeHtml(menuName)}”에서 쓸 구성원을 스위치로 골라요. 꺼도 기록은 지워지지 않고 이 메뉴에서만 안 보여요. 이름·생년월일은 모든 메뉴가 같이 써요.</p>` : ''}
+        <div class="rec" data-me="1"><span class="grip" style="visibility:hidden" aria-hidden="true">☰</span><div><div class="rec-name">${escapeHtml(meName())}</div><div class="rec-sub">${validDate(profile.birth) ? profile.birth.replace(/-/g, '.') + ' · ' + ageText(monthsBetween(profile.birth, todayStr())) : '생년월일 미입력'} · 기본 구성원</div></div>
+          ${useBtn('me')}<button type="button" class="icon-btn" data-mbirth="me" aria-label="생년월일">🎂</button>
           <button type="button" class="icon-btn" data-mren="me" aria-label="이름 바꾸기">✎</button></div>
         ${schedule.members.length ? schedule.members.map((m) => `<div class="rec" data-id="${m.id}"><span class="grip" aria-label="끌어서 순서 바꾸기">☰</span><div><div class="rec-name">${escapeHtml(m.name)}</div>
           <div class="rec-sub">${validDate(m.birth) ? m.birth.replace(/-/g, '.') + ' · ' + ageText(monthsBetween(m.birth, todayStr())) : '생년월일 미입력'}</div></div>
-          <button type="button" class="icon-btn" data-mbirth="${m.id}" aria-label="생년월일">🎂</button>
+          ${useBtn(m.id)}<button type="button" class="icon-btn" data-mbirth="${m.id}" aria-label="생년월일">🎂</button>
           <button type="button" class="icon-btn" data-mren="${m.id}" aria-label="이름 바꾸기">✎</button>
-          <button type="button" class="icon-btn" data-mdel="${m.id}" aria-label="삭제">🗑</button></div>`).join('')
-          : '<div class="empty-msg" style="padding:10px 0">아직 구성원이 없어요</div>'}
-        <label>새 구성원</label>
+          <button type="button" class="icon-btn" data-mdel="${m.id}" aria-label="모든 메뉴에서 완전히 삭제" title="모든 메뉴에서 완전히 삭제">🗑</button></div>`).join('')
+          : '<div class="empty-msg" style="padding:10px 0">아직 다른 구성원이 없어요</div>'}
+        <label>새 구성원${menuName ? ' (이 메뉴에서만 쓰는 상태로 만들어져요)' : ''}</label>
         <div class="goal-row"><input id="mem-new" maxlength="20" placeholder="이름 입력" autocomplete="off"><button type="button" data-madd>추가</button></div>
-        <p class="goal-hint">☰를 누른 채 끌어서 순서를 바꿀 수 있어요. 구성원은 시간표와 건강관리 등에서 함께 써요. “나”는 항상 맨 앞이에요.</p>
+        <p class="goal-hint">☰를 누른 채 끌어서 순서를 바꿀 수 있어요. 🗑는 이 구성원과 <b>모든 메뉴의 기록</b>을 완전히 지워요. 이 메뉴에서만 빼려면 스위치를 끄세요.</p>
         <div class="sheet-actions"><button type="button" data-cancel>닫기</button></div>
       </form>`;
     };
@@ -3102,12 +3115,9 @@
       const name = sheetBody.querySelector('#mem-new').value.trim();
       if (!name) return;
       if (taken(name)) { showToast('이미 있는 이름이에요'); return; }
-      schedule.members.push({ id: newId(), name });
+      schedule.members.push({ id: newId(), name, off: menuName ? othersOff() : [] });
       saveSchedule();
-      renderSchedule();
-      renderHealth();
-      renderInsurance();
-      renderRental();
+      refreshNames();
       draw();
       showToast('추가했어요');
     };
@@ -3132,23 +3142,18 @@
       if (taken(name, id)) { showToast('이미 있는 이름이에요'); return; }
       m.name = name;
       saveSchedule();
-      renderSchedule();
-      renderHealth();
+      refreshNames();
       draw();
       showToast('이름을 바꿨어요');
     };
-    // 끌어서 놓은 순서대로 구성원을 다시 늘어놓는다. 시간표의 구성원 칸, 건강관리의 사람 선택이 이 순서를 따른다("나"는 늘 맨 앞).
+    // 끌어서 놓은 순서대로 구성원을 다시 늘어놓는다. 시간표의 구성원 칸, 사람 선택이 이 순서를 따른다("나"는 늘 맨 앞).
     makeSortable(sheetBody, '.rec[data-id]', '.grip', (ids) => {
       const byId = new Map(schedule.members.map((m) => [m.id, m]));
       const next = ids.map((id) => byId.get(id)).filter(Boolean);
       schedule.members.forEach((m) => { if (!next.includes(m)) next.push(m); });
       schedule.members = next;
       saveSchedule();
-      renderSchedule();
-      renderHealth();
-      renderInsurance();
-      renderRental();
-      renderAcademy();
+      refreshNames();
       draw();
     });
     sheetBody.onsubmit = (e) => { e.preventDefault(); add(); };
@@ -3157,7 +3162,14 @@
       if (!b || b.disabled) return;
       if (b.dataset.madd !== undefined) add();
       else if (b.dataset.cancel !== undefined) closeSheet();
-      else if (b.dataset.mdel) { if (removeMember(b.dataset.mdel)) draw(); }
+      else if (b.dataset.muse) {
+        const on = memberOff(b.dataset.muse).includes(menu);   // 지금 꺼져 있으면 켠다
+        if (!on && people(menu).length <= 1) { showToast('이 메뉴에는 구성원이 한 명은 있어야 해요'); return; }
+        setMemberUse(b.dataset.muse, menu, on);
+        refreshNames();
+        draw();
+      }
+      else if (b.dataset.mdel) { if (removeMember(b.dataset.mdel)) { refreshNames(); draw(); } }
       else if (b.dataset.mren) rename(b.dataset.mren);
       else if (b.dataset.mbirth) openBirthSheet(b.dataset.mbirth === 'me' ? 'me' : schedule.members.find((m) => m.id === b.dataset.mbirth), true);
     };
@@ -3167,8 +3179,8 @@
 
   // item이 있으면 수정(요일 하나), 없으면 추가(요일 여러 개를 한 번에 고를 수 있다).
   function openItemSheet(item) {
-    const memberOpts = schedule.members.map((m) =>
-      `<option value="${m.id}"${(item ? item.memberId : schedule.members.some((x) => x.id === schMember) ? schMember : '') === m.id ? ' selected' : ''}>${escapeHtml(m.name)}</option>`).join('');
+    const memberOpts = schMembers().map((m) =>
+      `<option value="${m.id}"${(item ? item.memberId : schMembers().some((x) => x.id === schMember) ? schMember : '') === m.id ? ' selected' : ''}>${escapeHtml(m.name)}</option>`).join('');
     const dayField = item
       ? `<select name="day">${DAY_ORDER.map((d) => `<option value="${d}"${d === item.day ? ' selected' : ''}>${DAYS[d]}요일</option>`).join('')}</select>`
       : `<div class="days-check">${DAY_ORDER.map((d) => `<label class="d"><input type="checkbox" name="days" value="${d}"${d === schDay ? ' checked' : ''}>${DAYS[d]}</label>`).join('')}</div>`;
@@ -3229,7 +3241,12 @@
     const it = e.target.closest('[data-item]');
     if (it) { openItemSheet(schedule.items.find((i) => i.id === it.dataset.item)); return; }
     const dm = e.target.closest('[data-del-member]');
-    if (dm) removeMember(dm.dataset.delMember);
+    if (dm) {
+      if (people('schedule').length <= 1) { showToast('시간표에는 구성원이 한 명은 있어야 해요'); return; }
+      setMemberUse(dm.dataset.delMember, 'schedule', false);
+      refreshNames();
+      showToast('시간표에서 뺐어요. 기록은 그대로예요 (👥 구성원 관리에서 다시 켤 수 있어요)');
+    }
   });
   // 켜 둔 채 시간이 흘러도 "지금" 표시가 맞도록 1분마다 갱신한다.
   setInterval(() => { if (!el('view-schedule').hidden && schMode === 'day') renderSchedule(); }, 60000);
@@ -3254,8 +3271,26 @@
     try { const n = JSON.parse(localStorage.getItem('dadari_profile_v1')).name; if (typeof n === 'string' && n.trim()) return n.trim(); } catch (e) { /* 이름이 없으면 기본 */ }
     return '나';
   }
-  const people = () => [{ id: 'me', name: meName() }, ...schedule.members];
-  const whoName = (id) => (people().find((p) => p.id === id) || { name: '(삭제된 구성원)' }).name;
+  // 구성원 목록(이름·생년월일)은 모든 메뉴가 함께 쓰지만, 메뉴마다 쓸 구성원을 따로 고른다.
+  // `off`: 그 구성원을 감춘 메뉴 목록(구성원 객체, "나"는 프로필). 감춰도 기록은 지워지지 않고 그 메뉴에서만 안 보인다. 없으면 모든 메뉴에서 보인다.
+  const MEMBER_MENUS = [['schedule', '시간표'], ['health', '건강'], ['insurance', '보험'], ['rental', '렌탈·구독'], ['academy', '학원비'], ['savings', '저축'], ['side', '나는 N잡러'], ['salary', '나는 샐러리'], ['fit', '운동관리']];
+  let curMenu = 'ledger';   // 지금 보는 메뉴(setView가 바꾸고, 메뉴 그리기 함수는 자기 메뉴로 잠깐 바꿨다가 되돌린다)
+  function memberOff(id) {
+    if (id === 'me') { try { const o = JSON.parse(localStorage.getItem('dadari_profile_v1')).off; return Array.isArray(o) ? o : []; } catch (e) { return []; } }
+    const m = schedule.members.find((x) => x.id === id);
+    return m && Array.isArray(m.off) ? m.off : [];
+  }
+  const allPeople = () => [{ id: 'me', name: meName() }, ...schedule.members];
+  const people = (menu) => allPeople().filter((p) => !memberOff(p.id).includes(menu || curMenu));
+  const whoName = (id) => (allPeople().find((p) => p.id === id) || { name: '(삭제된 구성원)' }).name;
+  // 목록 걸러내기: 전체 보기면 이 메뉴에서 쓰는 구성원의 기록만, 한 사람을 골랐으면 그 사람 것만
+  const whoPick = (sel, id) => (sel === 'all' ? people().some((p) => p.id === id) : id === sel);
+  function setMemberUse(id, menu, on) {
+    const next = memberOff(id).filter((k) => k !== menu);
+    if (!on) next.push(menu);
+    if (id === 'me') { profile.off = next; saveProfile(); } else { const m = schedule.members.find((x) => x.id === id); if (m) { m.off = next; saveSchedule(); } }
+  }
+  const othersOff = () => MEMBER_MENUS.map((x) => x[0]).filter((k) => k !== curMenu);   // 새 구성원은 지금 메뉴에서만 쓰는 상태로 시작한다
 
   const parseD = (s) => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
   const fmtD = (d) => d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
@@ -3286,7 +3321,7 @@
     if (healthWho !== 'all' && !ppl.some((p) => p.id === healthWho)) healthWho = 'all';
     el('health-who').innerHTML = [{ id: 'all', name: '전체' }, ...ppl]
       .map((p) => `<button type="button" data-who="${p.id}" class="${p.id === healthWho ? 'active' : ''}">${escapeHtml(p.name)}</button>`).join('');
-    const list = health.visits.filter((v) => validDate(v.date) && (healthWho === 'all' || v.who === healthWho));
+    const list = health.visits.filter((v) => validDate(v.date) && (whoPick(healthWho, v.who)));
     const today = todayStr();
     const tag = (v) => (healthWho === 'all' && ppl.length > 1 ? `<span class="who-tag">${escapeHtml(whoName(v.who))}</span>` : '');
     const title = (v) => escapeHtml(v.hospital || '') + (v.dept ? ` (${escapeHtml(v.dept)})` : '') + tag(v);
@@ -3451,7 +3486,7 @@
   }
 
   function standardHtml(today) {
-    const members = schedule.members.filter((m) => healthWho === 'all' || m.id === healthWho);
+    const members = schedule.members.filter((m) => whoPick(healthWho, m.id));
     let html = '';
     if (healthWho === 'me') return '<div class="cyc-note" style="margin:0 0 6px">국가 표준 접종일정은 어린이·청소년 기준이라서, 생년월일을 입력한 구성원에게 표시돼요.</div>';
     if (!members.length) return '';
@@ -3486,7 +3521,7 @@
     if (healthWho !== 'all' && !ppl.some((p) => p.id === healthWho)) healthWho = 'all';
     el('health-who').innerHTML = [{ id: 'all', name: '전체' }, ...ppl]
       .map((p) => `<button type="button" data-who="${p.id}" class="${p.id === healthWho ? 'active' : ''}">${escapeHtml(p.name)}</button>`).join('');
-    const list = health.vaccines.filter((v) => validDate(v.date) && (healthWho === 'all' || v.who === healthWho));
+    const list = health.vaccines.filter((v) => validDate(v.date) && (whoPick(healthWho, v.who)));
     const today = todayStr();
     const tag = (v) => (healthWho === 'all' && ppl.length > 1 ? `<span class="who-tag">${escapeHtml(whoName(v.who))}</span>` : '');
     const title = (v) => escapeHtml(v.name || '') + (v.dose ? ' ' + escapeHtml(v.dose) : '') + tag(v);
@@ -3591,7 +3626,7 @@
     if (healthWho !== 'all' && !ppl.some((p) => p.id === healthWho)) healthWho = 'all';
     el('health-who').innerHTML = [{ id: 'all', name: '전체' }, ...ppl]
       .map((p) => `<button type="button" data-who="${p.id}" class="${p.id === healthWho ? 'active' : ''}">${escapeHtml(p.name)}</button>`).join('');
-    const list = health.meds.filter((m) => healthWho === 'all' || m.who === healthWho);
+    const list = health.meds.filter((m) => whoPick(healthWho, m.who));
     const today = todayStr();
     const tag = (m) => (healthWho === 'all' && ppl.length > 1 ? `<span class="who-tag">${escapeHtml(whoName(m.who))}</span>` : '');
     const title = (m) => escapeHtml(m.name || '') + (m.dose ? ' ' + escapeHtml(m.dose) : '') + tag(m);
@@ -4001,7 +4036,7 @@
   function insuranceHtml() {
     const today = todayStr();
     const ppl = people();
-    const list = insurance.filter((p) => conWho === 'all' || p.who === conWho);
+    const list = insurance.filter((p) => whoPick(conWho, p.who));
     const tag = (p) => (conWho === 'all' && ppl.length > 1 ? `<span class="who-tag">${esc(whoName(p.who))}</span>` : '');
     const by = (st) => list.filter((p) => insState(p, today) === st);
     const active = by('active'), paidup = by('paidup'), ended = by('ended');
@@ -4051,7 +4086,7 @@
   function rentalHtml() {
     const today = todayStr();
     const ppl = people();
-    const list = rentals.filter((r) => conWho === 'all' || r.who === conWho);
+    const list = rentals.filter((r) => whoPick(conWho, r.who));
     if (!list.length) return '<div class="empty-msg">등록한 렌탈·구독이 없어요<br>아래 “＋ 렌탈·구독 추가”로 정수기·안마의자 같은 렌탈 계약이나 넷플릭스·음악 같은 구독을 기록하세요</div>';
     const tag = (r) => (conWho === 'all' && ppl.length > 1 ? `<span class="who-tag">${esc(whoName(r.who))}</span>` : '');
     const live = list.filter((r) => rentState(r, today) !== 'ended');
@@ -4263,7 +4298,7 @@
     el('aca-label').textContent = acaView.y + '년 ' + (acaView.m + 1) + '월';
     const ym = ymKey(acaView), today = todayStr(), thisMonth = ym === today.slice(0, 7);
     const ppl = people();
-    const list = academies.filter((a) => conWho === 'all' || a.who === conWho);
+    const list = academies.filter((a) => whoPick(conWho, a.who));
     if (!list.length) { el('aca-body').innerHTML = '<div class="empty-msg">등록한 학원이 없어요<br>아래 “＋ 학원 추가”로 학원과 월 수강료를 기록하세요</div>'; return; }
     const tag = (a) => (conWho === 'all' && ppl.length > 1 ? `<span class="who-tag">${esc(whoName(a.who))}</span>` : '');
     const live = list.filter((a) => a.status === 'active' && acaInMonth(a, ym));
@@ -4938,7 +4973,7 @@
   const SAV_KINDS = ['적금', '예금', '청약', '연금', '투자', '비상금', '목표 저축', '기타'];
   const savWho = (a) => a.who || 'me';   // 구성원이 없던 예전 통장은 "나"의 것으로 본다
   let savKind = 'all';   // 종류 필터('all' 또는 SAV_KINDS 값). 구성원 필터는 보험·렌탈·학원비와 같은 conWho를 쓴다
-  const savVisible = () => savings.accounts.filter((a) => (conWho === 'all' || savWho(a) === conWho) && (savKind === 'all' || (a.kind || '기타') === savKind));
+  const savVisible = () => savings.accounts.filter((a) => (whoPick(conWho, savWho(a))) && (savKind === 'all' || (a.kind || '기타') === savKind));
   const savBal = (id) => savings.log.filter((l) => l.sid === id).reduce((a, l) => a + l.amount, 0);
   const savMonthOf = (id, ym) => savings.log.filter((l) => l.sid === id && l.amount > 0 && !l.start && l.date.startsWith(ym)).reduce((a, l) => a + l.amount, 0);
   const signWon = (n) => (n < 0 ? '-' : '+') + formatWon(Math.abs(n));
@@ -4977,7 +5012,7 @@
   function renderSavings() {
     drawContractWho(el('sav-who'));
     // 종류 필터: 지금 쓰는 종류만 건수와 함께 보여 준다(고른 종류에 통장이 없어지면 전체로 돌아간다)
-    const inWho = savings.accounts.filter((a) => conWho === 'all' || savWho(a) === conWho);
+    const inWho = savings.accounts.filter((a) => whoPick(conWho, savWho(a)));
     const kinds = SAV_KINDS.filter((k) => inWho.some((a) => (a.kind || '기타') === k));
     if (savKind !== 'all' && !kinds.includes(savKind)) savKind = 'all';
     el('sav-kinds').hidden = kinds.length < 2;
@@ -5398,7 +5433,7 @@
   const sideWho = (j) => j.who || 'me';   // 구성원이 없던 항목은 "나"의 것으로 본다
   let sideSt = 'all';   // 상태 필터. 구성원 필터는 보험·렌탈·저축과 같은 conWho를 쓴다
   let sideView = { y: new Date().getFullYear(), m: new Date().getMonth() };
-  const sideVisible = () => side.jobs.filter((j) => (conWho === 'all' || sideWho(j) === conWho) && (sideSt === 'all' || (j.status || 'on') === sideSt));
+  const sideVisible = () => side.jobs.filter((j) => (whoPick(conWho, sideWho(j))) && (sideSt === 'all' || (j.status || 'on') === sideSt));
   const sideNet = (l) => (+l.income || 0) - (+l.expense || 0);
   const hoursTxt = (h) => (Math.round(h * 10) / 10) + '시간';
   const wageTxt = (net, h) => (h > 0 ? formatWon(Math.round(net / h)) + '/시간' : '');
@@ -5461,7 +5496,7 @@
 
   function renderSide() {
     drawContractWho(el('side-who'));
-    const inWho = side.jobs.filter((j) => conWho === 'all' || sideWho(j) === conWho);
+    const inWho = side.jobs.filter((j) => whoPick(conWho, sideWho(j)));
     const sts = SIDE_STATUS.filter(([k]) => inWho.some((j) => (j.status || 'on') === k));
     if (sideSt !== 'all' && !sts.some((x) => x[0] === sideSt)) sideSt = 'all';
     el('side-status').hidden = sts.length < 2;
@@ -5600,7 +5635,7 @@
   const salWho = (j) => j.who || 'me';
   let salSt = 'all';
   let salView = { y: new Date().getFullYear(), m: new Date().getMonth() };
-  const salVisible = () => salary.jobs.filter((j) => (conWho === 'all' || salWho(j) === conWho) && (salSt === 'all' || (j.status || 'on') === salSt));
+  const salVisible = () => salary.jobs.filter((j) => (whoPick(conWho, salWho(j))) && (salSt === 'all' || (j.status || 'on') === salSt));
   const salSum = (logs) => ({ gross: logs.reduce((a, l) => a + (+l.gross || +l.net || 0), 0), deduct: logs.reduce((a, l) => a + (+l.deduct || 0), 0), net: logs.reduce((a, l) => a + (+l.net || 0), 0) });
   const salNet = (n) => (n < 0 ? '-' : '') + formatWon(Math.abs(n));
 
@@ -5649,7 +5684,7 @@
 
   function renderSalary() {
     drawContractWho(el('sal-who'));
-    const inWho = salary.jobs.filter((j) => conWho === 'all' || salWho(j) === conWho);
+    const inWho = salary.jobs.filter((j) => whoPick(conWho, salWho(j)));
     const sts = SAL_STATUS.filter(([k]) => inWho.some((j) => (j.status || 'on') === k));
     if (salSt !== 'all' && !sts.some((x) => x[0] === salSt)) salSt = 'all';
     el('sal-status').hidden = sts.length < 2;
@@ -5792,7 +5827,7 @@
   const fmtMin = (m) => (m >= 60 ? Math.floor(m / 60) + '시간' + (m % 60 ? ' ' + (m % 60) + '분' : '') : m + '분');
   const weekStartOf = (date) => { const y = +date.slice(0, 4), m = +date.slice(5, 7) - 1, dd = +date.slice(8, 10), x = new Date(y, m, dd - new Date(y, m, dd).getDay()); return x.getFullYear() + '-' + pad2(x.getMonth() + 1) + '-' + pad2(x.getDate()); };   // 일요일 시작(이 블록은 달력 블록보다 앞이라 dstr·dparse를 쓰지 않는다)
   let fitWeek = weekStartOf(todayStr());
-  const fitScope = () => fit.log.filter((l) => conWho === 'all' || fitWho(l) === conWho);
+  const fitScope = () => fit.log.filter((l) => whoPick(conWho, fitWho(l)));
   // 예상 소모 칼로리 = MET × 체중(kg) × 시간(h). 종류별 대표 MET에, 러닝·걷기·자전거는 거리와 시간으로 속도를 구해 보정하고, 강도(가볍게 0.85·보통 1·강하게 1.15)를 곱한다.
   // 직접 입력한 칼로리가 있으면 그 값을 쓴다. 체중 기록이 없으면 60kg으로 계산한다(어디까지나 대략적인 예상값이다).
   const FIT_MET = { run: 9.8, walk: 3.5, gym: 5, yoga: 3, swim: 6, bike: 7.5, hike: 6, ball: 7, etc: 4 };
@@ -5840,12 +5875,18 @@
       <p class="goal-hint" style="margin:8px 0 0">${sum.kcal && sum.estN ? `칼로리: 입력 ${sum.n - sum.estN}건 + 예상 ${sum.estN}건 · ` : ''}${sum.km ? `거리 ${Math.round(sum.km * 10) / 10}km · ` : ''}🔥 연속 운동 ${fitStreak(scope)}일</p>`;
     // 주간 목표 카드: 큰 숫자·굵은 진행 막대·요일별 운동 여부(점)로 한눈에 보이게 맨 위에 둔다
     const g = single && fit.goals[single], isNow = fitWeek === weekStartOf(todayStr());
-    const dayDots = () => ['일', '월', '화', '수', '목', '금', '토'].map((nm, i) => { const d = addDays(fitWeek, i), c = wk.filter((l) => l.date === d).length; return `<span class="fg-day${c ? ' on' : ''}${d === todayStr() ? ' today' : ''}"><i>${c ? '✓' : ''}</i>${nm}</span>`; }).join('');
+    const dayDots = () => ['일', '월', '화', '수', '목', '금', '토'].map((nm, i) => { const d = addDays(fitWeek, i), c = wk.filter((l) => l.date === d).length, tgt = !!(g && g.days && g.days.includes(i)), miss = tgt && !c && d < todayStr(); return `<span class="fg-day${c ? ' on' : ''}${d === todayStr() ? ' today' : ''}${tgt ? ' tgt' : ''}${miss ? ' miss' : ''}"><i>${c ? '✓' : miss ? '✕' : ''}</i>${nm}${tgt ? '<em>목표</em>' : ''}</span>`; }).join('');
     const cell = (label, cur, tgt, fmt, left) => { const p = Math.round((cur / tgt) * 100), done = cur >= tgt; return `<div class="fg-item${done ? ' done' : ''}"><div class="fg-lbl">${label}</div><div class="fg-big"><b>${fmt(cur)}</b><span> / ${fmt(tgt)}</span></div><div class="fg-bar"><i style="width:${Math.min(100, p)}%"></i></div><div class="fg-sub">${done ? '달성했어요 💪' : p + '% · ' + left(tgt - cur) + ' 남았어요'}</div></div>`; };
     let goalHtml = '';
-    if (g && (g.perWeek || g.minWeek)) {
+    const tdays = g && Array.isArray(g.days) ? [...g.days].sort((a, b) => a - b) : [];
+    const dnm = ['일', '월', '화', '수', '목', '금', '토'];
+    const dayCell = () => {
+      const doneD = tdays.filter((i) => wk.some((l) => l.date === addDays(fitWeek, i))), leftD = tdays.filter((i) => !doneD.includes(i)), p = Math.round((doneD.length / tdays.length) * 100), done = !leftD.length;
+      return `<div class="fg-item${done ? ' done' : ''}"><div class="fg-lbl">지정 요일 (${tdays.map((i) => dnm[i]).join('·')})</div><div class="fg-big"><b>${doneD.length}일</b><span> / ${tdays.length}일</span></div><div class="fg-bar"><i style="width:${Math.min(100, p)}%"></i></div><div class="fg-sub">${done ? '정한 요일에 모두 했어요 💪' : leftD.map((i) => dnm[i]).join('·') + ' 남았어요'}</div></div>`;
+    };
+    if (g && (g.perWeek || g.minWeek || tdays.length)) {
       goalHtml = `<div class="fg-card"><div class="fg-head"><span>🎯 ${isNow ? '이번 주' : '선택한 주'} 목표</span><button type="button" class="fg-edit" data-fg="edit">목표 바꾸기</button></div>
-        <div class="fg-grid">${g.perWeek ? cell('운동 횟수', sum.n, g.perWeek, (v) => v + '회', (v) => v + '회') : ''}${g.minWeek ? cell('운동 시간', sum.min, g.minWeek, fmtMin, fmtMin) : ''}</div>
+        <div class="fg-grid">${tdays.length ? dayCell() : ''}${g.perWeek ? cell('운동 횟수', sum.n, g.perWeek, (v) => v + '회', (v) => v + '회') : ''}${g.minWeek ? cell('운동 시간', sum.min, g.minWeek, fmtMin, fmtMin) : ''}</div>
         <div class="fg-days">${dayDots()}</div></div>`;
     } else if (single) {
       goalHtml = `<div class="fg-card cta"><div class="fg-head"><span>🎯 주간 목표</span></div><p>일주일에 몇 번, 몇 분 운동할지 정해 보세요. 달성률이 크게 보여요.</p><div class="fg-days">${dayDots()}</div><button type="button" class="mini-btn" data-fg="edit" style="width:100%;margin-top:10px">🎯 주간 목표 정하기</button></div>`;
@@ -5876,7 +5917,7 @@
 
     // 체중
     let weightHtml = '';
-    const ws = fit.weights.filter((w) => conWho === 'all' || fitWho(w) === conWho).sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+    const ws = fit.weights.filter((w) => whoPick(conWho, fitWho(w))).sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
     if (ws.length) {
       const latest = ws[0], old = ws.find((w) => fitWho(w) === fitWho(latest) && w.date <= addDays(latest.date, -28)) || ws.filter((w) => fitWho(w) === fitWho(latest)).slice(-1)[0];
       const diff = old && old.id !== latest.id ? Math.round((latest.kg - old.kg) * 10) / 10 : null;
@@ -5968,14 +6009,17 @@
       <label>누구의 목표인가요</label><select name="who">${people().map((x) => `<option value="${attr(x.id)}"${x.id === who ? ' selected' : ''}>${esc(x.name)}</option>`).join('')}</select>
       <label>일주일에 몇 번 (선택)</label><input name="perWeek" type="number" min="0" max="14" inputmode="numeric" value="${attr(g.perWeek || '')}" placeholder="예: 3">
       <label>일주일에 몇 분 (선택)</label><input name="minWeek" type="number" min="0" inputmode="numeric" value="${attr(g.minWeek || '')}" placeholder="예: 150">
-      <p class="goal-hint">둘 다 0으로 두면 목표가 지워져요. 구성원을 고른 화면(또는 구성원이 나 혼자일 때)에서 달성률이 보여요.</p>
+      <label>운동할 요일 (선택 · 요일을 정해 두고 하는 경우)</label>
+      <div class="days-check">${DAY_ORDER.map((d) => `<label class="d"><input type="checkbox" name="days" value="${d}"${(g.days || []).includes(d) ? ' checked' : ''}>${DAYS[d]}</label>`).join('')}</div>
+      <p class="goal-hint">횟수·시간·요일은 하나만 정해도 되고 함께 정해도 돼요. 모두 비우면 목표가 지워져요. 구성원을 고른 화면(또는 구성원이 나 혼자일 때)에서 달성률이 보여요.</p>
       <div class="sheet-actions"><button type="button" data-cancel>취소</button><button type="submit">저장</button></div>
     </form>`, (fd) => {
       const perWeek = Math.max(0, parseInt(fd.get('perWeek'), 10) || 0), minWeek = Math.max(0, parseInt(fd.get('minWeek'), 10) || 0), w = String(fd.get('who'));
-      if (perWeek || minWeek) fit.goals[w] = { perWeek, minWeek }; else delete fit.goals[w];
+      const days = fd.getAll('days').map(Number).filter((n) => n >= 0 && n <= 6).sort((a, b) => a - b);
+      if (perWeek || minWeek || days.length) fit.goals[w] = { perWeek, minWeek, days }; else delete fit.goals[w];
       saveFit();
       renderFit();
-      showToast(perWeek || minWeek ? '목표를 저장했어요' : '목표를 지웠어요');
+      showToast(perWeek || minWeek || days.length ? '목표를 저장했어요' : '목표를 지웠어요');
     });
   }
 
@@ -7502,7 +7546,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v63'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v64'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span style="display:block;margin-bottom:4px">다달이, 매일의 기록이 모여 더 나은 생활이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
@@ -7548,6 +7592,17 @@
   renderCardOptions();
   updatePayVisibility();
   renderAll();
+  // 메뉴를 그릴 때는 그 메뉴의 구성원 기준으로 그린다(동기화 등으로 다른 메뉴에서 불려도 맞게). 끝나면 지금 보는 메뉴로 되돌린다.
+  const inMenu = (menu, fn) => function () { const prev = curMenu; curMenu = menu; try { return fn.apply(this, arguments); } finally { curMenu = prev; } };
+  renderSchedule = inMenu('schedule', renderSchedule);
+  renderHealth = inMenu('health', renderHealth);
+  renderInsurance = inMenu('insurance', renderInsurance);
+  renderRental = inMenu('rental', renderRental);
+  renderAcademy = inMenu('academy', renderAcademy);
+  renderSavings = inMenu('savings', renderSavings);
+  renderSide = inMenu('side', renderSide);
+  renderSalary = inMenu('salary', renderSalary);
+  renderFit = inMenu('fit', renderFit);
   const savedView = loadJson(VIEW_KEY, 'ledger');
   setView(['status', 'calendar', 'savings', 'schedule', 'health', 'insurance', 'rental', 'academy', 'biz', 'side', 'salary', 'food', 'fit'].includes(savedView) ? savedView : 'ledger');
   if (tabHidden(savedView)) setView('status');   // 마지막에 보던 메뉴를 감춰 두었으면 대시보드로 연다
