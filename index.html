@@ -799,6 +799,7 @@
   .subtabs button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
   .sub-off { display: none !important; }
   .biz-shops { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+  .biz-shops[hidden] { display: none; }
   .biz-shops button { padding: 7px 13px; border: 1px solid var(--border); border-radius: 999px; background: var(--card-bg); color: var(--text-muted); font-size: 13px; font-weight: 600; cursor: pointer; }
   .biz-shops button.active { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
   .shop-row { display: flex; gap: 6px; margin-bottom: 6px; align-items: center; }
@@ -1160,6 +1161,7 @@
 <main id="view-side" hidden>
   <section class="card">
     <div class="member-chips" id="side-who" hidden></div>
+    <div class="biz-shops" id="side-jobs" hidden></div>
     <div class="biz-shops" id="side-status" hidden></div>
     <div class="month-nav">
       <button id="side-prev" type="button" aria-label="이전 달">◀</button>
@@ -5433,9 +5435,10 @@
   const SIDE_KINDS = ['배달·운전', '알바·단기', '프리랜서', '온라인 판매', '콘텐츠', '재능·강의', '투자·재테크', '기타'];
   const SIDE_STATUS = [['on', '진행 중'], ['pause', '쉬는 중'], ['end', '종료']];
   const sideWho = (j) => j.who || 'me';   // 구성원이 없던 항목은 "나"의 것으로 본다
+  let sideSel = 'all';   // 부업 선택('all' 또는 부업 id): 나는CEO의 사업 칩처럼 한 부업만 따로 본다
   let sideSt = 'all';   // 상태 필터. 구성원 필터는 보험·렌탈·저축과 같은 conWho를 쓴다
   let sideView = { y: new Date().getFullYear(), m: new Date().getMonth() };
-  const sideVisible = () => side.jobs.filter((j) => (whoPick(conWho, sideWho(j))) && (sideSt === 'all' || (j.status || 'on') === sideSt));
+  const sideVisible = () => side.jobs.filter((j) => (whoPick(conWho, sideWho(j))) && (sideSt === 'all' || (j.status || 'on') === sideSt) && (sideSel === 'all' || j.id === sideSel));
   const sideNet = (l) => (+l.income || 0) - (+l.expense || 0);
   const hoursTxt = (h) => (Math.round(h * 10) / 10) + '시간';
   const wageTxt = (net, h) => (h > 0 ? formatWon(Math.round(net / h)) + '/시간' : '');
@@ -5503,6 +5506,11 @@
     if (sideSt !== 'all' && !sts.some((x) => x[0] === sideSt)) sideSt = 'all';
     el('side-status').hidden = sts.length < 2;
     el('side-status').innerHTML = [['all', '전체 ' + inWho.length], ...sts.map(([k, n]) => [k, n + ' ' + inWho.filter((j) => (j.status || 'on') === k).length])].map(([k, n]) => `<button type="button" data-ss="${k}" class="${k === sideSt ? 'active' : ''}">${n}</button>`).join('');
+    // 부업 칩: 구성원·상태 조건에 맞는 부업을 하나씩 골라 볼 수 있다(두 개 이상일 때)
+    const pickable = inWho.filter((j) => sideSt === 'all' || (j.status || 'on') === sideSt);
+    if (sideSel !== 'all' && !pickable.some((j) => j.id === sideSel)) sideSel = 'all';
+    el('side-jobs').hidden = pickable.length < 2;
+    el('side-jobs').innerHTML = [['all', '전체 부업'], ...pickable.map((j) => [j.id, j.name])].map(([k, n]) => `<button type="button" data-sjsel="${attr(k)}" class="${k === sideSel ? 'active' : ''}">${esc(n)}</button>`).join('');
     el('side-label').textContent = sideView.y + '년 ' + (sideView.m + 1) + '월';
     el('side-body').innerHTML = sideHtml();
   }
@@ -5616,6 +5624,7 @@
   el('side-prev').addEventListener('click', () => { const d = new Date(sideView.y, sideView.m - 1, 1); sideView = { y: d.getFullYear(), m: d.getMonth() }; renderSide(); });
   el('side-next').addEventListener('click', () => { const d = new Date(sideView.y, sideView.m + 1, 1); sideView = { y: d.getFullYear(), m: d.getMonth() }; renderSide(); });
   el('side-who').addEventListener('click', (e) => { const b = e.target.closest('button[data-cw]'); if (b) { conWho = b.dataset.cw; renderSide(); } });
+  el('side-jobs').addEventListener('click', (e) => { const b = e.target.closest('button[data-sjsel]'); if (b) { sideSel = b.dataset.sjsel; renderSide(); } });
   el('side-status').addEventListener('click', (e) => { const b = e.target.closest('button[data-ss]'); if (b) { sideSt = b.dataset.ss; renderSide(); } });
   el('side-body').addEventListener('click', (e) => {
     const sj = e.target.closest('[data-sj]');
@@ -7672,7 +7681,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v67'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v68'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span style="display:block;margin-bottom:4px">다달이, 매일의 기록이 모여 더 나은 생활이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
