@@ -817,6 +817,10 @@
   .sub-off { display: none !important; }
   .biz-shops { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
   .biz-shops[hidden] { display: none; }
+  .month-nav[hidden] { display: none; }
+  .period-range { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 12px; }
+  .period-range[hidden] { display: none; }
+  .period-range input { width: auto; flex: 1; min-width: 130px; }
   .biz-shops button { padding: 7px 13px; border: 1px solid var(--border); border-radius: 999px; background: var(--card-bg); color: var(--text-muted); font-size: 13px; font-weight: 600; cursor: pointer; }
   .biz-shops button.active { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
   .shop-row { display: flex; gap: 6px; margin-bottom: 6px; align-items: center; }
@@ -1168,10 +1172,15 @@
   <div class="ad-slot" id="ad-slot-biz-1" data-slot="biz-1" role="complementary" aria-label="광고 자리"><span class="ad-tag">AD</span>광고 배너 자리</div>
   <section class="card">
     <div class="biz-shops" id="biz-shops"></div>
+    <div class="biz-shops" id="biz-mode"></div>
     <div class="month-nav">
-      <button id="biz-prev" aria-label="이전 달">◀</button>
+      <button id="biz-prev" type="button" aria-label="이전 달">◀</button>
       <div class="label" id="biz-label"></div>
-      <button id="biz-next" aria-label="다음 달">▶</button>
+      <button id="biz-next" type="button" aria-label="다음 달">▶</button>
+    </div>
+    <div class="period-range" id="biz-range" hidden>
+      <input type="date" id="biz-from" aria-label="시작일"><span>~</span><input type="date" id="biz-to" aria-label="종료일">
+      <div class="biz-shops" style="width:100%;margin:2px 0 0"><button type="button" data-sr="ytd">올해</button><button type="button" data-sr="lastyear">작년</button><button type="button" data-sr="3m">최근 3개월</button><button type="button" data-sr="6m">최근 6개월</button><button type="button" data-sr="12m">최근 12개월</button></div>
     </div>
     <div id="biz-body"></div>
     <div class="cards-actions" style="flex-wrap:wrap">
@@ -1204,10 +1213,15 @@
     <div class="member-chips" id="side-who" hidden></div>
     <div class="biz-shops" id="side-jobs" hidden></div>
     <div class="biz-shops" id="side-status" hidden></div>
+    <div class="biz-shops" id="side-mode"></div>
     <div class="month-nav">
       <button id="side-prev" type="button" aria-label="이전 달">◀</button>
       <div class="label" id="side-label"></div>
       <button id="side-next" type="button" aria-label="다음 달">▶</button>
+    </div>
+    <div class="period-range" id="side-range" hidden>
+      <input type="date" id="side-from" aria-label="시작일"><span>~</span><input type="date" id="side-to" aria-label="종료일">
+      <div class="biz-shops" style="width:100%;margin:2px 0 0"><button type="button" data-sr="ytd">올해</button><button type="button" data-sr="lastyear">작년</button><button type="button" data-sr="3m">최근 3개월</button><button type="button" data-sr="6m">최근 6개월</button><button type="button" data-sr="12m">최근 12개월</button></div>
     </div>
     <div id="side-body"></div>
     <div class="cards-actions" style="flex-wrap:wrap">
@@ -1224,10 +1238,15 @@
   <section class="card">
     <div class="member-chips" id="sal-who" hidden></div>
     <div class="biz-shops" id="sal-status" hidden></div>
+    <div class="biz-shops" id="sal-mode"></div>
     <div class="month-nav">
       <button id="sal-prev" type="button" aria-label="이전 달">◀</button>
       <div class="label" id="sal-label"></div>
       <button id="sal-next" type="button" aria-label="다음 달">▶</button>
+    </div>
+    <div class="period-range" id="sal-range" hidden>
+      <input type="date" id="sal-from" aria-label="시작일"><span>~</span><input type="date" id="sal-to" aria-label="종료일">
+      <div class="biz-shops" style="width:100%;margin:2px 0 0"><button type="button" data-sr="ytd">올해</button><button type="button" data-sr="lastyear">작년</button><button type="button" data-sr="3m">최근 3개월</button><button type="button" data-sr="6m">최근 6개월</button><button type="button" data-sr="12m">최근 12개월</button></div>
     </div>
     <div id="sal-body"></div>
     <div class="cards-actions" style="flex-wrap:wrap">
@@ -4622,6 +4641,7 @@
   }
   normalizeBiz();
   let bizView = { y: new Date().getFullYear(), m: new Date().getMonth() };
+  const bizPer = { mode: 'month', from: '', to: '' };   // 보는 방식: month 월별 | year 연간 | custom 기간 지정
   let bizSel = 'all';   // 'all' 또는 사업 id (화면에서 보고 있는 사업)
   const saveBiz = () => saveJson(BIZ_KEY, biz);
   const bizShopName = (id) => (biz.shops.find((s) => s.id === id) || {}).name || '';
@@ -4645,13 +4665,13 @@
     el('biz-shops').innerHTML = (multi ? `<button type="button" data-bsel="all" class="${bizSel === 'all' ? 'active' : ''}">전체</button>` : '')
       + biz.shops.map((s) => `<button type="button" data-bsel="${attr(s.id)}" class="${bizSel === s.id ? 'active' : ''}">${esc(s.name)}</button>`).join('')
       + '<button type="button" data-bsel="+">＋ 사업</button>';
-    el('biz-label').textContent = bizView.y + '년 ' + (bizView.m + 1) + '월';
-    const ym = ymKey(bizView);
+    drawPeriodBar('biz', bizPer, bizView);
+    const ym = ymKey(bizView), P = periodOf(bizPer, bizView), inP = (e) => e.date >= P.from && e.date <= P.to, mCount = Math.max(1, elapsedMonths(P));
     const pool = bizSelEntries(), target = bizSelTarget();
-    const list = pool.filter((e) => e.date.startsWith(ym));
+    const list = pool.filter(inP);
     const sales = bizSum(list, 'sale'), costs = bizSum(list, 'cost'), profit = sales - costs;
     const prevD = new Date(bizView.y, bizView.m - 1, 1), prevYm = ymKey({ y: prevD.getFullYear(), m: prevD.getMonth() });
-    const prevList = pool.filter((e) => e.date.startsWith(prevYm));
+    const prevList = P.kind === 'month' ? pool.filter((e) => e.date.startsWith(prevYm)) : P.kind === 'year' ? pool.filter((e) => e.date.startsWith(String(bizView.y - 1))) : [];   // 월별=전월, 연간=전년과 비교(기간 지정은 비교 없음)
     const prevSales = bizSum(prevList, 'sale');
     const diff = prevSales ? Math.round(((sales - prevSales) / prevSales) * 100) : null;
 
@@ -4659,9 +4679,9 @@
       <div class="summary-item income"><div class="lbl">매출</div><div class="val">${formatWon(sales)}</div></div>
       <div class="summary-item expense"><div class="lbl">비용</div><div class="val">${formatWon(costs)}</div></div>
       <div class="summary-item balance"><div class="lbl">순이익</div><div class="val" style="${profit < 0 ? 'color:var(--expense)' : ''}">${profit < 0 ? '-' : ''}${formatWon(Math.abs(profit))}</div></div></div>
-      <p class="goal-hint" style="margin:8px 0 0">${sales ? `마진 ${pct(profit, sales)}% · 비용률 ${pct(costs, sales)}%` : '아직 이 달 매출이 없어요'}${diff !== null ? ` · 전월 매출 대비 ${diff >= 0 ? '+' : ''}${diff}%` : ''}</p>`;
+      <p class="goal-hint" style="margin:8px 0 0">${P.kind === 'month' ? '' : P.label + ' · '}${sales ? `마진 ${pct(profit, sales)}% · 비용률 ${pct(costs, sales)}%` : '아직 이 기간 매출이 없어요'}${P.kind !== 'month' && sales ? ` · 월 평균 매출 ${formatWon(Math.round(sales / mCount))} (${mCount}개월)` : ''}${diff !== null ? ` · ${P.kind === 'year' ? '전년' : '전월'} 매출 대비 ${diff >= 0 ? '+' : ''}${diff}%` : ''}</p>`;
 
-    if (target > 0) {
+    if (target > 0 && P.kind === 'month') {
       const p = Math.round((sales / target) * 100);
       html += `<div style="margin-top:12px"><div class="line" style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-muted);margin-bottom:5px"><span>월 목표 ${formatWon(target)}</span><span>${p}% 달성${sales < target ? ' · ' + formatWon(target - sales) + ' 남음' : ' ✓'}</span></div>
         <div class="bar"><i class="${p >= 100 ? '' : p < 50 ? 'near' : ''}" style="width:${Math.min(100, p)}%"></i></div></div>`;
@@ -4669,7 +4689,7 @@
 
     // 전체 보기에서는 사업별 이번 달 성적을 나란히 보여 주고, 누르면 그 사업으로 들어간다
     if (multi && bizSel === 'all') {
-      html += `<h2 class="section-title" style="margin:16px 0 4px">사업별</h2><table class="st-table"><thead><tr><th>사업</th><th class="st-amt">매출</th><th class="st-amt">비용</th><th class="st-amt">순이익</th></tr></thead><tbody>`
+      html += `<h2 class="section-title" style="margin:16px 0 4px">사업별 · ${P.label}</h2><table class="st-table"><thead><tr><th>사업</th><th class="st-amt">매출</th><th class="st-amt">비용</th><th class="st-amt">순이익</th></tr></thead><tbody>`
         + biz.shops.map((s) => {
           const l = list.filter((e) => e.bid === s.id), sv = bizSum(l, 'sale'), cv = bizSum(l, 'cost'), pv = sv - cv;
           return `<tr data-bsel="${attr(s.id)}"><td><span class="st-name">${esc(s.name)}</span>${s.target > 0 ? `<div class="st-sub">목표 ${Math.round((sv / s.target) * 100)}%</div>` : ''}</td><td class="st-amt">${sv ? formatWon(sv) : '-'}</td><td class="st-amt">${cv ? formatWon(cv) : '-'}</td><td class="st-amt" style="${pv < 0 ? 'color:var(--expense)' : ''}">${sv || cv ? (pv < 0 ? '-' : '') + formatWon(Math.abs(pv)) : '-'}</td></tr>`;
@@ -4682,22 +4702,22 @@
     html += group('채널별 매출', saleG, saleG.length ? saleG[0][1] : 1, 'var(--income)');
     html += group('비용 항목', costG, costG.length ? costG[0][1] : 1, 'var(--expense)');
 
-    // 최근 6개월 매출·비용 추이
-    const months = [];
-    for (let i = 5; i >= 0; i--) { const d = new Date(bizView.y, bizView.m - i, 1); months.push({ ym: ymKey({ y: d.getFullYear(), m: d.getMonth() }), m: d.getMonth() + 1 }); }
-    const trend = months.map((mo) => { const l = pool.filter((e) => e.date.startsWith(mo.ym)); return { m: mo.m, s: bizSum(l, 'sale'), c: bizSum(l, 'cost') }; });
-    const max = Math.max(1, ...trend.map((t) => Math.max(t.s, t.c)));
+    // 매출·비용 추이: 월별=최근 6개월, 연간=그 해 12개월, 기간 지정=기간의 달(최대 24개월)
+    const months = P.kind === 'month' ? (() => { const o = []; for (let i = 5; i >= 0; i--) { const d = new Date(bizView.y, bizView.m - i, 1); o.push({ y: d.getFullYear(), m: d.getMonth() + 1, ym: ymKey({ y: d.getFullYear(), m: d.getMonth() }) }); } return o; })() : periodMonths(P, 24);
+    const trend = months.map((mo) => { const l = pool.filter((e) => e.date.startsWith(mo.ym)); return { y: mo.y, m: mo.m, s: bizSum(l, 'sale'), c: bizSum(l, 'cost') }; });
+    const max = Math.max(1, ...trend.map((t) => Math.max(t.s, t.c))), many = trend.length > 12;
     if (trend.some((t) => t.s || t.c)) {
-      html += `<h2 class="section-title" style="margin:16px 0 0">최근 6개월</h2><div class="biz-trend">${trend.map((t) =>
-        `<div class="col"><div class="pair"><i class="s" style="height:${(t.s / max) * 100}%"></i><i class="c" style="height:${(t.c / max) * 100}%"></i></div>${t.m}월</div>`).join('')}</div>
+      html += `<h2 class="section-title" style="margin:16px 0 0">${P.kind === 'month' ? '최근 6개월' : P.kind === 'year' ? P.label + ' 월별' : '월별 추이'}</h2><div class="biz-trend">${trend.map((t) =>
+        `<div class="col"${many ? ' style="font-size:9px"' : ''}><div class="pair"><i class="s" style="height:${(t.s / max) * 100}%"></i><i class="c" style="height:${(t.c / max) * 100}%"></i></div>${barLabel(t, many)}</div>`).join('')}</div>
         <div class="legend" style="display:flex;gap:12px;font-size:12px;color:var(--text-muted);margin-top:8px;justify-content:center"><span><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--income);margin-right:4px"></i>매출</span><span><i style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--expense);margin-right:4px"></i>비용</span></div>`;
     }
 
-    html += `<h2 class="section-title" style="margin:16px 0 4px">${bizView.m + 1}월 내역${list.length ? ' · ' + list.length + '건' : ''}</h2>`;
-    html += list.length ? [...list].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : b.id.localeCompare(a.id))).map((e) =>
+    html += `<h2 class="section-title" style="margin:16px 0 4px">${P.label} 내역${list.length ? ' · ' + list.length + '건' : ''}</h2>`;
+    html += list.length ? [...list].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : b.id.localeCompare(a.id))).slice(0, 60).map((e) =>
       `<button type="button" class="visit" data-biz="${e.id}"><div class="v1"><span>${e.date.slice(5).replace('-', '/')} · ${multi && bizSel === 'all' ? esc(bizShopName(e.bid)) + ' · ' : ''}${esc(e.name || (e.kind === 'sale' ? '매출' : '비용'))}</span>
         <b style="color:var(--${e.kind === 'sale' ? 'income' : 'expense'})">${e.kind === 'sale' ? '+' : '-'}${formatWon(e.amount)}</b></div>${e.memo ? `<div class="v2">${esc(e.memo)}</div>` : ''}</button>`).join('')
-      : '<div class="empty-msg">이 달 내역이 없어요<br>아래 “＋ 매출 입력” “＋ 비용 입력”으로 기록하세요</div>';
+      : '<div class="empty-msg">이 기간 내역이 없어요<br>아래 “＋ 매출 입력” “＋ 비용 입력”으로 기록하세요</div>';
+    if (list.length > 60) html += `<p class="goal-hint">최근 60건만 보여요 (전체 ${list.length}건) — 기간을 줄이면 더 볼 수 있어요</p>`;
     el('biz-body').innerHTML = html;
   }
 
@@ -4753,8 +4773,7 @@
     });
   }
 
-  el('biz-prev').addEventListener('click', () => { const d = new Date(bizView.y, bizView.m - 1, 1); bizView = { y: d.getFullYear(), m: d.getMonth() }; renderBiz(); });
-  el('biz-next').addEventListener('click', () => { const d = new Date(bizView.y, bizView.m + 1, 1); bizView = { y: d.getFullYear(), m: d.getMonth() }; renderBiz(); });
+  wirePeriod('biz', () => bizPer, () => bizView, (v) => { bizView = v; }, renderBiz);
   el('add-sale-btn').addEventListener('click', () => openBizSheet(null, 'sale'));
   el('add-cost-btn').addEventListener('click', () => openBizSheet(null, 'cost'));
   // 사업 관리: 사업 이름·월 목표 매출을 고치고, 사업을 더하거나 지운다(지우면 그 사업의 내역도 함께 지워진다)
@@ -5594,6 +5613,62 @@
   renderLockCard();
   if (lockCfg()) { lockDraw(); lockCooldown(); } else hideLock();
 
+  /* ---------- 기간 보기(월별·연간·기간 지정) 공통 ---------- */
+  // 나는 N잡러·나는 샐러리는 월별(◀▶), 연간(1년 합계, ◀▶로 해 이동), 기간 지정(시작일~종료일)로 볼 수 있다. 합계·그래프·직장/부업별·기록이 모두 그 기간을 따른다.
+  function periodOf(per, view) {
+    if (per.mode === 'year') return { kind: 'year', from: view.y + '-01-01', to: view.y + '-12-31', label: view.y + '년' };
+    if (per.mode === 'custom') {
+      const f = validDate(per.from) ? per.from : todayStr(), t = validDate(per.to) ? per.to : todayStr(), a = f <= t ? f : t, b = f <= t ? t : f, short = (d) => d.slice(2).replace(/-/g, '.');
+      return { kind: 'custom', from: a, to: b, label: short(a) + ' ~ ' + short(b) };
+    }
+    const last = new Date(view.y, view.m + 1, 0).getDate(), mm = String(view.m + 1).padStart(2, '0');
+    return { kind: 'month', from: view.y + '-' + mm + '-01', to: view.y + '-' + mm + '-' + String(last).padStart(2, '0'), label: (view.m + 1) + '월' };
+  }
+  // 기간에 걸친 달 목록(최대 cap개, 넘으면 마지막 cap개)
+  function periodMonths(P, cap) {
+    const out = [];
+    let y = +P.from.slice(0, 4), m = +P.from.slice(5, 7) - 1;
+    const ey = +P.to.slice(0, 4), em = +P.to.slice(5, 7) - 1;
+    while (y < ey || (y === ey && m <= em)) { out.push({ y, m: m + 1, ym: y + '-' + String(m + 1).padStart(2, '0') }); m++; if (m > 11) { m = 0; y++; } if (out.length > 600) break; }
+    return out.slice(-cap);
+  }
+  // 월 평균을 낼 때 쓰는 달 수: 아직 오지 않은 달(올해의 남은 달)은 빼고 센다
+  function elapsedMonths(P) { const t = todayStr(), to = P.to > t ? t : P.to; return P.from > to ? 1 : periodMonths({ from: P.from, to }, 600).length; }
+  function presetPeriod(k) {
+    const t = new Date(), y = t.getFullYear(), ymd = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    if (k === 'ytd') return { from: y + '-01-01', to: ymd(t) };
+    if (k === 'lastyear') return { from: (y - 1) + '-01-01', to: (y - 1) + '-12-31' };
+    const n = { '3m': 2, '6m': 5, '12m': 11 }[k] || 2;
+    return { from: ymd(new Date(y, t.getMonth() - n, 1)), to: ymd(t) };
+  }
+  // 모드 칩·◀▶·기간 입력 칸을 그린다(pre: 'side' | 'sal')
+  function drawPeriodBar(pre, per, view) {
+    el(pre + '-mode').innerHTML = [['month', '월별'], ['year', '연간'], ['custom', '기간 지정']].map(([k, n]) => `<button type="button" data-pm="${k}" class="${k === per.mode ? 'active' : ''}">${n}</button>`).join('');
+    el(pre + '-prev').parentElement.hidden = per.mode === 'custom';
+    el(pre + '-prev').setAttribute('aria-label', per.mode === 'year' ? '이전 해' : '이전 달');
+    el(pre + '-next').setAttribute('aria-label', per.mode === 'year' ? '다음 해' : '다음 달');
+    el(pre + '-range').hidden = per.mode !== 'custom';
+    if (per.mode === 'custom') { el(pre + '-from').value = per.from || ''; el(pre + '-to').value = per.to || ''; }
+    el(pre + '-label').textContent = per.mode === 'year' ? view.y + '년 전체' : view.y + '년 ' + (view.m + 1) + '월';
+  }
+  // 클릭·입력 연결(한 번만). getPer/getView/setView는 각 메뉴의 상태에 맞춘다.
+  function wirePeriod(pre, getPer, getView, setViewFn, rerender) {
+    el(pre + '-mode').addEventListener('click', (e) => {
+      const b = e.target.closest('button[data-pm]'); if (!b) return;
+      const per = getPer(); per.mode = b.dataset.pm;
+      if (per.mode === 'custom' && !(validDate(per.from) && validDate(per.to))) Object.assign(per, presetPeriod('3m'));
+      rerender();
+    });
+    const step = (dir) => { const v = getView(), per = getPer(); setViewFn(per.mode === 'year' ? { y: v.y + dir, m: v.m } : (() => { const d = new Date(v.y, v.m + dir, 1); return { y: d.getFullYear(), m: d.getMonth() }; })()); rerender(); };
+    el(pre + '-prev').addEventListener('click', () => step(-1));
+    el(pre + '-next').addEventListener('click', () => step(1));
+    const fromTo = () => { const per = getPer(); if (validDate(el(pre + '-from').value)) per.from = el(pre + '-from').value; if (validDate(el(pre + '-to').value)) per.to = el(pre + '-to').value; rerender(); };
+    el(pre + '-from').addEventListener('change', fromTo);
+    el(pre + '-to').addEventListener('change', fromTo);
+    el(pre + '-range').addEventListener('click', (e) => { const b = e.target.closest('button[data-sr]'); if (b) { Object.assign(getPer(), presetPeriod(b.dataset.sr)); rerender(); } });
+  }
+  function barLabel(x, many) { return many ? String(x.y).slice(2) + '.' + x.m : x.m + '월'; }   // 12개월 넘으면 "26.3"처럼
+
   /* ---------- N잡·부수입 ---------- */
   // 부업(배달·프리랜서·온라인 판매·콘텐츠 등)마다 달별 수입·비용·투자 시간을 기록해 순수익·시급·월 목표 달성을 본다. 정식 사업 관리("나는CEO")와는 따로다.
   // 수입을 기록할 때 "가계부에도 수입(부수입)으로 기록"을 고르면 가계부 수입에도 넣고(`txId`), 기본은 가계부와 따로 둔다.
@@ -5611,6 +5686,7 @@
   let sideSel = 'all';   // 부업 선택('all' 또는 부업 id): 나는CEO의 사업 칩처럼 한 부업만 따로 본다
   let sideSt = 'all';   // 상태 필터. 구성원 필터는 보험·렌탈·저축과 같은 conWho를 쓴다
   let sideView = { y: new Date().getFullYear(), m: new Date().getMonth() };
+  const sidePer = { mode: 'month', from: '', to: '' };   // 보는 방식: month 월별 | year 연간 | custom 기간 지정
   const sideVisible = () => side.jobs.filter((j) => (whoPick(conWho, sideWho(j))) && (sideSt === 'all' || (j.status || 'on') === sideSt) && (sideSel === 'all' || j.id === sideSel));
   const sideNet = (l) => (+l.income || 0) - (+l.expense || 0);
   const hoursTxt = (h) => (Math.round(h * 10) / 10) + '시간';
@@ -5622,12 +5698,12 @@
   }
 
   function sideHtml() {
-    const ppl = people(), ym = ymKey(sideView), yr = String(sideView.y);
+    const ppl = people(), ym = ymKey(sideView), yr = String(sideView.y), P = periodOf(sidePer, sideView), inP = (l) => l.date >= P.from && l.date <= P.to;
     const jobs = sideVisible(), ids = new Set(jobs.map((j) => j.id));
     if (!side.jobs.length) return '<div class="empty-msg">등록한 부업이 없어요<br>아래 “＋ 부업 추가”로 배달·프리랜서·온라인 판매 같은 부업을 만들고<br>수입·비용·일한 시간을 기록하면 순수익과 시급이 계산돼요</div>';
     if (!jobs.length) return '<div class="empty-msg">이 조건에 맞는 부업이 없어요<br>위의 구성원·상태 선택을 “전체”로 바꿔 보세요</div>';
     const logs = side.log.filter((l) => ids.has(l.jid));
-    const month = sideStats(logs.filter((l) => l.date.startsWith(ym))), year = sideStats(logs.filter((l) => l.date.startsWith(yr)));
+    const month = sideStats(logs.filter(inP)), year = sideStats(logs.filter((l) => l.date.startsWith(yr))), mCount = Math.max(1, elapsedMonths(P));
     const goalSum = jobs.filter((j) => (j.status || 'on') === 'on').reduce((a, j) => a + (+j.goal || 0), 0);
     const pct = goalSum ? Math.round((month.net / goalSum) * 100) : 0;
     const net = (n) => (n < 0 ? '-' : '') + formatWon(Math.abs(n));
@@ -5635,41 +5711,41 @@
       <div class="summary-item income"><div class="lbl">수입</div><div class="val">${formatWon(month.income)}</div></div>
       <div class="summary-item expense"><div class="lbl">비용</div><div class="val">${formatWon(month.expense)}</div></div>
       <div class="summary-item balance"><div class="lbl">순수익</div><div class="val" style="${month.net < 0 ? 'color:var(--expense)' : ''}">${net(month.net)}</div></div></div>
-      <p class="goal-hint" style="margin:8px 0 0">${month.hours > 0 ? `일한 시간 ${hoursTxt(month.hours)} · 시급 ${wageTxt(month.net, month.hours)} · ` : ''}올해 순수익 ${net(year.net)}</p>`;
-    if (goalSum > 0) {
+      <p class="goal-hint" style="margin:8px 0 0">${P.kind === 'month' ? '' : P.label + ' · '}${month.hours > 0 ? `일한 시간 ${hoursTxt(month.hours)} · 시급 ${wageTxt(month.net, month.hours)} · ` : ''}${P.kind === 'month' ? '올해 순수익 ' + net(year.net) : '월 평균 순수익 ' + net(Math.round(month.net / mCount)) + ' (' + mCount + '개월)'}</p>`;
+    if (goalSum > 0 && P.kind === 'month') {
       html += `<div style="margin-top:12px"><div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-muted);margin-bottom:5px"><span>월 목표 순수익 ${formatWon(goalSum)}</span><span>${pct}% 달성${month.net < goalSum ? ' · ' + formatWon(goalSum - Math.max(0, month.net)) + ' 남음' : ' 👑'}</span></div>
         <div class="bar"><i class="${pct >= 100 ? '' : pct < 50 ? 'near' : ''}" style="width:${Math.max(0, Math.min(100, pct))}%"></i></div></div>`;
     }
 
-    // 최근 6개월 수입·비용 막대(파랑=수입, 주황=비용)
-    const months = [];
-    for (let i = 5; i >= 0; i--) { const d = new Date(sideView.y, sideView.m - i, 1); months.push({ ym: monthKey(d), m: d.getMonth() + 1 }); }
+    // 수입·비용 막대(파랑=수입, 주황=비용): 월별=최근 6개월, 연간=그 해 12개월, 기간 지정=기간의 달(최대 24개월)
+    const months = P.kind === 'month' ? (() => { const o = []; for (let i = 5; i >= 0; i--) { const d = new Date(sideView.y, sideView.m - i, 1); o.push({ y: d.getFullYear(), m: d.getMonth() + 1, ym: monthKey(d) }); } return o; })() : periodMonths(P, 24);
     months.forEach((mo) => Object.assign(mo, sideStats(logs.filter((l) => l.date.startsWith(mo.ym)))));
+    const chartTitle = P.kind === 'month' ? '최근 6개월' : P.kind === 'year' ? P.label + ' 월별' : '월별 추이', many = months.length > 12;
     if (months.some((x) => x.income || x.expense)) {
-      const max = Math.max(1, ...months.map((x) => Math.max(x.income, x.expense))), hp = (v) => (v > 0 ? Math.max(3, Math.round((v / max) * 100)) : 0);
-      html += `<h2 class="section-title" style="margin:18px 0 6px">최근 6개월</h2>
+      const max = Math.max(1, ...months.map((x) => Math.max(x.income, x.expense))), hp = (v) => (v > 0 ? Math.max(3, Math.round((v / max) * 100)) : 0), isSel = (mo) => P.kind === 'month' && mo.ym === ym;
+      html += `<h2 class="section-title" style="margin:18px 0 6px">${chartTitle}</h2>
         <div class="vz-key"><span><i class="c1"></i>수입</span><span><i class="c2"></i>비용</span><span class="vz-max">최대 ${shortWon(max)}</span></div>
-        <div class="vz-plot" role="img" aria-label="최근 6개월 부업 수입과 비용 막대그래프">${months.map((mo) => `<div class="vz-col${mo.ym === ym ? ' sel' : ''}" aria-label="${mo.m}월 수입 ${formatWon(mo.income)}, 비용 ${formatWon(mo.expense)}"><i class="c1" style="height:${hp(mo.income)}%"></i><i class="c2" style="height:${hp(mo.expense)}%"></i></div>`).join('')}</div>
-        <div class="vz-labels">${months.map((mo) => `<span class="${mo.ym === ym ? 'sel' : ''}">${mo.m}월</span>`).join('')}</div>`;
+        <div class="vz-plot" role="img" aria-label="${chartTitle} 부업 수입과 비용 막대그래프">${months.map((mo) => `<div class="vz-col${isSel(mo) ? ' sel' : ''}" aria-label="${mo.y}년 ${mo.m}월 수입 ${formatWon(mo.income)}, 비용 ${formatWon(mo.expense)}"><i class="c1" style="height:${hp(mo.income)}%"></i><i class="c2" style="height:${hp(mo.expense)}%"></i></div>`).join('')}</div>
+        <div class="vz-labels">${months.map((mo) => `<span class="${isSel(mo) ? 'sel' : ''}"${many ? ' style="font-size:9px"' : ''}>${barLabel(mo, many)}</span>`).join('')}</div>`;
     }
 
     // 부업별(이번 달 순수익이 큰 순서)
-    const rows = jobs.map((j) => ({ j, mo: sideStats(logs.filter((l) => l.jid === j.id && l.date.startsWith(ym))), all: sideStats(logs.filter((l) => l.jid === j.id)) })).sort((a, b) => String(a.j.name).localeCompare(String(b.j.name), 'ko'));
+    const rows = jobs.map((j) => ({ j, mo: sideStats(logs.filter((l) => l.jid === j.id && inP(l))), all: sideStats(logs.filter((l) => l.jid === j.id)) })).sort((a, b) => String(a.j.name).localeCompare(String(b.j.name), 'ko'));
     const maxNet = Math.max(...rows.map((r) => r.mo.net));
-    html += '<h2 class="section-title" style="margin:18px 0 4px">부업별 · ' + (sideView.m + 1) + '월</h2>' + rows.map(({ j, mo }, i) => {
-      const gp = j.goal > 0 ? Math.round((mo.net / j.goal) * 100) : 0, st = SIDE_STATUS.find((x) => x[0] === (j.status || 'on')) || SIDE_STATUS[0];
+    html += '<h2 class="section-title" style="margin:18px 0 4px">부업별 · ' + P.label + '</h2>' + rows.map(({ j, mo }, i) => {
+      const gp = j.goal > 0 && P.kind === 'month' ? Math.round((mo.net / j.goal) * 100) : 0, st = SIDE_STATUS.find((x) => x[0] === (j.status || 'on')) || SIDE_STATUS[0];
       const sub = [`수입 ${formatWon(mo.income)}`, `비용 ${formatWon(mo.expense)}`, SIDE_UNIT[j.pay] && mo.qty > 0 ? mo.qty + SIDE_UNIT[j.pay] : '', mo.hours > 0 ? hoursTxt(mo.hours) : '', mo.hours > 0 ? wageTxt(mo.net, mo.hours) : '', j.pay && j.pay !== 'free' && j.rate > 0 ? SIDE_RATE[j.pay] + ' ' + formatWon(j.rate) : ''].filter(Boolean).join(' · ');
       const who = conWho === 'all' && ppl.length > 1 ? `<span class="who-tag">${esc(whoName(sideWho(j)))}</span>` : '';
       return `<button type="button" class="visit" data-sj="${attr(j.id)}"><div class="v1"><span>${rows.length > 1 && mo.net > 0 && mo.net === maxNet ? '👑 ' : ''}${who}${esc(j.name)}${j.kind ? ` <span class="rt" style="font-size:10px;background:var(--accent-soft);color:var(--accent);border-radius:99px;padding:1px 7px">${esc(j.kind)}</span>` : ''}${st[0] !== 'on' ? ` <span class="rt" style="font-size:10px;background:var(--bg);color:var(--text-muted);border:1px solid var(--border);border-radius:99px;padding:1px 7px">${st[1]}</span>` : ''}</span><b style="${mo.net < 0 ? 'color:var(--expense)' : ''}">${net(mo.net)}</b></div>`
-        + (j.goal > 0 ? `<div class="bar" style="margin:6px 0 4px"><i class="${gp >= 100 ? '' : gp < 50 ? 'near' : ''}" style="width:${Math.max(0, Math.min(100, gp))}%"></i></div><div class="v2">월 목표 ${formatWon(j.goal)} · ${gp}%</div>` : '')
+        + (j.goal > 0 && P.kind === 'month' ? `<div class="bar" style="margin:6px 0 4px"><i class="${gp >= 100 ? '' : gp < 50 ? 'near' : ''}" style="width:${Math.max(0, Math.min(100, gp))}%"></i></div><div class="v2">월 목표 ${formatWon(j.goal)} · ${gp}%</div>` : '')
         + `<div class="v2">${sub}</div></button>`;
     }).join('');
 
     // 이번 달 기록
-    const list = logs.filter((l) => l.date.startsWith(ym)).sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
-    html += `<h2 class="section-title" style="margin:18px 0 4px">${sideView.m + 1}월 기록${list.length ? ' · ' + list.length + '건' : ''}</h2>`
-      + (list.length ? list.map((l) => { const j = side.jobs.find((x) => x.id === l.jid); return `<button type="button" class="visit" data-sl="${attr(l.id)}"><div class="v1"><span>${l.date.slice(5).replace('-', '/')} · ${esc(j ? j.name : '')}</span><b style="color:var(--${sideNet(l) < 0 ? 'expense' : 'income'})">${sideNet(l) < 0 ? '-' : '+'}${formatWon(Math.abs(sideNet(l)))}</b></div><div class="v2">${[l.income ? '수입 ' + formatWon(l.income) : '', l.expense ? '비용 ' + formatWon(l.expense) : '', l.qty ? l.qty + (SIDE_UNIT[j && j.pay] || '') : '', l.hours ? hoursTxt(l.hours) : '', l.memo || ''].filter(Boolean).map(esc).join(' · ')}</div></button>`; }).join('')
-        : '<div class="empty-msg" style="padding:12px 0">이 달 기록이 없어요<br>아래 “＋ 수입·비용 기록”으로 적어 보세요</div>');
+    const list = logs.filter(inP).sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0)), shown = list.slice(0, 60);
+    html += `<h2 class="section-title" style="margin:18px 0 4px">${P.label} 기록${list.length ? ' · ' + list.length + '건' : ''}</h2>`
+      + (list.length ? shown.map((l) => { const j = side.jobs.find((x) => x.id === l.jid); return `<button type="button" class="visit" data-sl="${attr(l.id)}"><div class="v1"><span>${l.date.slice(5).replace('-', '/')} · ${esc(j ? j.name : '')}</span><b style="color:var(--${sideNet(l) < 0 ? 'expense' : 'income'})">${sideNet(l) < 0 ? '-' : '+'}${formatWon(Math.abs(sideNet(l)))}</b></div><div class="v2">${[l.income ? '수입 ' + formatWon(l.income) : '', l.expense ? '비용 ' + formatWon(l.expense) : '', l.qty ? l.qty + (SIDE_UNIT[j && j.pay] || '') : '', l.hours ? hoursTxt(l.hours) : '', l.memo || ''].filter(Boolean).map(esc).join(' · ')}</div></button>`; }).join('')
+        : '<div class="empty-msg" style="padding:12px 0">이 기간 기록이 없어요<br>아래 “＋ 수입·비용 기록”으로 적어 보세요</div>') + (list.length > shown.length ? `<p class="goal-hint">최근 ${shown.length}건만 보여요 (전체 ${list.length}건) — 기간을 줄이면 더 볼 수 있어요</p>` : '');
     return html;
   }
 
@@ -5686,7 +5762,7 @@
     el('side-jobs').hidden = pickable.length < 2;
     el('side-jobs').innerHTML = [['all', '전체 부업'], ...pickable.map((j) => [j.id, j.name])].map(([k, n]) => `<button type="button" data-sjsel="${attr(k)}" class="${k === sideSel ? 'active' : ''}">${esc(n)}</button>`).join('')
       + (sideSel !== 'all' ? '<button type="button" data-sjedit style="border-style:dashed">✏️ 이름·수정</button>' : '');
-    el('side-label').textContent = sideView.y + '년 ' + (sideView.m + 1) + '월';
+    drawPeriodBar('side', sidePer, sideView);
     el('side-body').innerHTML = sideHtml();
   }
 
@@ -5822,8 +5898,7 @@
   el('add-side-btn').addEventListener('click', () => openSideJobSheet(null));
   el('add-sidelog-btn').addEventListener('click', () => openSideLogSheet(null));
   el('side-member-btn').addEventListener('click', () => openMemberManager());
-  el('side-prev').addEventListener('click', () => { const d = new Date(sideView.y, sideView.m - 1, 1); sideView = { y: d.getFullYear(), m: d.getMonth() }; renderSide(); });
-  el('side-next').addEventListener('click', () => { const d = new Date(sideView.y, sideView.m + 1, 1); sideView = { y: d.getFullYear(), m: d.getMonth() }; renderSide(); });
+  wirePeriod('side', () => sidePer, () => sideView, (v) => { sideView = v; }, renderSide);
   el('side-who').addEventListener('click', (e) => { const b = e.target.closest('button[data-cw]'); if (b) { conWho = b.dataset.cw; renderSide(); } });
   el('side-jobs').addEventListener('click', (e) => {
     if (e.target.closest('[data-sjedit]')) { const j = side.jobs.find((x) => x.id === sideSel); if (j) openSideJobSheet(j); return; }
@@ -5851,17 +5926,18 @@
   const salWho = (j) => j.who || 'me';
   let salSt = 'all';
   let salView = { y: new Date().getFullYear(), m: new Date().getMonth() };
+  const salPer = { mode: 'month', from: '', to: '' };   // 보는 방식: month 월별 | year 연간 | custom 기간 지정
   const salVisible = () => salary.jobs.filter((j) => (whoPick(conWho, salWho(j))) && (salSt === 'all' || (j.status || 'on') === salSt));
   const salSum = (logs) => ({ gross: logs.reduce((a, l) => a + (+l.gross || +l.net || 0), 0), deduct: logs.reduce((a, l) => a + (+l.deduct || 0), 0), net: logs.reduce((a, l) => a + (+l.net || 0), 0) });
   const salNet = (n) => (n < 0 ? '-' : '') + formatWon(Math.abs(n));
 
   function salaryHtml() {
-    const ym = ymKey(salView), yr = String(salView.y), ppl = people();
+    const ym = ymKey(salView), yr = String(salView.y), ppl = people(), P = periodOf(salPer, salView), inP = (l) => l.date >= P.from && l.date <= P.to;
     if (!salary.jobs.length) return '<div class="empty-msg">등록한 직장이 없어요<br>아래 “＋ 직장 추가”로 회사를 만들고<br>월급을 기록하면 실수령·공제율·연봉 환산이 계산돼요</div>';
     const jobs = salVisible(), ids = new Set(jobs.map((j) => j.id));
     if (!jobs.length) return '<div class="empty-msg">이 조건에 맞는 직장이 없어요<br>위의 구성원·상태 선택을 “전체”로 바꿔 보세요</div>';
     const logs = salary.log.filter((l) => ids.has(l.jid));
-    const mo = salSum(logs.filter((l) => l.date.startsWith(ym))), yo = salSum(logs.filter((l) => l.date.startsWith(yr)));
+    const mo = salSum(logs.filter(inP)), yo = salSum(logs.filter((l) => l.date.startsWith(yr))), mCount = Math.max(1, elapsedMonths(P));
     const d12 = new Date(salView.y, salView.m - 11, 1), from12 = monthKey(d12), to12 = ym;
     const last12 = salSum(logs.filter((l) => l.date.slice(0, 7) >= from12 && l.date.slice(0, 7) <= to12));
     const rate = (g, d) => (g ? Math.round((d / g) * 1000) / 10 : 0);
@@ -5870,31 +5946,31 @@
       <div class="summary-item balance"><div class="lbl">세전 총급여</div><div class="val">${formatWon(mo.gross)}</div></div>
       <div class="summary-item expense"><div class="lbl">공제</div><div class="val">${formatWon(mo.deduct)}</div></div>
       <div class="summary-item income"><div class="lbl">실수령</div><div class="val">${formatWon(mo.net)}</div></div></div>
-      <p class="goal-hint" style="margin:8px 0 0">${mo.gross ? `공제율 ${rate(mo.gross, mo.deduct)}% · ` : ''}올해 실수령 ${formatWon(yo.net)}${monthsWithPay ? ` (월 평균 ${formatWon(Math.round(yo.net / monthsWithPay))})` : ''}<br>최근 12개월 세전 합계(연봉 환산) ${formatWon(last12.gross)}</p>`;
+      <p class="goal-hint" style="margin:8px 0 0">${P.kind === 'month' ? '' : P.label + ' · '}${mo.gross ? `공제율 ${rate(mo.gross, mo.deduct)}% · ` : ''}${P.kind === 'month' ? `올해 실수령 ${formatWon(yo.net)}${monthsWithPay ? ` (월 평균 ${formatWon(Math.round(yo.net / monthsWithPay))})` : ''}<br>최근 12개월 세전 합계(연봉 환산) ${formatWon(last12.gross)}` : `월 평균 실수령 ${formatWon(Math.round(mo.net / mCount))} (${mCount}개월)`}</p>`;
 
-    const months = [];
-    for (let i = 5; i >= 0; i--) { const d = new Date(salView.y, salView.m - i, 1); months.push({ ym: monthKey(d), m: d.getMonth() + 1 }); }
+    const months = P.kind === 'month' ? (() => { const o = []; for (let i = 5; i >= 0; i--) { const d = new Date(salView.y, salView.m - i, 1); o.push({ y: d.getFullYear(), m: d.getMonth() + 1, ym: monthKey(d) }); } return o; })() : periodMonths(P, 24);
     months.forEach((x) => Object.assign(x, salSum(logs.filter((l) => l.date.startsWith(x.ym)))));
+    const chartTitle = P.kind === 'month' ? '최근 6개월' : P.kind === 'year' ? P.label + ' 월별' : '월별 추이', many = months.length > 12;
     if (months.some((x) => x.net || x.deduct)) {
-      const max = Math.max(1, ...months.map((x) => Math.max(x.net, x.deduct))), hp = (v) => (v > 0 ? Math.max(3, Math.round((v / max) * 100)) : 0);
-      html += `<h2 class="section-title" style="margin:18px 0 6px">최근 6개월</h2>
+      const max = Math.max(1, ...months.map((x) => Math.max(x.net, x.deduct))), hp = (v) => (v > 0 ? Math.max(3, Math.round((v / max) * 100)) : 0), isSel = (x) => P.kind === 'month' && x.ym === ym;
+      html += `<h2 class="section-title" style="margin:18px 0 6px">${chartTitle}</h2>
         <div class="vz-key"><span><i class="c1"></i>실수령</span><span><i class="c2"></i>공제</span><span class="vz-max">최대 ${shortWon(max)}</span></div>
-        <div class="vz-plot" role="img" aria-label="최근 6개월 실수령과 공제 막대그래프">${months.map((x) => `<div class="vz-col${x.ym === ym ? ' sel' : ''}" aria-label="${x.m}월 실수령 ${formatWon(x.net)}, 공제 ${formatWon(x.deduct)}"><i class="c1" style="height:${hp(x.net)}%"></i><i class="c2" style="height:${hp(x.deduct)}%"></i></div>`).join('')}</div>
-        <div class="vz-labels">${months.map((x) => `<span class="${x.ym === ym ? 'sel' : ''}">${x.m}월</span>`).join('')}</div>`;
+        <div class="vz-plot" role="img" aria-label="${chartTitle} 실수령과 공제 막대그래프">${months.map((x) => `<div class="vz-col${isSel(x) ? ' sel' : ''}" aria-label="${x.y}년 ${x.m}월 실수령 ${formatWon(x.net)}, 공제 ${formatWon(x.deduct)}"><i class="c1" style="height:${hp(x.net)}%"></i><i class="c2" style="height:${hp(x.deduct)}%"></i></div>`).join('')}</div>
+        <div class="vz-labels">${months.map((x) => `<span class="${isSel(x) ? 'sel' : ''}"${many ? ' style="font-size:9px"' : ''}>${barLabel(x, many)}</span>`).join('')}</div>`;
     }
 
     html += '<h2 class="section-title" style="margin:18px 0 4px">직장별</h2>' + [...jobs].sort(nameSort((j) => j.name)).map((j) => {
-      const all = salSum(logs.filter((l) => l.jid === j.id && l.date.startsWith(yr))), cur = salSum(logs.filter((l) => l.jid === j.id && l.date.startsWith(ym)));
+      const all = salSum(logs.filter((l) => l.jid === j.id && (P.kind === 'month' ? l.date.startsWith(yr) : inP(l)))), cur = salSum(logs.filter((l) => l.jid === j.id && inP(l)));
       const st = SAL_STATUS.find((x) => x[0] === (j.status || 'on')) || SAL_STATUS[0];
       const who = conWho === 'all' && ppl.length > 1 ? `<span class="who-tag">${esc(whoName(salWho(j)))}</span>` : '';
       return `<button type="button" class="visit" data-sj="${attr(j.id)}"><div class="v1"><span>${who}${esc(j.name)} <span class="rt" style="font-size:10px;background:var(--accent-soft);color:var(--accent);border-radius:99px;padding:1px 7px">${esc(j.kind || '')}</span>${st[0] !== 'on' ? ` <span class="rt" style="font-size:10px;background:var(--bg);color:var(--text-muted);border:1px solid var(--border);border-radius:99px;padding:1px 7px">${st[1]}</span>` : ''}</span><b>${formatWon(cur.net)}</b></div>`
-        + `<div class="v2">${j.payDay ? `매월 ${dayLabel(j.payDay)} 지급 · ` : ''}올해 실수령 ${formatWon(all.net)}${all.gross ? ` · 공제율 ${rate(all.gross, all.deduct)}%` : ''}</div>${j.note ? `<div class="v2">${esc(j.note)}</div>` : ''}</button>`;
+        + `<div class="v2">${j.payDay ? `매월 ${dayLabel(j.payDay)} 지급 · ` : ''}${P.kind === 'month' ? '올해' : P.label} 실수령 ${formatWon(all.net)}${all.gross ? ` · 공제율 ${rate(all.gross, all.deduct)}%` : ''}</div>${j.note ? `<div class="v2">${esc(j.note)}</div>` : ''}</button>`;
     }).join('');
 
-    const list = logs.filter((l) => l.date.startsWith(ym)).sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
-    html += `<h2 class="section-title" style="margin:18px 0 4px">${salView.m + 1}월 기록${list.length ? ' · ' + list.length + '건' : ''}</h2>`
-      + (list.length ? list.map((l) => { const j = salary.jobs.find((x) => x.id === l.jid); return `<button type="button" class="visit" data-sl="${attr(l.id)}"><div class="v1"><span>${l.date.slice(5).replace('-', '/')} · ${esc(j ? j.name : '')} · ${esc(l.type || '월급')}</span><b style="color:var(--income)">+${formatWon(l.net)}</b></div><div class="v2">${[l.gross ? '세전 ' + formatWon(l.gross) : '', l.deduct ? '공제 ' + formatWon(l.deduct) : '', l.memo || ''].filter(Boolean).map(esc).join(' · ')}</div></button>`; }).join('')
-        : '<div class="empty-msg" style="padding:12px 0">이 달 기록이 없어요<br>아래 “＋ 급여 기록”으로 적어 보세요</div>');
+    const list = logs.filter(inP).sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0)), shown = list.slice(0, 60);
+    html += `<h2 class="section-title" style="margin:18px 0 4px">${P.label} 기록${list.length ? ' · ' + list.length + '건' : ''}</h2>`
+      + (list.length ? shown.map((l) => { const j = salary.jobs.find((x) => x.id === l.jid); return `<button type="button" class="visit" data-sl="${attr(l.id)}"><div class="v1"><span>${l.date.slice(5).replace('-', '/')} · ${esc(j ? j.name : '')} · ${esc(l.type || '월급')}</span><b style="color:var(--income)">+${formatWon(l.net)}</b></div><div class="v2">${[l.gross ? '세전 ' + formatWon(l.gross) : '', l.deduct ? '공제 ' + formatWon(l.deduct) : '', l.memo || ''].filter(Boolean).map(esc).join(' · ')}</div></button>`; }).join('')
+        : '<div class="empty-msg" style="padding:12px 0">이 기간 기록이 없어요<br>아래 “＋ 급여 기록”으로 적어 보세요</div>') + (list.length > shown.length ? `<p class="goal-hint">최근 ${shown.length}건만 보여요 (전체 ${list.length}건) — 기간을 줄이면 더 볼 수 있어요</p>` : '');
     return html;
   }
 
@@ -5905,7 +5981,7 @@
     if (salSt !== 'all' && !sts.some((x) => x[0] === salSt)) salSt = 'all';
     el('sal-status').hidden = sts.length < 2;
     el('sal-status').innerHTML = [['all', '전체 ' + inWho.length], ...sts.map(([k, n]) => [k, n + ' ' + inWho.filter((j) => (j.status || 'on') === k).length])].map(([k, n]) => `<button type="button" data-ss="${k}" class="${k === salSt ? 'active' : ''}">${n}</button>`).join('');
-    el('sal-label').textContent = salView.y + '년 ' + (salView.m + 1) + '월';
+    drawPeriodBar('sal', salPer, salView);
     el('sal-body').innerHTML = salaryHtml();
   }
 
@@ -6028,8 +6104,7 @@
   el('add-saljob-btn').addEventListener('click', () => openSalJobSheet(null));
   el('add-sallog-btn').addEventListener('click', () => openSalLogSheet(null));
   el('sal-member-btn').addEventListener('click', () => openMemberManager());
-  el('sal-prev').addEventListener('click', () => { const d = new Date(salView.y, salView.m - 1, 1); salView = { y: d.getFullYear(), m: d.getMonth() }; renderSalary(); });
-  el('sal-next').addEventListener('click', () => { const d = new Date(salView.y, salView.m + 1, 1); salView = { y: d.getFullYear(), m: d.getMonth() }; renderSalary(); });
+  wirePeriod('sal', () => salPer, () => salView, (v) => { salView = v; }, renderSalary);
   el('sal-who').addEventListener('click', (e) => { const b = e.target.closest('button[data-cw]'); if (b) { conWho = b.dataset.cw; renderSalary(); } });
   el('sal-status').addEventListener('click', (e) => { const b = e.target.closest('button[data-ss]'); if (b) { salSt = b.dataset.ss; renderSalary(); } });
   el('sal-body').addEventListener('click', (e) => {
@@ -8164,7 +8239,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v94'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v95'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span style="display:block;margin-bottom:4px">다달이, 매일의 기록이 모여 더 나은 생활이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
