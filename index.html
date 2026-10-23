@@ -213,9 +213,9 @@
     --text: #1c1e21;
     --text-muted: #566070;   /* 흰 바탕 6.4:1, 연한 칸 위에서도 5.7:1 이상 */
     --border: #e5e7eb;
-    --accent: #047857;   /* 강조색은 모든 메뉴 공통으로 건강 메뉴의 초록 하나(사용자 선택) — 흰 글씨 5.5:1 */
-    --accent-fill: #047857;   /* 흰 글씨를 얹는 채움색(라이트·다크 모두 6.3:1). 다크의 --accent는 글씨용으로 밝아서 채움에는 이걸 쓴다 */
-    --accent-soft: #ecfdf5;
+    --accent: #0f766e;   /* 강조색 하나: 로고 민트(#02c9b9)와 같은 색상(청록)을 진하고 차분하게 낮춘 색 — 흰 글씨 5.5:1, 형광처럼 튀지 않는다 */
+    --accent-fill: #0f766e;   /* 흰 글씨를 얹는 채움색(라이트·다크 모두 6.3:1). 다크의 --accent는 글씨용으로 밝아서 채움에는 이걸 쓴다 */
+    --accent-soft: #e3f4f1;
     --income: #136f34;   /* 연한 초록 칸 위 5.5:1 이상 */
     --income-soft: #ecfdf3;
     --expense: #b91c1c;   /* 연한 빨강 칸 위 5.9:1 */
@@ -233,8 +233,8 @@
       --text: #eef0f3;
       --text-muted: #9aa0ab;
       --border: #2c2f38;
-      --accent: #34d399;
-      --accent-soft: #12261f;
+      --accent: #4cc9bd;
+      --accent-soft: #10282a;
       --income: #4ade80;
       --income-soft: #1b2b20;
       --expense: #f87171;
@@ -325,12 +325,12 @@
   .summary-grid {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));   /* minmax(0,…): 칸이 큰 숫자 때문에 늘어나 화면 밖으로 나가지 않게 */
-    gap: 10px;
+    gap: 8px;
   }
   .summary-item {
     min-width: 0;
     border-radius: 10px;
-    padding: 12px 6px;
+    padding: 12px 4px;
     text-align: center;
   }
   .summary-item .lbl {
@@ -1191,8 +1191,7 @@
   /* ===== 숫자·금액 통일(사용자 요청: "숫자 폰트 크기가 제각각이고 색이 너무 많다") =====
      크기 3단계: ① 요약 칸의 큰 숫자 17px/800 ② 목록 오른쪽 금액 14px/600 ③ 문장 속 강조 숫자 15px/700. 모든 숫자는 같은 폭(tabular-nums).
      색은 두 가지만: 들어오는 돈(수입)=초록, 요약 칸의 지출=빨강. 목록의 지출·합계·잔액은 기본 글자색(경고는 따로 빨강). 박스 바탕은 모두 중립 회색. */
-  .summary-item .val { font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums; }
-  @media (max-width: 420px) { .summary-item .val { font-size: 16px; } }   /* 좁은 폰에서 7자리 금액이 칸에 들어가게 */
+  .summary-item .val { font-size: clamp(12px, 3.8vw, 18px); letter-spacing: -0.03em; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }   /* 폭에 맞춰 13~18px로 줄어 7자리 금액도 한 줄("원"이 따로 떨어지지 않게) */
   .tx-amt, .rec-amt, .st-amt, .bar-row .cat-amt, .dash-row .am, .fx-row b, .fx-group b, .cal-tx b, .bk-amt, .visit .v1 > b, .year-sum .ys-row b { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
   .ins-sum b { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
   .summary-item.income, .summary-item.expense, .summary-item.balance, .ins-sum { background: var(--bg); }
@@ -2101,7 +2100,7 @@
   });
 
   let breakdownAll = false;   // "기타" 펼침(화면 한정, 저장 안 함)
-  const BK_COLORS = ['#047857', '#f59e0b', '#3b82f6', '#ec4899', '#8b5cf6'];   // 상위 5개(색 구분이 되는 한도)
+  const BK_COLORS = ['#0f766e', '#f59e0b', '#3b82f6', '#ec4899', '#8b5cf6'];   // 상위 5개(색 구분이 되는 한도)
   const BK_ETC = '#9ca3af';
   function renderBreakdown(expenseTx) {
     const wrap = el('breakdown-list');
@@ -8647,7 +8646,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v125'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v126'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span class="slogan">다달이, 매일의 기록이 모여<br><b>더 나은 생활</b>이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
