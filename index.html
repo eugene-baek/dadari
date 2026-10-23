@@ -837,20 +837,20 @@
   .ins-sum b { font-size: 16px; }
   .ins-badge { font-size: 10px; border-radius: 99px; padding: 1px 7px; margin-left: 6px; vertical-align: 1px; background: var(--chip, var(--bg)); color: var(--text-muted); border: 1px solid var(--border); }
   .ins-badge.warn { color: var(--expense); border-color: var(--expense); }
-  /* 목록 공통 모양(통일): 섹션 제목은 크게 + 건수 배지, 한 건은 둥근 카드, 오른쪽에 금액·날짜 */
-  .h-sec { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 800; color: var(--text); margin: 20px 0 8px; padding: 0 2px; }
+  /* 목록 공통 모양(통일): 강조는 "분류명(섹션 제목)" 한 곳에만 둔다 — 굵은 글씨 + 아래 굵은 선, 건수는 작은 글씨. 줄은 모두 차분하게(얇은 구분선, 보통 굵기), 색은 꼭 필요한 곳(지남 등)에만. */
+  .h-sec, #side-body h2.section-title, #sal-body h2.section-title, #fit-body h2.section-title { display: flex; align-items: baseline; gap: 8px; margin: 22px 0 2px; padding: 0 2px 6px; border-bottom: 2px solid var(--text); color: var(--text); font-size: 15px; font-weight: 800; }
   .h-sec:first-child { margin-top: 0; }
-  .h-sec .cnt, .section-title .cnt { font-size: 12px; font-weight: 700; padding: 2px 9px; border-radius: 99px; background: var(--accent-soft); color: var(--accent); }
-  .h-sec.todo .cnt { background: rgba(220, 60, 60, .13); color: var(--expense); }
-  .h-sec.done .cnt { background: rgba(30, 160, 100, .15); color: var(--income); }
-  .visit { display: block; width: 100%; text-align: left; padding: 10px 12px; margin: 0 0 8px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg); color: var(--text); font-size: 14px; cursor: pointer; }
+  .h-sec .cnt, .section-title .cnt { color: var(--text-muted); font-size: 12px; font-weight: 600; }
+  .h-sec.todo .cnt { color: var(--expense); }
+  .h-sec.done .cnt { color: var(--income); }
+  .visit { display: block; width: 100%; text-align: left; padding: 10px 4px; margin: 0; border: none; border-bottom: 1px solid var(--border); border-radius: 0; background: none; color: var(--text); font-size: 14px; cursor: pointer; }
   .visit .v1 { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
-  .visit .v1 > span:first-child { min-width: 0; font-size: 15px; font-weight: 700; line-height: 1.35; overflow-wrap: anywhere; }
-  .visit .v1 > b, .visit .v1 > span:last-child:not(:first-child) { flex: none; }
-  .visit .v2 { font-size: 13px; line-height: 1.45; color: var(--text-muted); margin-top: 3px; white-space: normal; overflow-wrap: anywhere; }
+  .visit .v1 > span:first-child { min-width: 0; font-size: 14px; font-weight: 500; line-height: 1.4; overflow-wrap: anywhere; }
+  .visit .v1 > b, .visit .v1 > span:last-child:not(:first-child) { flex: none; font-weight: 600; }
+  .visit .v2 { font-size: 12.5px; line-height: 1.45; color: var(--text-muted); margin-top: 2px; white-space: normal; overflow-wrap: anywhere; }
   .visit .dd { font-weight: 700; color: var(--accent); }
   #health-modes button { font-size: 12px; padding: 9px 2px; }
-  .med-row { padding: 10px 12px; margin: 0 0 8px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg); }
+  .med-row { padding: 8px 4px; border-bottom: 1px solid var(--border); }
   .med-row:first-of-type { border-top: none; }
   .med-name { font-size: 14px; margin-bottom: 6px; }
   .med-slots { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -881,10 +881,11 @@
   .vx { padding: 8px 0; border-top: 1px solid var(--border); }
   .vx:first-of-type { border-top: none; }
   /* 접종 목록의 날짜 알약(공통 목록 카드는 아래 .visit/.vrow 스타일을 쓴다) */
+  .vcheck[data-vundo] { border-color: transparent; background: none; color: var(--text-muted); font-weight: 500; }   /* 긴 목록에서 줄마다 반복되는 되돌리기 버튼은 눈에 덜 띄게 */
   .vyear { margin: 14px 2px 6px; font-size: 12px; font-weight: 700; color: var(--text-muted); }
-  .vdate { flex: none; padding: 3px 9px; border-radius: 99px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-muted); font-size: 12px; font-weight: 700; white-space: nowrap; }
-  .vdate.late { border-color: rgba(220, 60, 60, .5); background: rgba(220, 60, 60, .12); color: var(--expense); }
-  .vdate.soon { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+  .vdate { flex: none; color: var(--text-muted); font-size: 12.5px; font-weight: 600; white-space: nowrap; }
+  .vdate.late { color: var(--expense); font-weight: 700; }
+  .vdate.soon { color: var(--accent); font-weight: 700; }
   .vx-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; width: 100%; padding: 8px 2px; margin: 14px 0 4px; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; background: none; text-align: left; cursor: pointer; }
   .vx-head .vx-arrow { flex: none; color: var(--accent); font-size: 13px; }
   .vx-head .vx-due { margin-left: 6px; padding: 1px 7px; border-radius: 99px; background: var(--expense); color: #fff; font-size: 11px; font-weight: 700; }
@@ -897,8 +898,8 @@
   .dose.planned { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
   .dose.due { background: var(--expense-soft); border-color: var(--expense); color: var(--expense); font-weight: 600; }
   .dose.soon { border-style: dashed; color: var(--text-muted); }
-  .vrow { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; padding-right: 8px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg); }
-  .vrow .visit { flex: 1; min-width: 0; margin: 0; border: none; border-radius: 0; background: none; }
+  .vrow { display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border); }
+  .vrow .visit { flex: 1; min-width: 0; border-bottom: none; }
   .vcheck { flex-shrink: 0; padding: 7px 10px; border-radius: 99px; border: 1px solid var(--accent); background: none; color: var(--accent); font-size: 12px; font-weight: 600; cursor: pointer; }
   .who-tag { font-size: 10px; background: var(--accent-soft); color: var(--accent); border-radius: 99px; padding: 1px 7px; margin-left: 6px; vertical-align: 1px; }
   .cyc-sum { background: var(--accent-soft); border-radius: 12px; padding: 12px 14px; font-size: 13px; line-height: 1.7; }
@@ -8163,7 +8164,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v93'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v94'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span style="display:block;margin-bottom:4px">다달이, 매일의 기록이 모여 더 나은 생활이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
