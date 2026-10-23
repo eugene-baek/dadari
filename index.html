@@ -936,11 +936,6 @@
   .visit .dd { font-weight: 700; color: var(--accent); }
   #health-modes button { font-size: 12px; padding: 7px 2px; line-height: 1.3; }
   #health-modes button span { display: block; font-size: 17px; }   /* 아이콘을 위, 이름을 아래로(5개 탭이 좁은 폭에서도 한 줄 이름으로 들어가게) */
-  .hf-row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 9px 2px; border-bottom: 1px solid var(--border); font-size: 14px; }
-  .hf-row:last-child { border-bottom: none; }
-  .hf-row > span { color: var(--text-muted); flex: none; }
-  .hf-row > b { font-weight: 600; text-align: right; overflow-wrap: anywhere; }
-  .hf-row > b.ok { color: var(--income); }
   .med-row { padding: 8px 4px; border-bottom: 1px solid var(--border); }
   .med-row:first-of-type { border-top: none; }
   .med-name { font-size: 14px; margin-bottom: 6px; }
@@ -1510,7 +1505,6 @@
       <button type="button" data-hm="visit" class="active"><span>🏥</span>병원</button>
       <button type="button" data-hm="vaccine"><span>💉</span>접종</button>
       <button type="button" data-hm="meds"><span>💊</span>복약</button>
-      <button type="button" data-hm="fit"><span>💪</span>운동</button>
       <button type="button" data-hm="cycle"><span>🌸</span>생리주기</button>
     </div>
     <div class="member-chips" id="health-who" hidden></div>
@@ -3718,13 +3712,10 @@
         ? '<button type="button" class="mini-btn" data-act="add-vaccine">＋ 접종 기록</button>' + member
         : healthMode === 'meds'
           ? '<button type="button" class="mini-btn" data-act="add-med">＋ 약 추가</button>' + member
-          : healthMode === 'fit'
-            ? '<button type="button" class="mini-btn" data-act="open-fit">💪 운동 관리에서 기록·목표 바꾸기</button>' + member
-            : '<button type="button" class="mini-btn" data-act="add-period">＋ 생리 시작 기록</button>';
+          : '<button type="button" class="mini-btn" data-act="add-period">＋ 생리 시작 기록</button>';
     if (healthMode === 'visit') renderVisits();
     else if (healthMode === 'vaccine') renderVaccines();
     else if (healthMode === 'meds') renderMeds();
-    else if (healthMode === 'fit') renderHealthFit();
     else renderCycle();
   }
 
@@ -4240,7 +4231,6 @@
     else if (b.dataset.act === 'add-vaccine') openVaccineSheet(null);
     else if (b.dataset.act === 'add-med') openMedSheet(null);
     else if (b.dataset.act === 'manage-member') openMemberManager();
-    else if (b.dataset.act === 'open-fit') { setView('fit'); window.scrollTo(0, 0); }
     else openPeriodSheet(null);
   });
   el('health-body').addEventListener('click', (e) => {
@@ -6539,36 +6529,6 @@
     return `<div data-sub="log">${listHtml}${weightHtml}</div><div data-sub="stats">${html}</div>`;
   }
 
-  // 건강 메뉴 "운동" 탭: 운동 관리의 이번 주 횟수·목표, 연속 운동, 최근 운동, 체중·BMI를 사람별로 요약한다(읽기 전용; 입력·수정은 운동 관리).
-  function renderHealthFit() {
-    const ppl = people();
-    if (healthWho !== 'all' && !ppl.some((p) => p.id === healthWho)) healthWho = 'all';
-    el('health-who').innerHTML = [{ id: 'all', name: '전체' }, ...ppl].map((p) => `<button type="button" data-who="${p.id}" class="${p.id === healthWho ? 'active' : ''}">${escapeHtml(p.name)}</button>`).join('');
-    const today = todayStr(), ws = weekStartOf(today), we = addDays(ws, 6), multi = healthWho === 'all' && ppl.length > 1, dnm = ['일', '월', '화', '수', '목', '금', '토'];
-    const empty = [];   // 운동·체중 기록이 하나도 없는 사람은 이름만 모아 한 줄로 알린다
-    const blocks = ppl.filter((p) => whoPick(healthWho, p.id)).map((p) => {
-      const logs = fit.log.filter((l) => fitWho(l) === p.id), wk = logs.filter((l) => l.date >= ws && l.date <= we), sum = fitSum(wk), g = fit.goals[p.id] || {};
-      const tdays = Array.isArray(g.days) ? [...g.days].sort((a, b) => a - b) : [], doneD = tdays.filter((i) => wk.some((l) => l.date === addDays(ws, i)));
-      const last = [...logs].sort((a, b) => (a.date < b.date ? 1 : -1))[0], streak = fitStreak(logs);
-      const kg = fitWeightFor(p.id, '9999-12-31'), b = fit.body[p.id] || {}, bd = fitBirth(p.id), adult = !validDate(bd) || monthsBetween(bd, today) >= 228;
-      const bmi = b.height && kg && adult ? Math.round((kg / ((b.height / 100) ** 2)) * 10) / 10 : 0, cat = bmi < 18.5 ? '저체중' : bmi < 23 ? '정상' : bmi < 25 ? '과체중' : '비만';
-      const gap = b.goalKg && kg ? Math.round((kg - b.goalKg) * 10) / 10 : null;
-      const row = (label, val, ok) => `<div class="hf-row"><span>${label}</span><b${ok ? ' class="ok"' : ''}>${val}</b></div>`;
-      const rows = [];
-      if (!logs.length && !tdays.length && !g.perWeek && !g.minWeek && !kg) { empty.push(p.name); return ''; }
-      rows.push(row('이번 주 운동', `${sum.n}회${sum.min ? ' · ' + fmtMin(sum.min) : ''}${g.perWeek ? ` (목표 ${g.perWeek}회)` : ''}`, g.perWeek && sum.n >= g.perWeek));
-      if (g.minWeek) rows.push(row('이번 주 운동 시간', `${fmtMin(sum.min)} / ${fmtMin(g.minWeek)}`, sum.min >= g.minWeek));
-      if (tdays.length) rows.push(row('정한 요일', `${tdays.map((i) => dnm[i]).join('·')} 중 ${doneD.length}/${tdays.length}일`, doneD.length === tdays.length));
-      rows.push(row('연속 운동', streak ? streak + '일' : '-'));
-      rows.push(row('최근 운동', last ? `${mdOf(last.date)} ${esc(fitName(last.type).replace(/^\S+\s/, ''))}${+last.min ? ' ' + fmtMin(+last.min) : ''}` : '기록 없음'));
-      if (kg) rows.push(row('체중', `${kg}kg${bmi ? ` · BMI ${bmi}(${cat})` : ''}${gap === null ? '' : gap === 0 ? ' · 목표 달성' : ` · 목표 ${b.goalKg}kg까지 ${gap > 0 ? '-' : '+'}${Math.abs(gap)}kg`}`));
-      return (multi ? `<div class="h-sec">${esc(p.name)}</div>` : '') + rows.join('');
-    });
-    el('health-body').innerHTML = (blocks.join('') || '<div class="empty-msg">아직 운동·체중 기록이 없어요<br>아래 “운동 관리에서 기록·목표 바꾸기”로 시작해 보세요</div>')
-      + (empty.length && blocks.join('') ? `<p class="goal-hint" style="margin:12px 0 0">${empty.map(esc).join(', ')}: 아직 운동·체중 기록이 없어요</p>` : '')
-      + '<p class="goal-hint" style="margin:10px 0 0">운동 관리에 적은 기록·목표·체중을 모아 보여 줘요. 캘린더의 “운동” 칸을 켜면 날짜별로도 볼 수 있어요.</p>';
-  }
-
   function renderFit() {
     drawContractWho(el('fit-who'));
     const a = fitWeek, b = addDays(fitWeek, 6), md = (d) => d.slice(5).replace('-', '/');
@@ -8572,7 +8532,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v111'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v112'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span class="slogan">다달이, 매일의 기록이 모여<br><b>더 나은 생활</b>이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
