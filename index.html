@@ -760,14 +760,15 @@
   .pf-txt { min-width: 0; display: flex; flex-direction: column; }
   .pf-txt b { font-size: 15px; }
   .pf-txt small { font-size: 12px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .gl-thumb { width: 46px; height: 46px; border-radius: 9px; object-fit: cover; flex: none; margin-left: 8px; }
-  .gl-big { display: block; width: 100%; max-height: 260px; object-fit: contain; border-radius: 10px; background: var(--bg); margin: 6px 0; }
   .pf-goal em { font-style: normal; font-size: 11px; color: var(--text-muted); margin-left: 4px; }
   .pf-fold { flex: none; padding: 6px 10px; border: 1px solid var(--border); border-radius: 99px; background: var(--bg); color: var(--text); font-size: 12px; font-weight: 600; cursor: pointer; }
   .pf-goals { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border); }
   .pf-goal { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 13px; margin: 0; cursor: pointer; }
   .pf-goal input { width: 18px; height: 18px; margin: 0; flex: none; }
   .pf-goal.done span { color: var(--text-muted); text-decoration: line-through; }
+  .pf-av img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: block; }
+  .pf-photo-row { display: flex; align-items: center; gap: 10px; margin: 4px 0 8px; }
+  .pf-photo-row .pf-av { width: 56px; height: 56px; }
   .pf-emojis { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
   .pf-emojis label { margin: 0; }
   .pf-emojis input { position: absolute; opacity: 0; pointer-events: none; }
@@ -6756,46 +6757,19 @@
   // 이름·한 줄 소개·올해 목표(체크)를 맨 위에 보여 준다. 동기화·백업에 들어가고(`profile`), 가장 최근에 고친 쪽이 이긴다(updatedAt).
   const PF_KEY = 'dadari_profile_v1';
   const PF_FOLD_KEY = 'dadari_pf_fold';   // 목표 목록을 접었는지(이 기기의 설정)
-  let profile = loadJson(PF_KEY, null);   // {show, emoji, name, intro, goals:[{id,text,done}], updatedAt}
+  let profile = loadJson(PF_KEY, null);   // {show, emoji, photo(아바타 사진 dataURL, 선택), name, intro, goals:[{id,text,done,doneAt}], updatedAt}
   if (!profile || typeof profile !== 'object') profile = { show: true, emoji: '🙂', name: '', intro: '', birth: '', goals: [], updatedAt: '' };
   if (!Array.isArray(profile.goals)) profile.goals = [];
   const PF_EMOJI = ['🙂', '😎', '🧑‍💻', '👩‍🍳', '👨‍👩‍👧', '💪', '🌱', '🚀', '🎯', '💰', '📚', '🏡'];
   const PF_NL = String.fromCharCode(10), PF_CR = String.fromCharCode(13);
   const saveProfile = () => { profile.updatedAt = new Date().toISOString(); saveJson(PF_KEY, profile); };
   // 달성 기록(`dadari_goallog_v1`): 목표를 체크하면 그날 기록이 남고, 직접 적을 수도 있다. {id, gid(목표 id, 직접 적은 건 ''), text, date, note}.
-  // 사진은 이 기기의 IndexedDB(`dadari_goalpics`, 기록 id가 키)에만 두고 동기화·백업에 넣지 않는다(영수증·메뉴 사진과 같다).
+  // 기록에는 사진을 넣지 않는다(사용자가 원하지 않았다).
   const GL_KEY = 'dadari_goallog_v1';
   let goalLog = loadJson(GL_KEY, []);
   if (!Array.isArray(goalLog)) goalLog = [];
   const saveGoalLog = () => saveJson(GL_KEY, goalLog);
-  const goalPics = new Map();   // 기록 id → 사진 blob 주소
-  function goalPicTx(mode, fn) {
-    return new Promise((resolve, reject) => {
-      const open = indexedDB.open('dadari_goalpics', 1);
-      open.onupgradeneeded = () => open.result.createObjectStore('p');
-      open.onerror = () => reject(open.error);
-      open.onsuccess = () => {
-        const db = open.result, tx = db.transaction('p', mode), req = fn(tx.objectStore('p'));
-        tx.oncomplete = () => { db.close(); resolve(req); };
-        tx.onerror = tx.onabort = () => { db.close(); reject(tx.error); };
-      };
-    });
-  }
-  async function loadGoalPics() {
-    try {
-      const keys = (await goalPicTx('readonly', (st) => st.getAllKeys())).result, vals = (await goalPicTx('readonly', (st) => st.getAll())).result;
-      keys.forEach((k, i) => { if (vals[i]) goalPics.set(k, URL.createObjectURL(vals[i])); });
-    } catch (err) { /* 사진 저장소를 못 열어도 글 기록은 보인다 */ }
-  }
-  async function setGoalPic(id, blob) {
-    await goalPicTx('readwrite', (st) => st.put(blob, id));
-    if (goalPics.has(id)) URL.revokeObjectURL(goalPics.get(id));
-    goalPics.set(id, URL.createObjectURL(blob));
-  }
-  async function delGoalPic(id) {
-    try { await goalPicTx('readwrite', (st) => st.delete(id)); } catch (err) { /* 이미 없으면 무시 */ }
-    if (goalPics.has(id)) { URL.revokeObjectURL(goalPics.get(id)); goalPics.delete(id); }
-  }
+  try { indexedDB.deleteDatabase('dadari_goalpics'); } catch (err) { /* 예전 버전이 만든 기록 사진 저장소를 정리한다 */ }
   const mdDot = (d) => d.slice(5).replace('-', '.');
   function goalLogHtml() {
     const list = [...goalLog].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0)), yr = todayStr().slice(0, 4);
@@ -6805,7 +6779,7 @@
     let cur = '';
     list.forEach((x) => {
       if (x.date.slice(0, 4) !== cur) { cur = x.date.slice(0, 4); html += `<h2 class="section-title" style="margin:14px 0 4px">${cur}년 · ${list.filter((y) => y.date.startsWith(cur)).length}개</h2>`; }
-      html += `<button type="button" class="visit" data-gl="${attr(x.id)}"><div class="v1" style="align-items:center"><span>${mdDot(x.date)} · ${esc(x.text)}</span>${goalPics.has(x.id) ? `<img class="gl-thumb" src="${attr(goalPics.get(x.id))}" alt="">` : ''}</div>${x.note ? `<div class="v2">${esc(x.note)}</div>` : ''}</button>`;
+      html += `<button type="button" class="visit" data-gl="${attr(x.id)}"><div class="v1"><span>${mdDot(x.date)} · ${esc(x.text)}</span></div>${x.note ? `<div class="v2">${esc(x.note)}</div>` : ''}</button>`;
     });
     return html;
   }
@@ -6822,19 +6796,15 @@
     draw();
     sheet.hidden = false;
   }
-  // 기록 하나 쓰기·고치기. back이면 저장·취소 뒤 기록 목록으로 돌아간다. 사진은 저장할 때 함께 저장한다.
+  // 기록 하나 쓰기·고치기. back이면 저장·취소 뒤 기록 목록으로 돌아간다.
   function openGoalEntrySheet(entry, back) {
     const val = (x) => attr(x == null ? '' : String(x));
-    let pending = null, removePic = false;
     openSheet(`<form>
       <h3>${entry ? '기록 보기·고치기' : '직접 기록'}</h3>
       <label>무엇을 이뤘나요</label><input name="text" required maxlength="40" placeholder="예: 10km 완주, 자격증 합격" value="${val(entry && entry.text)}" autocomplete="off">
       <label>날짜</label><input name="date" type="date" required max="${todayStr()}" value="${val(entry ? entry.date : todayStr())}">
       <label>한마디 (선택)</label><input name="note" maxlength="100" placeholder="소감, 어떻게 했는지 등" value="${val(entry && entry.note)}" autocomplete="off">
-      <div id="gl-pic">${entry && goalPics.has(entry.id) ? `<img class="gl-big" src="${attr(goalPics.get(entry.id))}" alt="">` : ''}</div>
-      <label class="mini-btn" style="display:block;text-align:center;margin-top:8px;cursor:pointer">📷 <span id="gl-pic-lbl">${entry && goalPics.has(entry.id) ? '사진 바꾸기' : '사진 넣기'}</span><input type="file" accept="image/*" id="gl-file" hidden></label>
-      <button type="button" class="mini-btn" id="gl-pic-del" style="width:100%;margin-top:6px"${entry && goalPics.has(entry.id) ? '' : ' hidden'}>사진 지우기</button>
-      <p class="goal-hint">사진은 이 기기에만 저장돼요(다른 기기와 동기화되지 않아요). 글 기록은 비공개 동기화에 올라가요.</p>
+      <p class="goal-hint">목표를 체크하면 이렇게 기록이 남아요. 한마디는 비워 둬도 돼요.</p>
       <div class="sheet-actions"><button type="button" data-cancel>${back ? '취소' : '나중에'}</button>${entry ? '<button type="button" data-delete>삭제</button>' : ''}<button type="submit">저장</button></div>
     </form>`, (fd) => {
       const text = String(fd.get('text')).trim().slice(0, 40), date = String(fd.get('date')), note = String(fd.get('note')).trim();
@@ -6843,41 +6813,24 @@
       Object.assign(e2, { text, date, note });
       if (!entry) goalLog.push(e2);
       saveGoalLog();
+      renderProfile();
       showToast('기록했어요');
-      (async () => {   // 사진은 저장이 끝난 뒤에 화면을 다시 그린다
-        try { if (pending) await setGoalPic(e2.id, pending); else if (removePic) await delGoalPic(e2.id); } catch (err) { showToast('사진을 저장하지 못했어요'); }
-        renderProfile();
-        if (back) openGoalLogSheet();
-      })();
+      if (back) setTimeout(openGoalLogSheet, 0);
     });
     const q = (sel) => sheetBody.querySelector(sel);
-    q('#gl-file').addEventListener('change', async (ev) => {
-      const f = ev.target.files[0];
-      if (!f) return;
-      try {
-        pending = await shrinkImage(f, 1000);
-        removePic = false;
-        q('#gl-pic').innerHTML = `<img class="gl-big" src="${attr(URL.createObjectURL(pending))}" alt="">`;
-        q('#gl-pic-lbl').textContent = '사진 바꾸기';
-        q('#gl-pic-del').hidden = false;
-      } catch (err) { showToast('사진을 읽지 못했어요'); }
-    });
-    q('#gl-pic-del').addEventListener('click', () => { pending = null; removePic = true; q('#gl-pic').innerHTML = ''; q('#gl-pic-lbl').textContent = '사진 넣기'; q('#gl-pic-del').hidden = true; });
     if (back) q('[data-cancel]').addEventListener('click', () => setTimeout(openGoalLogSheet, 0));
     const del = q('[data-delete]');
-    if (del) del.addEventListener('click', async () => {
+    if (del) del.addEventListener('click', () => {
       if (!confirm('이 기록을 지울까요?')) return;
       tomb(entry.id);
       goalLog = goalLog.filter((x) => x.id !== entry.id);
       saveGoalLog();
-      await delGoalPic(entry.id);
       closeSheet();
       renderProfile();
       showToast('지웠어요');
       if (back) setTimeout(openGoalLogSheet, 0);
     });
   }
-  loadGoalPics();
 
   function renderProfile() {
     const box = el('profile-card');
@@ -6888,16 +6841,32 @@
     try { fold = localStorage.getItem(PF_FOLD_KEY) === '1'; } catch (e) { /* 펼친 채로 */ }
     const empty = !profile.name && !profile.intro && !goals.length;
     box.innerHTML = `<div class="pf"><div class="pf-top">
-      <button type="button" class="pf-main" data-pf="edit" aria-label="프로필 고치기"><span class="pf-av">${esc(profile.emoji || '🙂')}</span><span class="pf-txt">${empty ? '<b>프로필·목표를 적어 보세요</b><small>눌러서 이름, 한 줄 소개, 올해 목표를 정해요</small>' : `<b>${esc(profile.name || '나')}${validDate(profile.birth) ? ` <small style="font-weight:400">· ${ageText(monthsBetween(profile.birth, todayStr()))}</small>` : ''}</b>${profile.intro ? `<small>${esc(profile.intro)}</small>` : ''}`}</span></button>
+      <button type="button" class="pf-main" data-pf="edit" aria-label="프로필 고치기"><span class="pf-av">${profile.photo ? `<img src="${attr(profile.photo)}" alt="">` : esc(profile.emoji || '🙂')}</span><span class="pf-txt">${empty ? '<b>프로필·목표를 적어 보세요</b><small>눌러서 이름, 한 줄 소개, 올해 목표를 정해요</small>' : `<b>${esc(profile.name || '나')}${validDate(profile.birth) ? ` <small style="font-weight:400">· ${ageText(monthsBetween(profile.birth, todayStr()))}</small>` : ''}</b>${profile.intro ? `<small>${esc(profile.intro)}</small>` : ''}`}</span></button>
       ${goals.length || goalLog.length ? `<button type="button" class="pf-fold" data-pf="log" aria-label="달성 기록">🏆 ${goalLog.length}</button>` : ''}${goals.length ? `<button type="button" class="pf-fold" data-pf="fold" aria-expanded="${!fold}">🎯 ${done}/${goals.length} ${fold ? '▼' : '▲'}</button>` : ''}</div>
       ${goals.length && !fold ? `<div class="pf-goals">${goals.map((g) => `<label class="pf-goal${g.done ? ' done' : ''}"><input type="checkbox" data-pg="${attr(g.id)}"${g.done ? ' checked' : ''}><span>${esc(g.text)}</span>${g.done && validDate(g.doneAt) ? `<em>${mdDot(g.doneAt)} 달성</em>` : ''}</label>`).join('')}<div class="bar" style="margin-top:8px"><i style="width:${Math.round((done / goals.length) * 100)}%"></i></div></div>` : ''}</div>`;
   }
 
+  // 아바타 사진: 가운데를 정사각형으로 잘라 160px JPEG(dataURL, 대략 10~20KB)로 만든다. 프로필에 들어가 동기화·백업에 함께 간다(비공개 저장소).
+  async function avatarFromFile(file) {
+    const url = URL.createObjectURL(file);
+    try {
+      const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
+      const side = Math.min(img.naturalWidth, img.naturalHeight), c = document.createElement('canvas');
+      c.width = c.height = 160;
+      c.getContext('2d').drawImage(img, (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2, side, side, 0, 0, 160, 160);
+      return c.toDataURL('image/jpeg', 0.82);
+    } finally { URL.revokeObjectURL(url); }
+  }
   function openProfileSheet() {
     const val = (x) => attr(x == null ? '' : String(x));
+    let photo = profile.photo || '';   // 저장할 아바타 사진(비우면 이모지 아바타)
     openSheet(`<form>
       <h3>프로필·목표</h3>
-      <label>아바타</label><div class="pf-emojis">${PF_EMOJI.map((e) => `<label><input type="radio" name="emoji" value="${e}"${e === (profile.emoji || '🙂') ? ' checked' : ''}><span>${e}</span></label>`).join('')}</div>
+      <label>아바타</label>
+      <div class="pf-photo-row"><span class="pf-av" id="pf-photo-prev">${profile.photo ? `<img src="${val(profile.photo)}" alt="">` : esc(profile.emoji || '🙂')}</span>
+        <label class="mini-btn" style="margin:0;cursor:pointer">📷 <span id="pf-photo-lbl">${profile.photo ? '사진 바꾸기' : '내 사진 넣기'}</span><input type="file" accept="image/*" id="pf-file" hidden></label>
+        <button type="button" class="mini-btn" id="pf-photo-del"${profile.photo ? '' : ' hidden'}>사진 지우기</button></div>
+      <div class="pf-emojis">${PF_EMOJI.map((e) => `<label><input type="radio" name="emoji" value="${e}"${e === (profile.emoji || '🙂') ? ' checked' : ''}><span>${e}</span></label>`).join('')}</div>
       <label>이름(별명) — 구성원 목록의 “나”에도 이 이름이 쓰여요</label><input name="name" maxlength="12" placeholder="비우면 “나”로 표시돼요. 예: 유진" value="${val(profile.name)}" autocomplete="off">
       <label>한 줄 소개</label><input name="intro" maxlength="60" placeholder="예: 올해는 꾸준히, 천천히 부자 되기" value="${val(profile.intro)}" autocomplete="off">
       <label>목표 (한 줄에 하나, 최대 5개)</label><textarea name="goals" rows="5" maxlength="300" placeholder="예: 월 100만원 저축">${profile.goals.map((g) => esc(g.text)).join(PF_NL)}</textarea>
@@ -6909,6 +6878,7 @@
       const had = new Map(profile.goals.map((g) => [g.text, g]));
       profile.goals = lines.map((t) => (had.has(t) ? had.get(t) : { id: newId(), text: t, done: false }));
       profile.emoji = String(fd.get('emoji')) || '🙂';
+      profile.photo = photo;
       profile.name = String(fd.get('name')).trim();
       profile.intro = String(fd.get('intro')).trim();
       profile.show = fd.get('show') === 'on';
@@ -6916,6 +6886,15 @@
       refreshNames();
       showToast(profile.show ? '저장했어요' : '프로필 카드를 감췄어요. 다시 보려면 대시보드 설정에서 켜세요');
     });
+    const q = (sel) => sheetBody.querySelector(sel);
+    const showPrev = () => { q('#pf-photo-prev').innerHTML = photo ? `<img src="${attr(photo)}" alt="">` : esc((sheetBody.querySelector('input[name=emoji]:checked') || {}).value || '🙂'); q('#pf-photo-lbl').textContent = photo ? '사진 바꾸기' : '내 사진 넣기'; q('#pf-photo-del').hidden = !photo; };
+    q('#pf-file').addEventListener('change', async (ev) => {
+      const f = ev.target.files[0];
+      if (!f) return;
+      try { photo = await avatarFromFile(f); showPrev(); } catch (err) { showToast('사진을 읽지 못했어요'); }
+    });
+    q('#pf-photo-del').addEventListener('click', () => { photo = ''; showPrev(); });
+    sheetBody.querySelectorAll('input[name=emoji]').forEach((r) => r.addEventListener('change', () => { if (!photo) showPrev(); }));
   }
   function refreshNames() {
     renderProfile();
@@ -6956,12 +6935,12 @@
       saveProfile();
       renderProfile();
       showToast('달성! 기록에 남겼어요 🎉');
-      setTimeout(() => openGoalEntrySheet(en, false), 400);   // 한마디·사진을 바로 남길 수 있게 연다(“나중에”로 닫아도 기록은 남는다)
+      setTimeout(() => openGoalEntrySheet(en, false), 400);   // 한마디를 바로 남길 수 있게 연다(“나중에”로 닫아도 기록은 남는다)
       return;
     }
     g.doneAt = '';
-    // 한마디·사진을 적어 둔 기록은 지우지 않고, 아무것도 안 적은 자동 기록만 지운다
-    const gone = goalLog.filter((x) => x.gid === g.id && !x.note && !goalPics.has(x.id));
+    // 한마디를 적어 둔 기록은 지우지 않고, 아무것도 안 적은 자동 기록만 지운다
+    const gone = goalLog.filter((x) => x.gid === g.id && !x.note);
     if (gone.length) { tomb(...gone.map((x) => x.id)); goalLog = goalLog.filter((x) => !gone.includes(x)); saveGoalLog(); }
     saveProfile();
     renderProfile();
@@ -8004,7 +7983,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v73'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v74'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span style="display:block;margin-bottom:4px">다달이, 매일의 기록이 모여 더 나은 생활이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
