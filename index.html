@@ -154,6 +154,7 @@
       { id: nid(), title: '주간 회의', date: off(-10), time: '09:00', endTime: '10:00', repeat: 'week', alarm: '10m', who: 'me', tab: 'demot2', color: '#6250d6', memo: '' },
       { id: nid(), title: '치과 검진', date: off(5), time: '10:30', endTime: '11:00', repeat: 'none', alarm: '1h', color: '#1baf7a', memo: '' },
       { id: nid(), title: '아파트 관리비 확인', date: ds(Y, M, 20), repeat: 'month', alarm: '', color: '#eda100', memo: '' },
+      { id: nid(), title: '격주 청소', date: off(-3), repeat: 'week', every: 2, wdays: [6], alarm: '', who: '', tab: 'demot1', color: '#1baf7a', memo: '' },
       { id: nid(), title: '팀 회식', date: off(7), time: '18:30', endTime: '21:00', repeat: 'none', alarm: '30m', who: 'me', tab: 'demot2', color: '#2a78d6', memo: '' }
     ]);
     put('dadari_fridge_v1', [['우유', '1L', 'fridge', 2], ['두부', '1모', 'fridge', 1], ['달걀', '10구', 'fridge', 9], ['김치', '1통', 'fridge', 30], ['양파', '3개', 'room', 14], ['밥', '2공기', 'freezer', 20], ['돼지고기', '300g', 'freezer', 25], ['애호박', '1개', 'fridge', 3], ['대파', '1단', 'fridge', 5], ['어묵', '1봉', 'fridge', -1]].map(function (x) { return { id: nid(), name: x[0], qty: x[1], store: x[2], bought: off(-3), expiry: off(x[3]), note: '' }; }));
@@ -167,7 +168,7 @@
     s.call(localStorage, P + 'demo_seeded', SEED_V);
   }
   // 샘플 내용을 고치면 SEED_V를 올린다: 이미 체험판을 열어 본 기기도 새 샘플로 다시 채운다(체험 중 입력은 사라진다).
-  var SEED_V = '6';
+  var SEED_V = '7';
   try {
     if (g.call(localStorage, P + 'demo_seeded') !== SEED_V) {
       var olds = [], oi;
@@ -6230,7 +6231,7 @@
   renderNotifStatus();
   var finReady = false;   // 가계부가 데이터를 바꿀 때 금융캘린더도 다시 그리기 위한 표시(const 초기화 전에 불리지 않게 var)
   const CAL_KEY = 'dadari_calendar_v1';
-  let calItems = loadJson(CAL_KEY, []);   // {id, title, date, endDate(선택), time(선택), endTime(선택), repeat('none'|'week'|'month'|'year'), who('' 함께|구성원 id), tab(캘린더 탭 id, 선택), color, memo}
+  let calItems = loadJson(CAL_KEY, []);   // {id, title, date, endDate(선택), time(선택), endTime(선택), repeat('none'|'day'|'week'|'month'|'year'), every(간격 n), wdays(매주 요일 0~6), mmode('date'|'nth'), until(종료일)|count(횟수), ex(뺀 날짜들), who('' 함께|구성원 id), tab(캘린더 탭 id, 선택), color, memo}
   if (!Array.isArray(calItems)) calItems = [];
   const saveCal = () => saveJson(CAL_KEY, calItems);
   // 내가 만드는 캘린더 탭(내 일정을 묶는 분류): {id, name, color}. 일정의 `tab`이 이 id를 가리키고, 없거나 지워진 탭이면 "내 일정"이다.
@@ -6241,7 +6242,7 @@
   const calTabKey = (c) => (c.tab && calTabs.some((t) => t.id === c.tab) ? 't:' + c.tab : 'mine');
   const CAL_DAYN = ['일', '월', '화', '수', '목', '금', '토'];
   const CAL_COLORS = ['#2a78d6', '#eb6834', '#1baf7a', '#e87ba4', '#6250d6', '#eda100'];   // 검증한 범주 팔레트 앞 6칸(파랑·주황·청록·분홍·보라·노랑)
-  const CAL_REPEATS = [['none', '반복 안 함'], ['week', '매주'], ['month', '매월'], ['year', '매년']];
+  const CAL_REPEATS = [['none', '반복 안 함'], ['day', '매일'], ['week', '매주'], ['month', '매월'], ['year', '매년']];
   const CAL_SRC = { diary: ['mine', 'health', 'life', 'hol'], fin: ['pay', 'inc', 'contract', 'save', 'hol'] };
   const CAL_CHIPS = {
     diary: [['mine', '내 일정'], ['health', '건강'], ['life', '냉장고'], ['hol', '공휴일']],
@@ -6279,6 +6280,63 @@
       }
     } catch (e) { /* 음력 계산을 못 하면 양력 공휴일만 */ }
     return (calHolCache[y] = h);
+  }
+
+  // 반복 일정의 시작일 목록(보려는 기간 [from, to]에 걸치는 것만). 매일/매주(요일 여러 개)/매월(같은 날짜 또는 같은 요일)/매년, n마다, 종료(날짜·횟수), 뺀 날짜(ex).
+  // 횟수 제한이 없으면 기간 바로 앞까지 건너뛰고, 있으면 처음부터 센다(횟수는 뺀 날짜도 센다).
+  function calOccurs(c, from, to) {
+    const rep = c.repeat || 'none', startD = c.date, end = validDate(c.endDate) && c.endDate >= c.date ? c.endDate : c.date, span = diffDays(end, startD);
+    if (rep === 'none') return [startD];
+    const every = Math.max(1, Math.floor(+c.every) || 1), until = validDate(c.until) ? c.until : '', maxN = +c.count > 0 ? Math.floor(+c.count) : 0, ex = Array.isArray(c.ex) ? c.ex : [];
+    const sd = parseD(startD), out = [];
+    let n = 0;
+    const emit = (d) => {   // false면 더 만들지 않는다
+      if (d < startD) return true;
+      if (until && d > until) return false;
+      n++;
+      if (maxN && n > maxN) return false;
+      if (d > to) return false;
+      if (addDays(d, span) >= from && !ex.includes(d)) out.push(d);
+      return true;
+    };
+    let k = 0;
+    if (!maxN) {
+      const gap = Math.max(0, diffDays(from, startD) - span - 7);
+      k = rep === 'day' ? Math.floor(gap / every) : rep === 'week' ? Math.floor(gap / (7 * every)) : rep === 'month' ? Math.floor(gap / (31 * every)) : Math.floor(gap / (366 * every));
+    }
+    for (let guard = 0; guard < 8000; k++, guard++) {
+      if (rep === 'day') { if (!emit(addDays(startD, k * every))) break; }
+      else if (rep === 'week') {
+        const base = addDays(startD, -sd.getDay() + k * every * 7), W = (Array.isArray(c.wdays) && c.wdays.length ? [...c.wdays] : [sd.getDay()]).map(Number).sort((a, b) => a - b);
+        let stop = false;
+        for (const wd of W) if (!emit(addDays(base, wd))) { stop = true; break; }
+        if (stop) break;
+      } else if (rep === 'month') {
+        const t = sd.getMonth() + k * every, y = sd.getFullYear() + Math.floor(t / 12), m = t % 12;
+        let d;
+        if (c.mmode === 'nth') {
+          const nth = Math.ceil(sd.getDate() / 7), first = new Date(y, m, 1).getDay();
+          let day = 1 + ((sd.getDay() - first + 7) % 7) + (nth - 1) * 7;
+          if (day > new Date(y, m + 1, 0).getDate()) day -= 7;
+          d = ymdOf(y, m, day);
+        } else d = ymdOf(y, m, sd.getDate());
+        if (!emit(d)) break;
+      } else if (rep === 'year') { if (!emit(ymdOf(sd.getFullYear() + k * every, sd.getMonth(), sd.getDate()))) break; }
+      else break;
+    }
+    return out;
+  }
+  // .ics 반복 규칙(RRULE)
+  function calRrule(c) {
+    const rep = c.repeat || 'none', f = { day: 'DAILY', week: 'WEEKLY', month: 'MONTHLY', year: 'YEARLY' }[rep];
+    if (!f) return '';
+    const every = Math.max(1, Math.floor(+c.every) || 1), parts = ['FREQ=' + f], D = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
+    if (every > 1) parts.push('INTERVAL=' + every);
+    if (rep === 'week' && Array.isArray(c.wdays) && c.wdays.length) parts.push('BYDAY=' + [...c.wdays].map(Number).sort((a, b) => a - b).map((i) => D[i]).join(','));
+    if (rep === 'month' && c.mmode === 'nth') { const d = parseD(c.date), n = Math.ceil(d.getDate() / 7); parts.push('BYDAY=' + (n >= 5 ? -1 : n) + D[d.getDay()]); }
+    if (validDate(c.until)) parts.push('UNTIL=' + icsDate(c.until) + (c.time ? 'T235959' : ''));
+    else if (+c.count > 0) parts.push('COUNT=' + Math.floor(+c.count));
+    return parts.join(';');
   }
 
   // from~to(포함) 사이 날짜별 일정과(금융) 날짜별 실제 수입·지출. cal: 'diary' | 'fin'
@@ -6356,14 +6414,7 @@
       calItems.forEach((c) => {
         if (!validDate(c.date) || !wOk(c.who) || (!force && off.has(calTabKey(c)))) return;
         const end = validDate(c.endDate) && c.endDate >= c.date ? c.endDate : c.date, span = diffDays(end, c.date), rep = c.repeat || 'none';
-        const starts = [];
-        if (rep === 'none') starts.push(c.date);
-        else if (rep === 'week') {
-          let s = c.date;
-          if (s < from) s = addDays(s, Math.max(0, Math.floor(diffDays(from, s) / 7) - 1) * 7);
-          for (; s <= to; s = addDays(s, 7)) starts.push(s);
-        } else if (rep === 'month') msPrev.forEach(([y, m]) => { const s = ymdOf(y, m, +c.date.slice(8, 10)); if (s >= c.date) starts.push(s); });
-        else for (let y = fromY - 1; y <= toY; y++) { const s = ymdOf(y, +c.date.slice(5, 7) - 1, +c.date.slice(8, 10)); if (s >= c.date) starts.push(s); }
+        const starts = calOccurs(c, from, to);
         starts.forEach((s) => { for (let i = 0; i <= span; i++) add('mine', addDays(s, i), { text: (c.who ? whoName(c.who) + ' · ' : '') + c.title, time: c.time || '', endTime: c.endTime || '', id: c.id, color: c.color || CAL_COLORS[0], tabOk: true, first: i === 0, last: i === span, repeat: rep !== 'none', multi: span > 0, occ: s, occEnd: addDays(s, span) }); });
       });
     }
@@ -6435,7 +6486,7 @@
   };
   function calItemHtml(e) {
     const c = e.color || CAL_COLORS[0], tm = calTime(e), md = (d) => d.slice(5).replace('-', '/');
-    return `<button type="button" class="dc-item${e.kind === 'hol' ? ' hol' : ''}"${e.kind === 'hol' ? '' : ` style="background:${tone(c, e.text)}"`}${e.id ? ` data-cid="${attr(e.id)}"` : e.view ? ` data-cv="${e.view}"` : ''}${e.sub ? ` data-csub="${e.sub}"` : ''}>`
+    return `<button type="button" class="dc-item${e.kind === 'hol' ? ' hol' : ''}"${e.kind === 'hol' ? '' : ` style="background:${tone(c, e.text)}"`}${e.id ? ` data-cid="${attr(e.id)}"${e.occ ? ` data-cocc="${attr(e.occ)}"` : ''}` : e.view ? ` data-cv="${e.view}"` : ''}${e.sub ? ` data-csub="${e.sub}"` : ''}>`
       + `<span class="t">${tm ? `<b>${tm}</b> ` : ''}${e.icon ? e.icon + ' ' : ''}${esc(e.text)}${e.repeat ? ' <small>↻</small>' : ''}${e.multi ? ` <small>(${md(e.occ)} ~ ${md(e.occEnd)})</small>` : ''}</span>${e.amt ? `<span class="a">${formatWon(e.amt)}</span>` : ''}</button>`;
   }
   function calDayHtml(cal, date, map) {
@@ -6532,13 +6583,13 @@
     if (add) { openCalSheet(null, add.dataset.cadd); return; }
     const row = e.target.closest('[data-cid], [data-cv]');
     if (!row) return;
-    if (row.dataset.cid) openCalSheet(calItems.find((x) => x.id === row.dataset.cid));
+    if (row.dataset.cid) openCalSheet(calItems.find((x) => x.id === row.dataset.cid), undefined, row.dataset.cocc);
     else { if (row.dataset.csub) setSubTab('ledger', row.dataset.csub); setView(row.dataset.cv); window.scrollTo(0, 0); }
   }
   ['cal-filters', 'cal-body'].forEach((id) => el(id).addEventListener('click', (e) => calClick('diary', e)));
   ['fin-filters', 'fin-body'].forEach((id) => el(id).addEventListener('click', (e) => calClick('fin', e)));
 
-  function openCalSheet(item, date) {
+  function openCalSheet(item, date, occ) {
     const val = (x) => attr(x == null ? '' : String(x));
     const curColor = (item && item.color) || CAL_COLORS[0];
     openSheet(`<form>
@@ -6551,6 +6602,14 @@
       <div class="dc-times"><div><label>시작 시간 (선택)</label><input name="time" type="time" value="${val(item && item.time)}"></div><div><label>끝나는 시간 (선택)</label><input name="endTime" type="time" value="${val(item && item.endTime)}"></div></div>
       ${calTabs.length ? `<label>탭</label><select name="tab"><option value="">내 일정</option>${calTabs.map((t) => `<option value="${attr(t.id)}" data-color="${attr(t.color || '')}"${item && item.tab === t.id ? ' selected' : ''}>${esc(t.name)}</option>`).join('')}</select>` : ''}
       <label>반복</label><select name="repeat">${CAL_REPEATS.map(([k, n]) => `<option value="${k}"${((item && item.repeat) || 'none') === k ? ' selected' : ''}>${n}</option>`).join('')}</select>
+      <div id="cal-rep-wrap" hidden>
+        <div class="dc-times"><div><label>반복 간격</label><input name="every" type="number" min="1" max="99" inputmode="numeric" value="${(item && item.every) || 1}"></div><div><label>&nbsp;</label><div class="goal-hint" id="cal-every-unit" style="padding:12px 0;margin:0"></div></div></div>
+        <div id="cal-wk-wrap" hidden><label>반복 요일</label><div class="days-check">${DAY_ORDER.map((d) => `<label class="d"><input type="checkbox" name="wd" value="${d}"${((item && item.wdays && item.wdays.length ? item.wdays : [dparse(item ? item.date : date || CS.diary.sel).getDay()]).map(Number)).includes(d) ? ' checked' : ''}>${CAL_DAYN[d]}</label>`).join('')}</div><button type="button" class="mini-btn" data-wk="weekdays" style="margin-top:6px">평일(월~금)</button></div>
+        <div id="cal-mm-wrap" hidden><label>매월 반복 기준</label><select name="mmode"><option value="date">같은 날짜</option><option value="nth"${item && item.mmode === 'nth' ? ' selected' : ''}>같은 요일</option></select></div>
+        <label>반복 종료</label><select name="endmode"><option value="none">계속 반복</option><option value="date"${item && validDate(item.until) ? ' selected' : ''}>날짜까지</option><option value="count"${item && +item.count > 0 ? ' selected' : ''}>횟수만큼</option></select>
+        <div id="cal-until-wrap" hidden><input name="until" type="date" value="${val(item && item.until)}"></div>
+        <div id="cal-count-wrap" hidden><input name="count" type="number" min="1" max="999" inputmode="numeric" value="${val(item && +item.count > 0 ? item.count : '')}" placeholder="몇 번 반복할까요 (예: 10)"></div>
+      </div>
       <label>알림</label><select name="alarm">${CAL_ALARMS.map(([k, n]) => `<option value="${k}"${(item && item.alarm || '') === k ? ' selected' : ''}>${n}</option>`).join('')}</select>
       <label>색</label><div class="cal-sw-row">${CAL_COLORS.map((c) => `<label class="cal-sw"><input type="radio" name="color" value="${c}"${c === curColor ? ' checked' : ''}><i style="background:${c}"></i></label>`).join('')}</div>
       <label>메모 (선택)</label><input name="memo" maxlength="120" value="${val(item && item.memo)}">
@@ -6560,7 +6619,11 @@
       if (!title || !validDate(d0)) { showToast('제목과 시작일을 확인해 주세요'); return false; }
       if (validDate(d1) && d1 < d0) { showToast('종료일은 시작일보다 빠를 수 없어요'); return false; }
       const tm = (k) => (/^\d{2}:\d{2}$/.test(String(fd.get(k))) ? String(fd.get(k)) : '');
-      const rec = { title, date: d0, endDate: validDate(d1) && d1 > d0 ? d1 : '', time: tm('time'), endTime: tm('endTime'), repeat: String(fd.get('repeat')), who: String(fd.get('who') || ''), tab: String(fd.get('tab') || ''), alarm: String(fd.get('alarm')), color: String(fd.get('color')) || CAL_COLORS[0], memo: String(fd.get('memo')).trim() };
+      const rp = String(fd.get('repeat')), em = String(fd.get('endmode')), until = rp !== 'none' && em === 'date' ? String(fd.get('until')) : '', cnt = rp !== 'none' && em === 'count' ? Math.max(0, parseInt(fd.get('count'), 10) || 0) : 0;
+      if (rp !== 'none' && em === 'date' && (!validDate(until) || until < d0)) { showToast('반복 종료일을 시작일 이후로 정해 주세요'); return false; }
+      if (rp !== 'none' && em === 'count' && !cnt) { showToast('반복 횟수를 입력해 주세요'); return false; }
+      const rec = { title, date: d0, endDate: validDate(d1) && d1 > d0 ? d1 : '', time: tm('time'), endTime: tm('endTime'), repeat: rp,
+        every: rp === 'none' ? 1 : Math.min(99, Math.max(1, parseInt(fd.get('every'), 10) || 1)), wdays: rp === 'week' ? fd.getAll('wd').map(Number).filter((n) => n >= 0 && n <= 6).sort() : [], mmode: rp === 'month' && String(fd.get('mmode')) === 'nth' ? 'nth' : 'date', until, count: cnt, ex: rp === 'none' ? [] : (item && item.ex) || [], who: String(fd.get('who') || ''), tab: String(fd.get('tab') || ''), alarm: String(fd.get('alarm')), color: String(fd.get('color')) || CAL_COLORS[0], memo: String(fd.get('memo')).trim() };
       if (item) Object.assign(item, rec); else calItems.push({ id: newId(), ...rec });
       saveCal();
       const S = CS.diary, dd = dparse(d0);
@@ -6573,15 +6636,49 @@
       const c = tabSel.selectedOptions[0].dataset.color, r = c && sheetBody.querySelector('input[name=color][value="' + c + '"]');
       if (r) r.checked = true;
     });
+    const q = (sel) => sheetBody.querySelector(sel), repSel = q('select[name=repeat]'), dateEl = q('input[name=date]'), endSel = q('select[name=endmode]');
+    const syncRep = () => {
+      const r = repSel.value;
+      q('#cal-rep-wrap').hidden = r === 'none';
+      q('#cal-every-unit').textContent = { day: '일마다', week: '주마다', month: '개월마다', year: '년마다' }[r] || '';
+      q('#cal-wk-wrap').hidden = r !== 'week';
+      q('#cal-mm-wrap').hidden = r !== 'month';
+      q('#cal-until-wrap').hidden = endSel.value !== 'date';
+      q('#cal-count-wrap').hidden = endSel.value !== 'count';
+      const d = validDate(dateEl.value) ? dparse(dateEl.value) : null, o = q('select[name=mmode]').options;
+      if (d) { o[0].textContent = `매월 ${d.getDate()}일`; o[1].textContent = `매월 ${Math.ceil(d.getDate() / 7)}번째 ${CAL_DAYN[d.getDay()]}요일`; }
+    };
+    [repSel, dateEl, endSel].forEach((x) => x.addEventListener('change', syncRep));
+    q('[data-wk]').addEventListener('click', () => sheetBody.querySelectorAll('input[name=wd]').forEach((c) => { c.checked = +c.value >= 1 && +c.value <= 5; }));
+    syncRep();
     const del = sheetBody.querySelector('[data-delete]');
-    if (del) del.addEventListener('click', () => {
-      if (item.repeat && item.repeat !== 'none' && !confirm('반복 일정은 모든 날짜가 함께 삭제돼요. 삭제할까요?')) return;
+    const removeAll = () => {
       tomb(item.id);
       calItems = calItems.filter((x) => x.id !== item.id);
       saveCal();
       closeSheet();
       renderCal();
       showToast('삭제했어요');
+    };
+    if (del) del.addEventListener('click', () => {
+      if (!item.repeat || item.repeat === 'none') { removeAll(); return; }
+      if (!occ || !validDate(occ)) { if (confirm('반복 일정은 모든 날짜가 함께 삭제돼요. 삭제할까요?')) removeAll(); return; }
+      // 반복 일정: 이 날만 / 이 날 이후 모두 / 전체 중에서 고른다
+      const md = occ.slice(5).replace('-', '/');
+      sheetBody.innerHTML = `<form><h3>반복 일정 삭제</h3><p class="goal-hint" style="margin:0 0 10px">“${esc(item.title)}”은 반복 일정이에요. ${md} 일정을 어떻게 지울까요?</p>
+        <div class="sheet-actions" style="flex-direction:column;gap:8px"><button type="button" data-rd="one">${md} 일정만 삭제</button><button type="button" data-rd="after">${md} 이후 모두 삭제</button><button type="button" data-rd="all">반복 일정 전체 삭제</button><button type="button" data-rd="back">취소</button></div></form>`;
+      sheetBody.onclick = (e) => {
+        const b = e.target.closest('button[data-rd]');
+        if (!b) return;
+        if (b.dataset.rd === 'back') { setTimeout(() => openCalSheet(item, date, occ), 0); return; }
+        if (b.dataset.rd === 'all' || (b.dataset.rd === 'after' && occ <= item.date)) { removeAll(); return; }
+        if (b.dataset.rd === 'one') item.ex = [...(item.ex || []), occ];
+        else { item.until = addDays(occ, -1); item.count = 0; }
+        saveCal();
+        closeSheet();
+        renderCal();
+        showToast('삭제했어요');
+      };
     });
   }
   // 캘린더 탭 편집: 내 일정을 묶는 탭을 더하고, 이름·색·순서를 바꾸고, 지운다(그 탭의 일정은 지워지지 않고 "내 일정"으로 돌아간다)
@@ -7052,10 +7149,11 @@
       if (!validDate(c.date)) return;
       const rep = c.repeat || 'none', last = validDate(c.endDate) && c.endDate >= c.date ? c.endDate : c.date;
       if (rep === 'none' && last < today) return;
-      const rr = { week: 'FREQ=WEEKLY', month: 'FREQ=MONTHLY', year: 'FREQ=YEARLY' }[rep];
+      if (rep !== 'none' && validDate(c.until) && c.until < today) return;
+      const rr = calRrule(c);
       ev({ uid: 'cal-' + c.id, summary: '📅 ' + (c.who ? '[' + whoName(c.who) + '] ' : '') + c.title, desc: c.memo || '', date: c.date,
         ...(c.time ? { time: c.time, ...(/^\d{2}:\d{2}$/.test(c.endTime || '') && c.endTime > c.time ? { endTime: c.endTime } : {}), alarms: ['-PT30M'] } : (validDate(c.endDate) && c.endDate > c.date ? { endDate: c.endDate } : {})),
-        ...(rr ? { rrule: rr } : {}), ...(c.alarm !== undefined ? { alarms: c.alarm ? [icsAlarmTrig(c)] : [] } : {}) });
+        ...(rr ? { rrule: rr, exdates: Array.isArray(c.ex) ? c.ex : [] } : {}), ...(c.alarm !== undefined ? { alarms: c.alarm ? [icsAlarmTrig(c)] : [] } : {}) });
     });
     if (on('food')) fridge.forEach((f) => { if (validDate(f.expiry) && f.expiry >= today) ev({ uid: 'food-' + f.id, summary: `🧊 ${f.name} 소비기한`, date: f.expiry, alarms: ['-PT15H', 'PT9H'] }); });
     if (on('med')) health.meds.forEach((m) => {
@@ -7079,6 +7177,7 @@
       if (e.time) lines.push(`DTSTART:${icsTime(e.date, e.time)}`, `DTEND:${icsTime(e.date, e.endTime || addMinutes(e.time, 15))}`);
       else lines.push(`DTSTART;VALUE=DATE:${icsDate(e.date)}`, `DTEND;VALUE=DATE:${icsDate(addDays(e.endDate || e.date, 1))}`);
       if (e.rrule) lines.push('RRULE:' + e.rrule);
+      (e.exdates || []).forEach((d) => lines.push(e.time ? `EXDATE:${icsTime(d, e.time)}` : `EXDATE;VALUE=DATE:${icsDate(d)}`));
       lines.push('SUMMARY:' + icsEsc(e.summary));
       if (e.desc) lines.push('DESCRIPTION:' + icsEsc(e.desc));
       e.alarms.forEach((tr) => lines.push('BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:' + icsEsc(e.summary), 'TRIGGER:' + tr, 'END:VALARM'));
@@ -7761,7 +7860,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v71'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v72'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span style="display:block;margin-bottom:4px">다달이, 매일의 기록이 모여 더 나은 생활이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
