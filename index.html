@@ -837,14 +837,20 @@
   .ins-sum b { font-size: 16px; }
   .ins-badge { font-size: 10px; border-radius: 99px; padding: 1px 7px; margin-left: 6px; vertical-align: 1px; background: var(--chip, var(--bg)); color: var(--text-muted); border: 1px solid var(--border); }
   .ins-badge.warn { color: var(--expense); border-color: var(--expense); }
-  .h-sec { font-size: 12px; font-weight: 600; color: var(--text-muted); margin: 14px 0 4px; }
+  /* 목록 공통 모양(통일): 섹션 제목은 크게 + 건수 배지, 한 건은 둥근 카드, 오른쪽에 금액·날짜 */
+  .h-sec { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 800; color: var(--text); margin: 20px 0 8px; padding: 0 2px; }
   .h-sec:first-child { margin-top: 0; }
-  .visit { display: block; width: 100%; text-align: left; padding: 10px 4px; border: none; border-top: 1px solid var(--border); background: none; color: var(--text); font-size: 14px; cursor: pointer; }
-  .visit .v1 { display: flex; justify-content: space-between; gap: 8px; }
-  .visit .v2 { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  .h-sec .cnt, .section-title .cnt { font-size: 12px; font-weight: 700; padding: 2px 9px; border-radius: 99px; background: var(--accent-soft); color: var(--accent); }
+  .h-sec.todo .cnt { background: rgba(220, 60, 60, .13); color: var(--expense); }
+  .h-sec.done .cnt { background: rgba(30, 160, 100, .15); color: var(--income); }
+  .visit { display: block; width: 100%; text-align: left; padding: 10px 12px; margin: 0 0 8px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg); color: var(--text); font-size: 14px; cursor: pointer; }
+  .visit .v1 { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .visit .v1 > span:first-child { min-width: 0; font-size: 15px; font-weight: 700; line-height: 1.35; overflow-wrap: anywhere; }
+  .visit .v1 > b, .visit .v1 > span:last-child:not(:first-child) { flex: none; }
+  .visit .v2 { font-size: 13px; line-height: 1.45; color: var(--text-muted); margin-top: 3px; white-space: normal; overflow-wrap: anywhere; }
   .visit .dd { font-weight: 700; color: var(--accent); }
   #health-modes button { font-size: 12px; padding: 9px 2px; }
-  .med-row { padding: 8px 0; border-top: 1px solid var(--border); }
+  .med-row { padding: 10px 12px; margin: 0 0 8px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg); }
   .med-row:first-of-type { border-top: none; }
   .med-name { font-size: 14px; margin-bottom: 6px; }
   .med-slots { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -874,6 +880,11 @@
   textarea { resize: vertical; min-height: 96px; }
   .vx { padding: 8px 0; border-top: 1px solid var(--border); }
   .vx:first-of-type { border-top: none; }
+  /* 접종 목록의 날짜 알약(공통 목록 카드는 아래 .visit/.vrow 스타일을 쓴다) */
+  .vyear { margin: 14px 2px 6px; font-size: 12px; font-weight: 700; color: var(--text-muted); }
+  .vdate { flex: none; padding: 3px 9px; border-radius: 99px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-muted); font-size: 12px; font-weight: 700; white-space: nowrap; }
+  .vdate.late { border-color: rgba(220, 60, 60, .5); background: rgba(220, 60, 60, .12); color: var(--expense); }
+  .vdate.soon { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
   .vx-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; width: 100%; padding: 8px 2px; margin: 14px 0 4px; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; background: none; text-align: left; cursor: pointer; }
   .vx-head .vx-arrow { flex: none; color: var(--accent); font-size: 13px; }
   .vx-head .vx-due { margin-left: 6px; padding: 1px 7px; border-radius: 99px; background: var(--expense); color: #fff; font-size: 11px; font-weight: 700; }
@@ -886,8 +897,8 @@
   .dose.planned { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
   .dose.due { background: var(--expense-soft); border-color: var(--expense); color: var(--expense); font-weight: 600; }
   .dose.soon { border-style: dashed; color: var(--text-muted); }
-  .vrow { display: flex; align-items: center; gap: 6px; border-top: 1px solid var(--border); }
-  .vrow .visit { flex: 1; border-top: none; }
+  .vrow { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; padding-right: 8px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg); }
+  .vrow .visit { flex: 1; min-width: 0; margin: 0; border: none; border-radius: 0; background: none; }
   .vcheck { flex-shrink: 0; padding: 7px 10px; border-radius: 99px; border: 1px solid var(--accent); background: none; color: var(--accent); font-size: 12px; font-weight: 600; cursor: pointer; }
   .who-tag { font-size: 10px; background: var(--accent-soft); color: var(--accent); border-radius: 99px; padding: 1px 7px; margin-left: 6px; vertical-align: 1px; }
   .cyc-sum { background: var(--accent-soft); border-radius: 12px; padding: 12px 14px; font-size: 13px; line-height: 1.7; }
@@ -2885,6 +2896,19 @@
     if (b) setView(b.dataset.view);
   });
 
+  // 섹션 제목 "이름 · N건"을 "이름 [N건]"(배지)로 통일해서 보여 준다. 제목이 새로 그려질 때마다 한 번씩 바꾼다.
+  (function decorateCounts() {
+    const re = /^(.+?) · (\d+건)$/;
+    const fix = (root) => root.querySelectorAll && root.querySelectorAll('.h-sec:not([data-dec]), .section-title:not([data-dec])').forEach((h) => {
+      h.dataset.dec = '1';
+      if (h.children.length) return;
+      const m = re.exec(h.textContent.trim());
+      if (m) { h.innerHTML = '<span>' + escapeHtml(m[1]) + '</span><span class="cnt">' + m[2] + '</span>'; }
+    });
+    new MutationObserver((muts) => muts.forEach((mu) => mu.addedNodes.forEach((n) => { if (n.nodeType === 1) { fix(n); if (n.parentNode && n.matches && n.matches('.h-sec, .section-title')) fix(n.parentNode); } }))).observe(document.body, { childList: true, subtree: true });
+    fix(document);
+  })();
+
   // 칸 색: 기본 색(#rrggbb)을 윤곽선 없는 부드러운 단색으로 바꾼다. 같은 종류(같은 기본 색)는 비슷한 계열이고,
   // 항목 이름(key)에 따라 밝기와 색조를 조금씩 달리해 칸마다 약간씩 다르게 보인다. 글씨는 어두운 고정색(#1c1e21)을 쓴다.
   // soft=true(캘린더)면 더 옅게(밝기 0.9, 채도 0.55) 만든다. 시간표는 기본(0.8)을 그대로 쓴다.
@@ -3637,19 +3661,21 @@
     const planned = list.filter((v) => !v.done).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
     const done = list.filter((v) => v.done).sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
 
-    let html = standardHtml(today) + `<div class="h-sec">해야 할 접종${planned.length ? ` · ${planned.length}건` : ''}</div>`;
+    const wd = (d) => DAYS[parseD(d).getDay()];
+    let html = standardHtml(today) + `<div class="h-sec todo">해야 할 접종${planned.length ? ` · ${planned.length}건` : ''}</div>`;
     html += planned.length ? planned.map((v) => {
       const dd = diffDays(v.date, today);
-      const when = dd < 0 ? `<span class="dd" style="color:var(--expense)">${-dd}일 지남</span>` : `<span class="dd">${dd === 0 ? '오늘' : 'D-' + dd}</span>`;
-      return `<div class="vrow"><button type="button" class="visit" data-vaccine="${v.id}"><div class="v1"><span>${title(v)}</span>${when}</div>
-        <div class="v2">${mdOf(v.date)}${detail(v) ? ' · ' + detail(v) : ''}</div></button>
+      const chip = dd < 0 ? `<span class="vdate late">${-dd}일 지남</span>` : `<span class="vdate${dd <= 14 ? ' soon' : ''}">${dd === 0 ? '오늘' : 'D-' + dd}</span>`;
+      return `<div class="vrow"><button type="button" class="visit" data-vaccine="${v.id}"><div class="v1"><span>${title(v)}</span>${chip}</div>
+        <div class="v2">${mdOf(v.date)}(${wd(v.date)})${detail(v) ? ' · ' + detail(v) : ''}</div></button>
         <button type="button" class="vcheck" data-vdone="${v.id}" aria-label="접종 완료로 표시">✓ 완료</button></div>`;
     }).join('') : '<div class="empty-msg" style="padding:14px 0">예정된 접종이 없어요</div>';
-    html += `<div class="h-sec">맞은 접종${done.length ? ` · ${done.length}건` : ''}</div>`;
-    html += done.length ? done.map((v) => `<div class="vrow"><button type="button" class="visit" data-vaccine="${v.id}">
-        <div class="v1"><span>${title(v)}</span><span>${v.date.slice(2).replace(/-/g, '.')}</span></div>
+    html += `<div class="h-sec done">맞은 접종${done.length ? ` · ${done.length}건` : ''}</div>`;
+    const doneRow = (v) => `<div class="vrow"><button type="button" class="visit" data-vaccine="${v.id}">
+        <div class="v1"><span>${title(v)}</span><span class="vdate">${v.date.slice(2).replace(/-/g, '.')}</span></div>
         ${detail(v) ? `<div class="v2">${detail(v)}</div>` : ''}</button>
-        <button type="button" class="vcheck" data-vundo="${v.id}" aria-label="해야 할 접종으로 되돌리기">↩ 예정으로</button></div>`).join('')
+        <button type="button" class="vcheck" data-vundo="${v.id}" aria-label="해야 할 접종으로 되돌리기">↩ 예정으로</button></div>`;
+    html += done.length ? [...new Set(done.map((v) => v.date.slice(0, 4)))].map((y) => `<div class="vyear">${y}년 · ${done.filter((v) => v.date.startsWith(y)).length}건</div>` + done.filter((v) => v.date.startsWith(y)).map(doneRow).join('')).join('')
       : '<div class="empty-msg" style="padding:14px 0">아직 기록이 없어요</div>';
     html += '<p class="cyc-note">접종 시기와 횟수는 소아과·보건소에서 안내받은 일정대로 입력하세요. 국가예방접종 일정은 질병관리청 예방접종도우미(nip.kdca.go.kr)에서 확인할 수 있어요.</p>';
     el('health-body').innerHTML = html;
@@ -8137,7 +8163,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v92'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v93'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span style="display:block;margin-bottom:4px">다달이, 매일의 기록이 모여 더 나은 생활이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
