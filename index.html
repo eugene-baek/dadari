@@ -725,8 +725,6 @@
   .dash-row .am.inc { color: var(--income); }
   .dash-empty { padding: 10px 2px; font-size: 13px; color: var(--text-muted); }
   .dash-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-  .dash-tile, .dash-quick button { border-top: 3px solid var(--mc); }
-  button.dash-row .dd { border-left: 3px solid var(--mc); padding-left: 6px; }
   .dash-tile { text-align: left; padding: 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg); color: var(--text); font: inherit; cursor: pointer; }
   .dash-tile small { display: block; font-size: 12px; color: var(--text-muted); }
   .dash-tile b { display: block; font-size: 15px; margin: 3px 0 2px; line-height: 1.3; }
@@ -740,8 +738,8 @@
   .dash-welcome .foot button { border: none; background: none; color: var(--text-muted); font: inherit; cursor: pointer; padding: 4px; }
   @keyframes flashrow { 0%, 60% { background: var(--accent-soft); box-shadow: 0 0 0 3px var(--accent-soft); } 100% { background: transparent; box-shadow: none; } }
   .flash { animation: flashrow 2.2s ease-out; border-radius: 8px; }
-  /* 메뉴별 포인트 색: 흰 글씨를 얹어도 4.9:1 이상인 같은 밝기대의 색 15개. --mc는 채움(메뉴 칸 선택·소메뉴 선택), --mc-text는 글씨·선, --mc-soft는 연한 바탕이다.
-     메뉴 화면(#view-*)·메뉴 칸·바로가기(data-view / data-qv / data-sv)가 같은 색을 쓴다. 새 메뉴를 만들면 여기에 색을 더한다. */
+  /* 강조색 토큰(모든 메뉴가 같은 인디고 하나): --mc는 채움(소메뉴 선택), --mc-text는 글씨·선, --mc-soft는 연한 바탕(칩·모드 탭).
+     예전에는 메뉴마다 다른 색(--mc)을 줬지만 한 색으로 통일했다. 메뉴별 색이 다시 필요하면 `#view-메뉴 { --mc: #색; }`만 더하면 된다(흰 글씨 4.5:1 이상인 색). */
   :root { --mc: var(--accent-fill); }
   main, .viewtabs button, .quick-nav button, [data-sv] { --mc-text: var(--accent); --mc-soft: var(--accent-soft); }
   @supports (color: color-mix(in srgb, red, blue)) {
@@ -750,21 +748,6 @@
       main, .viewtabs button, .quick-nav button, [data-sv] { --mc-text: color-mix(in srgb, var(--mc) 40%, #fff); --mc-soft: color-mix(in srgb, var(--mc) 24%, var(--card-bg)); }
     }
   }
-  #view-status, #viewtabs [data-view="status"], .quick-nav [data-qv="status"], [data-sv="status"] { --mc: #4f46e5; }
-  #view-calendar, #viewtabs [data-view="calendar"], .quick-nav [data-qv="calendar"], [data-sv="calendar"] { --mc: #2563eb; }
-  #view-salary, #viewtabs [data-view="salary"], .quick-nav [data-qv="salary"], [data-sv="salary"] { --mc: #0f766e; }
-  #view-side, #viewtabs [data-view="side"], .quick-nav [data-qv="side"], [data-sv="side"] { --mc: #7c3aed; }
-  #view-biz, #viewtabs [data-view="biz"], .quick-nav [data-qv="biz"], [data-sv="biz"] { --mc: #334155; }
-  #view-ledger, #viewtabs [data-view="ledger"], .quick-nav [data-qv="ledger"], [data-sv="ledger"] { --mc: #c2410c; }
-  #view-savings, #viewtabs [data-view="savings"], .quick-nav [data-qv="savings"], [data-sv="savings"] { --mc: #be185d; }
-  #view-rental, #viewtabs [data-view="rental"], .quick-nav [data-qv="rental"], [data-sv="rental"] { --mc: #0e7490; }
-  #view-health, #viewtabs [data-view="health"], .quick-nav [data-qv="health"], [data-sv="health"] { --mc: #047857; }
-  #view-insurance, #viewtabs [data-view="insurance"], .quick-nav [data-qv="insurance"], [data-sv="insurance"] { --mc: #0369a1; }
-  #view-schedule, #viewtabs [data-view="schedule"], .quick-nav [data-qv="schedule"], [data-sv="schedule"] { --mc: #4d7c0f; }
-  #view-academy, #viewtabs [data-view="academy"], .quick-nav [data-qv="academy"], [data-sv="academy"] { --mc: #a16207; }
-  #view-food, #viewtabs [data-view="food"], .quick-nav [data-qv="food"], [data-sv="food"] { --mc: #a21caf; }
-  #view-fit, #viewtabs [data-view="fit"], .quick-nav [data-qv="fit"], [data-sv="fit"] { --mc: #b91c1c; }
-  #view-settings, #viewtabs [data-view="settings"], .quick-nav [data-qv="settings"], [data-sv="settings"] { --mc: #475569; }
   .set-group { font-size: 13px; font-weight: 800; color: var(--text-muted); margin: 4px 2px -6px; }
   .viewtabs-foot { max-width: 720px; margin: 0 auto 10px; padding: 0 20px; text-align: right; }
   #viewtabs button[hidden] { display: none; }
@@ -8641,7 +8624,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v120'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v121'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span class="slogan">다달이, 매일의 기록이 모여<br><b>더 나은 생활</b>이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
