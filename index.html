@@ -735,6 +735,8 @@
   .dash-welcome .foot { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; font-size: 12.5px; }
   .dash-welcome .foot a { color: var(--accent); }
   .dash-welcome .foot button { border: none; background: none; color: var(--text-muted); font: inherit; cursor: pointer; padding: 4px; }
+  @keyframes flashrow { 0%, 60% { background: var(--accent-soft); box-shadow: 0 0 0 3px var(--accent-soft); } 100% { background: transparent; box-shadow: none; } }
+  .flash { animation: flashrow 2.2s ease-out; border-radius: 8px; }
   .set-group { font-size: 13px; font-weight: 800; color: var(--text-muted); margin: 6px 2px -8px; }
   .viewtabs-foot { max-width: 720px; margin: 0 auto 10px; padding: 0 20px; text-align: right; }
   #viewtabs button[hidden] { display: none; }
@@ -1728,6 +1730,7 @@
   const CAT_KEY = 'dadari_categories_v1';
 
   let transactions = load();
+  transactions.forEach((t) => { if (!t.category) t.category = '기타'; });   // 분류가 비어 있는 내역(예전 자동 기록)이 "null"로 보이지 않게 — 화면 값만 고치고 저장은 다음 저장 때 같이 된다
   let goal = loadGoal();
   let cards = loadJson(CARDS_KEY, []);       // {id, name, kind: 'credit'|'debit', payDay}  카드번호는 받지 않는다
   let recurs = loadJson(RECURS_KEY, []);     // {id, cardId|null, name, amount, day, category, auto, start}
@@ -2503,7 +2506,7 @@
   function recRows(list) {
     const rows = list.map((r) => `<div class="rec">
         <div><div class="rec-name">${escapeHtml(r.name)}</div>
-        <div class="rec-sub">매월 ${dayLabel(r.day)} · ${escapeHtml(r.category)}${r.auto ? ' · 자동 기록' : ' · 기록 안 함'}</div></div>
+        <div class="rec-sub">매월 ${dayLabel(r.day)} · ${escapeHtml(r.category || (r.type === 'income' ? '급여' : '기타'))}${r.auto ? ' · 자동 기록' : ' · 기록 안 함'}</div></div>
         <div class="rec-amt${r.type === 'income' ? ' inc' : ''}">${r.type === 'income' ? '+' : ''}${formatWon(r.amount)}</div>
         <button type="button" class="icon-btn" data-del-recur="${r.id}" aria-label="자동이체 삭제">✕</button>
       </div>`).join('');
@@ -2524,10 +2527,10 @@
     const byCard = exp.filter((r) => r.cardId && cardById(r.cardId));
     const byAcct = exp.filter((r) => !r.cardId || !cardById(r.cardId));
     const cat = {};
-    exp.forEach((r) => { cat[r.category] = (cat[r.category] || 0) + r.amount; });
+    exp.forEach((r) => { const k = r.category || '기타'; cat[k] = (cat[k] || 0) + r.amount; });
     const cats = Object.entries(cat).sort((a, b) => b[1] - a[1]).map(([n, v]) => `${escapeHtml(n)} ${formatWon(v)}`).join(' · ');
     return `<div class="ins-sum" style="margin-bottom:12px">매달 나가는 자동이체·정기결제 <b>${formatWon(sum(exp))}</b> (${exp.length}건)
-      <br>카드 ${formatWon(sum(byCard))} · 계좌 ${formatWon(sum(byAcct))}${inc.length ? `<br>고정수입 <b class="inc">+${formatWon(sum(inc))}</b>` : ''}
+      <br>카드 ${formatWon(sum(byCard))} · 계좌 ${formatWon(sum(byAcct))}${inc.length ? `<br>고정수입(매달 들어오는 돈) <b class="inc">+${formatWon(sum(inc))}</b><br><span style="font-size:12px;color:var(--text-muted)">${inc.map((r) => `${escapeHtml(r.name)} 매월 ${dayLabel(r.day)} ${formatWon(r.amount)}`).join(' · ')}</span>` : ''}
       ${cats ? `<br><span style="font-size:12px;color:var(--text-muted)">${cats}</span>` : ''}</div>`;
   }
 
@@ -2973,7 +2976,7 @@
         const key = r.id + ':' + date.slice(0, 7);
         if (date >= r.start && date <= today && !recurDone.has(key)) {
           // 기기마다 같은 달 항목을 따로 만들어도 동기화할 때 하나로 합쳐지도록 id를 고정한다.
-          const entry = { id: 'rc_' + r.id + '_' + date.slice(0, 7), type: r.type === 'income' ? 'income' : 'expense', date, category: r.category, amount: r.amount, memo: r.name, recurId: r.id };
+          const entry = { id: 'rc_' + r.id + '_' + date.slice(0, 7), type: r.type === 'income' ? 'income' : 'expense', date, category: r.category || (r.type === 'income' ? '급여' : '기타'), amount: r.amount, memo: r.name, recurId: r.id };
           if (r.cardId) entry.cardId = r.cardId;
           transactions.push(entry);
           recurDone.add(key);
@@ -3054,6 +3057,37 @@
     if (b) setView(b.dataset.view);
   });
 
+  // 대시보드·확인할 일·캘린더 목록에서 항목을 누르면 "그 메뉴의 그 내용"으로 간다: 소메뉴·모드·날짜를 맞춘 뒤 그 줄(날짜면 그날 목록)로 스크롤하고 잠깐 깜박여 알려 준다.
+  // o: { sub 소메뉴, ref 항목 id(그 줄의 data-* 값), mode 건강·냉장고 모드, date 날짜 }. ref가 없으면 그 메뉴의 내용 맨 위(메뉴 칸이 아니라)로 간다.
+  function goTo(view, o = {}) {
+    o = o || {};
+    if (o.sub && SUBS[view]) setSubTab(view, o.sub);
+    if (view === 'health') { if (o.mode) healthMode = o.mode; healthWho = 'all'; }
+    if (view === 'food' && o.mode) foodMode = o.mode;
+    if (o.ref) conWho = 'all';   // 구성원 칩이 그 항목을 가리지 않게
+    const toDate = (S) => { const d = dparse(o.date); S.sel = o.date; S.y = d.getFullYear(); S.m = d.getMonth(); };
+    if (o.date && validDate(o.date)) {
+      if (view === 'calendar') toDate(CS.diary);
+      else if (view === 'ledger' && o.sub === 'fin') toDate(CS.fin);
+      else if (view === 'fit') fitWeek = weekStartOf(o.date);
+    }
+    setView(view);
+    setTimeout(() => {   // 그려진 뒤에 찾는다(화면이 가려져 있어도 도는 setTimeout)
+      const root = el('view-' + view);
+      let t = null;
+      if (o.ref) t = [...root.querySelectorAll('*')].find((x) => x.offsetParent !== null && x.dataset && Object.values(x.dataset).includes(o.ref));
+      if (!t && o.date && validDate(o.date)) {
+        const d = dparse(o.date), head = `${d.getMonth() + 1}월 ${d.getDate()}일`;
+        t = [...root.querySelectorAll('h2.section-title')].find((h) => h.offsetParent !== null && h.textContent.trim().startsWith(head)) || null;
+      }
+      const target = t || root;
+      target.scrollIntoView({ block: t && o.ref ? 'center' : 'start' });
+      if (t && !o.ref && root.querySelector('.subtabs')) window.scrollBy(0, -60);   // 위에 붙은 소메뉴 줄에 가려지지 않게
+      const hl = t && (t.closest('.vrow, .visit, .ctile, .rec, .tx-item, .cal-tx') || t);
+      if (hl && hl !== root) { hl.classList.add('flash'); setTimeout(() => hl.classList.remove('flash'), 2200); }
+    }, 30);
+  }
+
   // ----- 대시보드 위쪽 -----
   // 자주 쓰는 메뉴: 메뉴를 연 횟수를 이 기기에만 세어(동기화·백업 제외) 많이 연 메뉴 4개를 바로가기로 보여 준다. 처음에는 기본 메뉴를 보여 준다.
   const MENU_USE_KEY = 'dadari_menu_use_v1', WELCOME_KEY = 'dadari_welcome_closed_v1';
@@ -3072,16 +3106,16 @@
   function dashAgenda() {
     const today = todayStr(), dow = new Date().getDay(), DAYN = ['일', '월', '화', '수', '목', '금', '토'];
     const evs = (calRange('diary', today, today).map[today] || []).filter((e) => e.kind !== 'life');
-    const row = (view, sub, dd, tx, am) => `<button type="button" class="dash-row" data-sv="${attr(view)}"${sub ? ` data-ssub="${attr(sub)}"` : ''}>${dd}<span class="tx">${tx}</span>${am || ''}</button>`;   // 줄을 누르면 그 메뉴로 간다
-    const rows = evs.slice(0, 6).map((e) => row(e.view || 'calendar', e.sub, `<span class="dd">${e.time ? esc(e.time) : e.kind === 'hol' ? '공휴일' : '종일'}</span>`, `${e.icon ? e.icon + ' ' : ''}${esc(e.text)}`));
+    const row = (view, sub, dd, tx, am, x = {}) => `<button type="button" class="dash-row" data-sv="${attr(view)}"${sub ? ` data-ssub="${attr(sub)}"` : ''}${x.ref ? ` data-sref="${attr(x.ref)}"` : ''}${x.mode ? ` data-smode="${attr(x.mode)}"` : ''}${x.date ? ` data-sdate="${x.date}"` : ''}>${dd}<span class="tx">${tx}</span>${am || ''}</button>`;   // 줄을 누르면 그 메뉴로 간다
+    const rows = evs.slice(0, 6).map((e) => row(e.view || 'calendar', e.sub, `<span class="dd">${e.time ? esc(e.time) : e.kind === 'hol' ? '공휴일' : '종일'}</span>`, `${e.icon ? e.icon + ' ' : ''}${esc(e.text)}`, '', { ref: e.ref, mode: e.mode, date: today }));
     if (evs.length > 6) rows.push(`<button type="button" class="dash-empty link" data-sv="calendar">그 밖에 ${evs.length - 6}건 더 있어요 › 캘린더에서 보기</button>`);
     const medsLeft = health.meds.filter((m) => medActive(m, today) && (m.times || []).some((t) => !((m.taken && m.taken[today]) || []).includes(t))).length;
-    if (medsLeft && !tabHidden('health')) rows.push(row('health', '', '<span class="dd">복약</span>', `💊 오늘 먹을 약 ${medsLeft}개 남음`));
+    if (medsLeft && !tabHidden('health')) rows.push(row('health', '', '<span class="dd">복약</span>', `💊 오늘 먹을 약 ${medsLeft}개 남음`, '', { mode: 'meds' }));
     const sch = schedule.items.filter((i) => i.day === dow);
     if (sch.length && !tabHidden('schedule')) rows.push(row('schedule', '', '<span class="dd">시간표</span>', `🗓 ${sch.slice(0, 3).map((i) => esc(i.title)).join(', ')}${sch.length > 3 ? ' 외 ' + (sch.length - 3) + '개' : ''}`));
     const up = calRange('fin', today, addDays(today, 14), true).map, ups = [];
     Object.keys(up).sort().forEach((d) => up[d].filter((e) => e.kind === 'pay' || e.kind === 'inc').forEach((e) => ups.push({ d, e })));
-    const upRows = ups.slice(0, 6).map(({ d, e }) => { const dd = diffDays(d, today); return row(e.view || 'ledger', e.sub, `<span class="dd${dd === 0 ? ' today' : ''}">${dd === 0 ? '오늘' : 'D-' + dd}</span>`, `${e.icon ? e.icon + ' ' : ''}${esc(e.text)}`, e.amt ? `<span class="am${e.kind === 'inc' ? ' inc' : ''}">${e.kind === 'inc' ? '+' : ''}${formatWon(e.amt)}</span>` : ''); });
+    const upRows = ups.slice(0, 6).map(({ d, e }) => { const dd = diffDays(d, today); return row(e.view || 'ledger', e.sub, `<span class="dd${dd === 0 ? ' today' : ''}">${dd === 0 ? '오늘' : 'D-' + dd}</span>`, `${e.icon ? e.icon + ' ' : ''}${esc(e.text)}`, e.amt ? `<span class="am${e.kind === 'inc' ? ' inc' : ''}">${e.kind === 'inc' ? '+' : ''}${formatWon(e.amt)}</span>` : '', { ref: e.ref, mode: e.mode, date: d }); });
     if (ups.length > 6) upRows.push(`<button type="button" class="dash-empty link" data-sv="ledger" data-ssub="fin">그 밖에 ${ups.length - 6}건 더 있어요 › 금융캘린더에서 보기</button>`);
     return `<h2 class="section-title" style="margin:18px 0 0">오늘 · ${new Date().getMonth() + 1}월 ${new Date().getDate()}일 (${DAYN[dow]})</h2>${rows.join('') || '<button type="button" class="dash-empty link" data-sv="calendar">오늘은 등록된 일정이 없어요 › 일정 추가하러 가기</button>'}`
       + `<h2 class="section-title" style="margin:18px 0 0">다가오는 납부일 · 14일 이내</h2>${upRows.join('') || '<button type="button" class="dash-empty link" data-sv="ledger" data-ssub="card">14일 안에 납부·수입 예정이 없어요 › 자동이체 보기</button>'}`;
@@ -3089,16 +3123,16 @@
   // 운동·건강·저축·냉장고 한눈 요약(눌러서 해당 메뉴로)
   function dashTiles() {
     const today = todayStr(), ws = weekStartOf(today), tiles = [];
-    const tile = (view, title, main, sub) => { if (!tabHidden(view)) tiles.push(`<button type="button" class="dash-tile" data-sv="${view}"><small>${title}</small><b>${main}</b><span>${sub}</span></button>`); };
+    const tile = (view, title, main, sub, x = {}) => { if (!tabHidden(view)) tiles.push(`<button type="button" class="dash-tile" data-sv="${view}"${x.sub ? ` data-ssub="${x.sub}"` : ''}${x.ref ? ` data-sref="${attr(x.ref)}"` : ''}${x.mode ? ` data-smode="${x.mode}"` : ''}><small>${title}</small><b>${main}</b><span>${sub}</span></button>`); };
     const wk = fitSum(fit.log.filter((l) => l.date >= ws && l.date <= addDays(ws, 6))), g = fit.goals.me || {};
-    tile('fit', '💪 운동', fit.log.length ? `이번 주 ${wk.n}회${wk.min ? ' · ' + fmtMin(wk.min) : ''}` : '기록을 시작해 보세요', fit.log.length ? `${g.perWeek ? '목표 ' + g.perWeek + '회 · ' : ''}🔥 연속 ${fitStreak(fit.log)}일` : '운동 관리에서 첫 운동을 적어요');
+    tile('fit', '💪 운동', fit.log.length ? `이번 주 ${wk.n}회${wk.min ? ' · ' + fmtMin(wk.min) : ''}` : '기록을 시작해 보세요', fit.log.length ? `${g.perWeek ? '목표 ' + g.perWeek + '회 · ' : ''}🔥 연속 ${fitStreak(fit.log)}일` : '운동 관리에서 첫 운동을 적어요', { sub: 'log' });
     const next = health.visits.filter((v) => validDate(v.next) && v.next >= today).sort((a, b) => (a.next < b.next ? -1 : 1))[0];
     const planned = health.vaccines.filter((v) => !v.done).length, claim = health.visits.filter((v) => v.claim === 'todo').length;
-    tile('health', '🩺 건강', next ? `병원 예약 D-${diffDays(next.next, today)}` : '예정된 예약 없음', `${planned ? '접종 예정 ' + planned + '건' : '접종 예정 없음'}${claim ? ' · 실비 청구 ' + claim + '건' : ''}`);
+    tile('health', '🩺 건강', next ? `병원 예약 D-${diffDays(next.next, today)}` : '예정된 예약 없음', `${planned ? '접종 예정 ' + planned + '건' : '접종 예정 없음'}${claim ? ' · 실비 청구 ' + claim + '건' : ''}`, next ? { ref: next.id, mode: 'visit' } : planned ? { mode: 'vaccine' } : { mode: 'visit' });
     const savTotal = savings.accounts.reduce((a, x) => a + savBal(x.id), 0);
     tile('savings', '🐷 저축', savings.accounts.length ? formatWon(savTotal) : '통장·목표 없음', savings.accounts.length ? `통장·목표 ${savings.accounts.length}개` : '목표를 만들어 보세요');
     const soon = fridge.filter((f) => { const d = ddOf(f); return d !== null && d <= 3; }).length;
-    tile('food', '🍳 냉장고', fridge.length ? `재료 ${fridge.length}개` : '재료 없음', soon ? `소비기한 임박 ${soon}개` : '임박한 재료 없음');
+    tile('food', '🍳 냉장고', fridge.length ? `재료 ${fridge.length}개` : '재료 없음', soon ? `소비기한 임박 ${soon}개` : '임박한 재료 없음', { mode: 'fridge', ref: (fridge.filter((f) => ddOf(f) !== null && ddOf(f) <= 3).sort((a, b) => ddOf(a) - ddOf(b))[0] || {}).id });
     return tiles.length ? `<h2 class="section-title" style="margin:18px 0 8px">주요 기록 요약</h2><div class="dash-tiles">${tiles.join('')}</div>` : '';
   }
   // 첫 사용자 안내: 기록이 하나도 없고 닫지 않았을 때만(기록을 시작하면 저절로 사라진다)
@@ -6825,20 +6859,20 @@
     const wOk = (w) => who === undefined || (who === 'all' ? !w || pplIds.includes(w) : !w || w === who);   // 내 일정: 구성원 없음(함께)은 늘 보인다
     const hOk = (w) => who === undefined || (who === 'all' ? pplIds.includes(w) : w === who);
     const on = (k) => src.includes(k) && (force || !off.has(k));
-    const add = (kind, date, o) => { if (o.view && tabHidden(o.view)) return; if ((o.tabOk || on(kind)) && validDate(date) && date >= from && date <= to) (map[date] = map[date] || []).push({ kind, color: CAL_KIND_COLOR[kind], ...o }); };
+    const add = (kind, date, o) => { if (o.view && tabHidden(o.view)) return; if ((o.tabOk || on(kind)) && validDate(date) && date >= from && date <= to) (map[date] = map[date] || []).push({ kind, date, color: CAL_KIND_COLOR[kind], ...o }); };
     const ms = [];
     for (let d = new Date(+from.slice(0, 4), +from.slice(5, 7) - 1, 1); dstr(d) <= to; d.setMonth(d.getMonth() + 1)) ms.push([d.getFullYear(), d.getMonth()]);
 
     if (on('health')) {
       health.visits.filter((v) => hOk(v.who)).forEach((v) => {
-        add('health', v.date, { icon: '🏥', text: `${whoName(v.who)} · ${v.hospital} 진료`, view: 'health' });
-        add('health', v.next, { icon: '🏥', text: `${whoName(v.who)} · ${v.hospital} 예약`, view: 'health' });
+        add('health', v.date, { icon: '🏥', text: `${whoName(v.who)} · ${v.hospital} 진료`, view: 'health', ref: v.id, mode: 'visit' });
+        add('health', v.next, { icon: '🏥', text: `${whoName(v.who)} · ${v.hospital} 예약`, view: 'health', ref: v.id, mode: 'visit' });
       });
-      health.vaccines.filter((v) => hOk(v.who)).forEach((v) => add('health', v.date, { icon: '💉', text: `${whoName(v.who)} · ${v.name}${v.dose ? ' ' + v.dose : ''} 접종${v.done ? ' 완료' : ' 예정'}`, view: 'health' }));
+      health.vaccines.filter((v) => hOk(v.who)).forEach((v) => add('health', v.date, { icon: '💉', text: `${whoName(v.who)} · ${v.name}${v.dose ? ' ' + v.dose : ''} 접종${v.done ? ' 완료' : ' 예정'}`, view: 'health', ref: v.id, mode: 'vaccine' }));
     }
     if (on('fit')) {
       // 운동 관리의 기록은 한 일(💪)로, 주간 목표 요일은 아직 안 한 오늘·앞으로의 날에 "목표일"로 보여 준다(그날 이미 운동했으면 표시하지 않는다)
-      fit.log.filter((l) => hOk(fitWho(l))).forEach((l) => add('fit', l.date, { icon: '💪', text: `${whoName(fitWho(l))} · ${fitName(l.type).replace(/^\S+\s/, '')}${+l.min ? ' ' + fmtMin(+l.min) : ''}`, view: 'fit' }));
+      fit.log.filter((l) => hOk(fitWho(l))).forEach((l) => add('fit', l.date, { icon: '💪', text: `${whoName(fitWho(l))} · ${fitName(l.type).replace(/^\S+\s/, '')}${+l.min ? ' ' + fmtMin(+l.min) : ''}`, view: 'fit', ref: l.id }));
       const t0 = todayStr();
       Object.keys(fit.goals).filter((w) => hOk(w)).forEach((w) => {
         const days = (fit.goals[w] || {}).days;
@@ -6848,7 +6882,7 @@
         }
       });
     }
-    if (on('life')) fridge.forEach((f) => add('life', f.expiry, { icon: '🧊', text: `${f.name} 소비기한`, view: 'food' }));
+    if (on('life')) fridge.forEach((f) => add('life', f.expiry, { icon: '🧊', text: `${f.name} 소비기한`, view: 'food', ref: f.id, mode: 'fridge' }));
 
     if (on('pay') || on('inc')) {
       const linked = new Set([...insurance, ...rentals, ...academies].map((x) => x.recurId).filter(Boolean));
@@ -6858,41 +6892,41 @@
           if (p.status === 'ended' || !(p.payDay >= 1)) return;
           if (p.freq === 'year' && m + 1 !== (p.payMonth >= 1 ? p.payMonth : 1)) return;
           const d = ymdOf(y, m, p.payDay), end = insEnd(p);
-          if ((!validDate(p.start) || d >= p.start) && (!end || d < end)) add('pay', d, { icon: '🛡', text: `보험료 ${p.name}`, amt: +p.premium || 0, view: 'insurance' });
+          if ((!validDate(p.start) || d >= p.start) && (!end || d < end)) add('pay', d, { icon: '🛡', text: `보험료 ${p.name}`, amt: +p.premium || 0, view: 'insurance', ref: p.id });
         });
         rentals.forEach((r) => {
           if (r.status === 'ended' || !(r.payDay >= 1) || !(+r.fee > 0)) return;
           const d = ymdOf(y, m, r.payDay), end = rentEnd(r);
-          if ((!validDate(r.start) || d >= r.start) && (!end || d <= end)) add('pay', d, { icon: '🧰', text: `이용료 ${r.name}`, amt: +r.fee || 0, view: 'rental' });
+          if ((!validDate(r.start) || d >= r.start) && (!end || d <= end)) add('pay', d, { icon: '🧰', text: `이용료 ${r.name}`, amt: +r.fee || 0, view: 'rental', ref: r.id });
         });
-        academies.filter((a) => a.status === 'active' && a.payDay >= 1 && acaInMonth(a, ym)).forEach((a) => add('pay', ymdOf(y, m, a.payDay), { icon: '📚', text: `${whoName(a.who)} · ${a.name} 학원비`, amt: +a.fee || 0, view: 'academy' }));
-        cards.filter((c) => c.kind === 'credit' && c.payDay >= 1).forEach((c) => add('pay', ymdOf(y, m, c.payDay), { icon: '💳', text: `${c.name} 결제일`, view: 'ledger', sub: 'card' }));
+        academies.filter((a) => a.status === 'active' && a.payDay >= 1 && acaInMonth(a, ym)).forEach((a) => add('pay', ymdOf(y, m, a.payDay), { icon: '📚', text: `${whoName(a.who)} · ${a.name} 학원비`, amt: +a.fee || 0, view: 'academy', ref: a.id }));
+        cards.filter((c) => c.kind === 'credit' && c.payDay >= 1).forEach((c) => add('pay', ymdOf(y, m, c.payDay), { icon: '💳', text: `${c.name} 결제일`, view: 'ledger', sub: 'card', ref: c.id }));
         recurs.filter((r) => !linked.has(r.id) && r.day >= 1).forEach((r) => {
           const d = ymdOf(y, m, r.day);
           if (validDate(r.start) && d < r.start) return;
-          add(r.type === 'income' ? 'inc' : 'pay', d, { icon: r.type === 'income' ? '💵' : '🔁', text: r.name, amt: r.amount, view: 'ledger', sub: 'card' });
+          add(r.type === 'income' ? 'inc' : 'pay', d, { icon: r.type === 'income' ? '💵' : '🔁', text: r.type === 'income' ? `${r.name} (고정수입)` : `${r.name} (자동이체)`, amt: r.amount, view: 'ledger', sub: 'card', ref: r.id });
         });
         salary.jobs.filter((j) => (j.status || 'on') === 'on' && j.payDay >= 1).forEach((j) => {
           const lastNet = (salary.log.filter((l) => l.jid === j.id).sort((a, b) => (a.date < b.date ? 1 : -1))[0] || {}).net || 0;
-          add('inc', ymdOf(y, m, j.payDay), { icon: '💵', text: `${j.name} 월급일`, amt: lastNet, view: 'salary' });
+          add('inc', ymdOf(y, m, j.payDay), { icon: '💵', text: `${j.name} 월급일`, amt: lastNet, view: 'salary', ref: j.id });
         });
       });
     }
     if (on('contract')) {
       insurance.forEach((p) => {
         if (p.status === 'ended') return;
-        [['갱신', p.renewal], ['보장 만기', p.expiry], p.freq === 'once' ? ['일시납 납부', p.start] : ['납입 만기', insEnd(p)]].forEach(([label, d]) => add('contract', d, { icon: '🛡', text: `${p.name} ${label}`, view: 'insurance' }));
+        [['갱신', p.renewal], ['보장 만기', p.expiry], p.freq === 'once' ? ['일시납 납부', p.start] : ['납입 만기', insEnd(p)]].forEach(([label, d]) => add('contract', d, { icon: '🛡', text: `${p.name} ${label}`, view: 'insurance', ref: p.id }));
       });
       rentals.forEach((r) => {
         if (r.status === 'ended') return;
-        add('contract', r.nextVisit, { icon: '🧰', text: `${r.name} 방문 관리`, view: 'rental' });
-        add('contract', rentEnd(r), { icon: '🧰', text: `${r.name} 약정 만료`, view: 'rental' });
+        add('contract', r.nextVisit, { icon: '🧰', text: `${r.name} 방문 관리`, view: 'rental', ref: r.id });
+        add('contract', rentEnd(r), { icon: '🧰', text: `${r.name} 약정 만료`, view: 'rental', ref: r.id });
       });
     }
     if (on('save')) {
       savings.accounts.forEach((a) => {
-        if (a.payDay >= 1) ms.forEach(([y, m]) => add('save', ymdOf(y, m, a.payDay), { icon: '🐷', text: `${a.name} 저축일`, amt: a.monthly || 0, view: 'savings' }));
-        add('save', a.goalDate, { icon: '🐷', text: `${a.name} 목표일`, view: 'savings' });
+        if (a.payDay >= 1) ms.forEach(([y, m]) => add('save', ymdOf(y, m, a.payDay), { icon: '🐷', text: `${a.name} 저축일`, amt: a.monthly || 0, view: 'savings', ref: a.id }));
+        add('save', a.goalDate, { icon: '🐷', text: `${a.name} 목표일`, view: 'savings', ref: a.id });
       });
     }
     if (on('hol')) for (let y = +from.slice(0, 4); y <= +to.slice(0, 4); y++) { const h = calHolidays(y); Object.keys(h).forEach((d) => add('hol', d, { text: h[d] })); }
@@ -6976,7 +7010,7 @@
   };
   function calItemHtml(e) {
     const c = e.color || CAL_COLORS[0], tm = calTime(e), md = (d) => d.slice(5).replace('-', '/');
-    return `<button type="button" class="dc-item${e.kind === 'hol' ? ' hol' : ''}"${e.kind === 'hol' ? '' : ` style="background:${tone(c, e.text, true)}"`}${e.id ? ` data-cid="${attr(e.id)}"${e.occ ? ` data-cocc="${attr(e.occ)}"` : ''}` : e.view ? ` data-cv="${e.view}"` : ''}${e.sub ? ` data-csub="${e.sub}"` : ''}>`
+    return `<button type="button" class="dc-item${e.kind === 'hol' ? ' hol' : ''}"${e.kind === 'hol' ? '' : ` style="background:${tone(c, e.text, true)}"`}${e.id ? ` data-cid="${attr(e.id)}"${e.occ ? ` data-cocc="${attr(e.occ)}"` : ''}` : e.view ? ` data-cv="${e.view}"` : ''}${e.sub ? ` data-csub="${e.sub}"` : ''}${e.ref ? ` data-cref="${attr(e.ref)}"` : ''}${e.mode ? ` data-cmode="${attr(e.mode)}"` : ''}${e.view && e.date ? ` data-cdate="${e.date}"` : ''}>`
       + `<span class="t">${tm ? `<b>${tm}</b> ` : ''}${e.icon ? e.icon + ' ' : ''}${esc(e.text)}${e.repeat ? ' <small>↻</small>' : ''}${e.multi ? ` <small>(${md(e.occ)} ~ ${md(e.occEnd)})</small>` : ''}</span>${e.amt ? `<span class="a">${formatWon(e.amt)}</span>` : ''}</button>`;
   }
   function calDayHtml(cal, date, map) {
@@ -7074,7 +7108,7 @@
     const row = e.target.closest('[data-cid], [data-cv]');
     if (!row) return;
     if (row.dataset.cid) openCalSheet(calItems.find((x) => x.id === row.dataset.cid), undefined, row.dataset.cocc);
-    else { if (row.dataset.csub) setSubTab('ledger', row.dataset.csub); setView(row.dataset.cv); window.scrollTo(0, 0); }
+    else goTo(row.dataset.cv, { sub: row.dataset.csub, ref: row.dataset.cref, mode: row.dataset.cmode, date: row.dataset.cdate });
   }
   ['cal-filters', 'cal-body'].forEach((id) => el(id).addEventListener('click', (e) => calClick('diary', e)));
   ['fin-filters', 'fin-body'].forEach((id) => el(id).addEventListener('click', (e) => calClick('fin', e)));
@@ -7615,21 +7649,21 @@
   function todoItems() {
     const today = todayStr();
     const items = [];
-    const add = (dd, text, view, icon) => items.push({ dd, text, view, icon });
+    const add = (dd, text, view, icon, x) => items.push({ dd, text, view, icon, ...x });   // x: { ref, mode, sub, date } — 누르면 그 항목으로 간다
     const within = (date, lo, hi) => { if (!validDate(date)) return null; const dd = diffDays(date, today); return dd >= lo && dd <= hi ? dd : null; };
 
-    health.visits.forEach((v) => { const dd = within(v.next, 0, 7); if (dd !== null) add(dd, `${whoName(v.who)} · ${v.hospital} 예약`, 'health', '🏥'); });
+    health.visits.forEach((v) => { const dd = within(v.next, 0, 7); if (dd !== null) add(dd, `${whoName(v.who)} · ${v.hospital} 예약`, 'health', '🏥', { ref: v.id, mode: 'visit' }); });
     const claim = health.visits.filter((v) => v.claim === 'todo').length;
-    if (claim) add(null, `실비 청구 필요 ${claim}건`, 'health', '🧾');
+    if (claim) add(null, `실비 청구 필요 ${claim}건`, 'health', '🧾', { mode: 'visit' });
     health.vaccines.filter((v) => !v.done).forEach((v) => {
       const dd = within(v.date, -365, 7);
-      if (dd !== null) add(dd, `${whoName(v.who)} · ${v.name}${v.dose ? ' ' + v.dose : ''} 접종`, 'health', '💉');
+      if (dd !== null) add(dd, `${whoName(v.who)} · ${v.name}${v.dose ? ' ' + v.dose : ''} 접종`, 'health', '💉', { ref: v.id, mode: 'vaccine' });
     });
     health.meds.forEach((m) => {
       if (!medActive(m, today) || !(m.times || []).length) return;
       const taken = (m.taken && m.taken[today]) || [];
       const left = m.times.filter((t) => !taken.includes(t));
-      if (left.length) add(0, `${whoName(m.who)} · ${m.name} ${left.map(slotName).join('·')}`, 'health', '💊');
+      if (left.length) add(0, `${whoName(m.who)} · ${m.name} ${left.map(slotName).join('·')}`, 'health', '💊', { mode: 'meds' });
     });
 
     insurance.forEach((p) => {
@@ -7638,37 +7672,37 @@
       if (st === 'active') {
         const d = p.freq === 'once' ? '' : nextPay(p.payDay, today, p.freq, p.payMonth);
         const dd = d ? within(d, 0, 3) : null;
-        if (dd !== null) add(dd, `보험료 ${p.name} ${formatWon(p.premium)}`, 'insurance', '🛡');
+        if (dd !== null) add(dd, `보험료 ${p.name} ${formatWon(p.premium)}`, 'insurance', '🛡', { ref: p.id });
         const e = within(p.freq === 'once' ? p.start : insEnd(p), 0, 30);
-        if (e !== null) add(e, `${p.name} ${p.freq === 'once' ? '일시납 납부' : '납입 만기'}`, 'insurance', '🛡');
+        if (e !== null) add(e, `${p.name} ${p.freq === 'once' ? '일시납 납부' : '납입 만기'}`, 'insurance', '🛡', { ref: p.id });
       }
       [['갱신', p.renewal], ['보장 만기', p.expiry]].forEach(([label, date]) => {
         const dd = within(date, -7, 30);
-        if (dd !== null) add(dd, `${p.name} ${label}`, 'insurance', '🛡');
+        if (dd !== null) add(dd, `${p.name} ${label}`, 'insurance', '🛡', { ref: p.id });
       });
     });
     rentals.forEach((r) => {
       if (rentState(r, today) === 'ended') return;
       const d = +r.fee > 0 ? nextPay(r.payDay, today, 'month') : '';   // 무료 제공은 납부일이 없다
       const dd = d ? within(d, 0, 3) : null;
-      if (dd !== null) add(dd, `이용료 ${r.name} ${formatWon(+r.fee || 0)}`, 'rental', '🧰');
+      if (dd !== null) add(dd, `이용료 ${r.name} ${formatWon(+r.fee || 0)}`, 'rental', '🧰', { ref: r.id });
       const v = within(r.nextVisit, -7, 7);
-      if (v !== null) add(v, `${r.name} 방문 관리`, 'rental', '🧰');
+      if (v !== null) add(v, `${r.name} 방문 관리`, 'rental', '🧰', { ref: r.id });
       const e = within(rentEnd(r), -30, 60);
-      if (e !== null) add(e, `${r.name} 약정 만료 (해지·재약정 확인)`, 'rental', '🧰');
+      if (e !== null) add(e, `${r.name} 약정 만료 (해지·재약정 확인)`, 'rental', '🧰', { ref: r.id });
     });
     const ym = today.slice(0, 7);
     academies.filter((a) => a.status === 'active' && a.payDay && acaInMonth(a, ym) && !acaPaid(a, ym)).forEach((a) => {
       const due = ymdOf(+ym.slice(0, 4), +ym.slice(5, 7) - 1, a.payDay);
       const dd = diffDays(due, today);
-      if (dd <= 7) add(dd, `${whoName(a.who)} · ${a.name} 학원비 ${dd < 0 ? '미납' : '납부'}`, 'academy', '📚');
+      if (dd <= 7) add(dd, `${whoName(a.who)} · ${a.name} 학원비 ${dd < 0 ? '미납' : '납부'}`, 'academy', '📚', { ref: a.id });
     });
     cards.filter((c) => c.kind === 'credit' && c.payDay).forEach((c) => {
       const d = nextPay(c.payDay, today, 'month');
       const dd = d ? within(d, 0, 3) : null;
-      if (dd !== null) add(dd, `${c.name} 결제일`, 'ledger', '💳');
+      if (dd !== null) add(dd, `${c.name} 결제일`, 'ledger', '💳', { sub: 'card', ref: c.id });
     });
-    fridge.forEach((f) => { const dd = within(f.expiry, -30, 2); if (dd !== null) add(dd, `냉장고 · ${f.name} 소비기한${dd < 0 ? ' 지남' : ''}`, 'food', '🧊'); });
+    fridge.forEach((f) => { const dd = within(f.expiry, -30, 2); if (dd !== null) add(dd, `냉장고 · ${f.name} 소비기한${dd < 0 ? ' 지남' : ''}`, 'food', '🧊', { ref: f.id, mode: 'fridge' }); });
     // 운동 주간 목표(운동 관리): 이번 주(일~토) 목표를 아직 못 채웠고 시간이 빠듯할 때만 올린다 — 주말(금·토)이거나, 오늘이 정한 요일인데 아직 안 했거나, 횟수 목표가 남은 날로 겨우 채울 수준일 때.
     // 남은 횟수·시간·요일을 한 줄로 알린다(예: "민지 · 이번 주 운동 2회·45분 남음 (남은 요일 금·토)"). 이미 지난 요일은 만회할 수 없으니 알리지 않는다.
     {
@@ -7688,7 +7722,7 @@
     // 알림을 정해 둔 내 일정: 알림 시각이 지났고 아직 끝나지 않았으면 "확인할 일"에 올린다
     calAlarmDue(new Date()).forEach(({ e, at, end }) => {
       const nowT = new Date();
-      if (nowT >= at && nowT <= end) add(diffDays(e.date, today), `${e.time ? e.time + ' ' : ''}${e.text}`, 'calendar', '⏰');
+      if (nowT >= at && nowT <= end) add(diffDays(e.date, today), `${e.time ? e.time + ' ' : ''}${e.text}`, 'calendar', '⏰', { date: e.date });
     });
     return items.filter((i) => !tabHidden(i.view)).sort((a, b) => (a.dd === null ? 9999 : a.dd) - (b.dd === null ? 9999 : b.dd));
   }
@@ -7708,7 +7742,7 @@
     el('todo-list').hidden = !open;
     el('todo-list').innerHTML = items.map((i) => {
       const dd = i.dd === null ? '' : i.dd === 0 ? '오늘' : i.dd > 0 ? 'D-' + i.dd : -i.dd + '일 지남';
-      return `<button type="button" class="todo-item" data-tv="${i.view}"><span>${i.icon}</span><span class="td-text">${esc(i.text)}</span><span class="td-dd${i.dd !== null && i.dd < 0 ? ' late' : i.dd === 0 ? ' today' : ''}">${dd}</span></button>`;
+      return `<button type="button" class="todo-item" data-tv="${i.view}"${i.sub ? ` data-ssub="${attr(i.sub)}"` : ''}${i.ref ? ` data-sref="${attr(i.ref)}"` : ''}${i.mode ? ` data-smode="${attr(i.mode)}"` : ''}${i.date ? ` data-sdate="${i.date}"` : ''}><span>${i.icon}</span><span class="td-text">${esc(i.text)}</span><span class="td-dd${i.dd !== null && i.dd < 0 ? ' late' : i.dd === 0 ? ' today' : ''}">${dd}</span></button>`;
     }).join('');
   }
   el('todo-head').addEventListener('click', () => {
@@ -7717,7 +7751,7 @@
   });
   el('todo-list').addEventListener('click', (e) => {
     const b = e.target.closest('[data-tv]');
-    if (b) { setView(b.dataset.tv); window.scrollTo(0, 0); }
+    if (b) goTo(b.dataset.tv, { sub: b.dataset.ssub, ref: b.dataset.sref, mode: b.dataset.smode, date: b.dataset.sdate });
   });
 
   /* 캘린더 알람 내보내기 */
@@ -8036,9 +8070,9 @@
     const DAYN = ['일', '월', '화', '수', '목', '금', '토'];
     el('status-body').innerHTML = `<div class="month-nav" style="margin-bottom:10px"><div class="label">${now.getFullYear()}년 ${now.getMonth() + 1}월 ${now.getDate()}일 (${DAYN[dow]})</div></div>
       <div class="summary-grid">
-        <div class="summary-item income" data-sv="ledger" role="button" tabindex="0"><div class="lbl">이번 달 수입</div><div class="val">${formatWon(inc)}</div></div>
-        <div class="summary-item expense" data-sv="ledger" role="button" tabindex="0"><div class="lbl">지출</div><div class="val">${formatWon(exp)}</div></div>
-        <div class="summary-item balance" data-sv="ledger" role="button" tabindex="0"><div class="lbl">잔액</div><div class="val">${bal < 0 ? '-' : ''}${formatWon(Math.abs(bal))}</div></div></div>
+        <div class="summary-item income" data-sv="ledger" data-ssub="sum" role="button" tabindex="0"><div class="lbl">이번 달 수입</div><div class="val">${formatWon(inc)}</div></div>
+        <div class="summary-item expense" data-sv="ledger" data-ssub="sum" role="button" tabindex="0"><div class="lbl">지출</div><div class="val">${formatWon(exp)}</div></div>
+        <div class="summary-item balance" data-sv="ledger" data-ssub="sum" role="button" tabindex="0"><div class="lbl">잔액</div><div class="val">${bal < 0 ? '-' : ''}${formatWon(Math.abs(bal))}</div></div></div>
       <div data-sub="chart">${statusChartsHtml() || '<div class="empty-msg">아직 그래프로 보여 줄 기록이 없어요</div>'}</div>
       <div data-sub="table">${dashWelcome()}${dashShortcuts()}${dashAgenda()}${dashTiles()}<h2 class="section-title" style="margin:18px 0 0">관리 현황표</h2>
       <table class="st-table"><thead><tr><th>영역</th><th>현황</th><th>금액</th></tr></thead><tbody>${rows}</tbody></table>
@@ -8051,8 +8085,7 @@
     if (vm) { stSel = +vm.dataset.vm; renderStatus(); return; }
     if (e.target.closest('[data-wclose]')) { try { localStorage.setItem(WELCOME_KEY, '1'); } catch (err) { /* 무시 */ } renderStatus(); return; }
     const t = e.target.closest('[data-sv], [data-tv]');
-    if (t && t.dataset.ssub) setSubTab('ledger', t.dataset.ssub);
-    if (t) { setView(t.dataset.sv || t.dataset.tv); window.scrollTo(0, 0); }
+    if (t) goTo(t.dataset.sv || t.dataset.tv, { sub: t.dataset.ssub, ref: t.dataset.sref, mode: t.dataset.smode, date: t.dataset.sdate });
   });
 
   /* ---------- 동기화 (GitHub 비공개 저장소) ---------- */
@@ -8537,7 +8570,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v113'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v114'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span class="slogan">다달이, 매일의 기록이 모여<br><b>더 나은 생활</b>이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
