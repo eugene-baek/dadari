@@ -7510,6 +7510,22 @@
       if (dd !== null) add(dd, `${c.name} 결제일`, 'ledger', '💳');
     });
     fridge.forEach((f) => { const dd = within(f.expiry, -30, 2); if (dd !== null) add(dd, `냉장고 · ${f.name} 소비기한${dd < 0 ? ' 지남' : ''}`, 'food', '🧊'); });
+    // 운동 주간 목표(운동관리): 이번 주(일~토) 목표를 아직 못 채웠고 시간이 빠듯할 때만 올린다 — 주말(금·토)이거나, 오늘이 정한 요일인데 아직 안 했거나, 횟수 목표가 남은 날로 겨우 채울 수준일 때.
+    // 남은 횟수·시간·요일을 한 줄로 알린다(예: "민지 · 이번 주 운동 2회·45분 남음 (남은 요일 금·토)"). 이미 지난 요일은 만회할 수 없으니 알리지 않는다.
+    {
+      const ws = weekStartOf(today), dayIdx = diffDays(today, ws), left = 7 - dayIdx, dnm = ['일', '월', '화', '수', '목', '금', '토'];
+      people().filter((pp) => fit.goals[pp.id]).forEach((pp) => {
+        const g = fit.goals[pp.id], wk = fit.log.filter((l) => fitWho(l) === pp.id && l.date >= ws && l.date <= addDays(ws, 6)), sum = fitSum(wk);
+        const needN = g.perWeek ? Math.max(0, g.perWeek - sum.n) : 0, needMin = g.minWeek ? Math.max(0, g.minWeek - sum.min) : 0;
+        const tdays = Array.isArray(g.days) ? g.days : [], leftDays = tdays.filter((i) => i >= dayIdx && !wk.some((l) => l.date === addDays(ws, i))).sort((a, b) => a - b);
+        if (!needN && !needMin && !leftDays.length) return;
+        const todayTarget = leftDays.includes(dayIdx), tight = needN > 0 && left - needN <= 1;
+        if (!(dayIdx >= 5 || todayTarget || tight)) return;
+        const parts = [needN ? needN + '회' : '', needMin ? fmtMin(needMin) : ''].filter(Boolean).join('·');
+        const dayTxt = leftDays.length ? `남은 요일 ${leftDays.map((i) => dnm[i]).join('·')}` : '';
+        add(todayTarget ? 0 : 6 - dayIdx, `${whoName(pp.id)} · 이번 주 운동 ${parts ? parts + ' 남음' : '목표 요일 남음'}${dayTxt ? ' (' + dayTxt + ')' : ''}`, 'fit', '💪');
+      });
+    }
     // 알림을 정해 둔 내 일정: 알림 시각이 지났고 아직 끝나지 않았으면 "확인할 일"에 올린다
     calAlarmDue(new Date()).forEach(({ e, at, end }) => {
       const nowT = new Date();
@@ -8361,7 +8377,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v105'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v106'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span class="slogan">다달이, 매일의 기록이 모여<br><b>더 나은 생활</b>이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
