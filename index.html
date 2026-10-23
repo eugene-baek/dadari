@@ -3738,9 +3738,10 @@
     const today = todayStr();
     const tag = (m) => (healthWho === 'all' && ppl.length > 1 ? `<span class="who-tag">${escapeHtml(whoName(m.who))}</span>` : '');
     const title = (m) => escapeHtml(m.name || '') + (m.dose ? ' ' + escapeHtml(m.dose) : '') + tag(m);
-    const active = list.filter((m) => medActive(m, today));
-    const ended = list.filter((m) => validDate(m.end) && m.end < today);
-    const upcoming = list.filter((m) => !medActive(m, today) && !ended.includes(m));
+    const byMed = nameSort((m) => m.name);
+    const active = list.filter((m) => medActive(m, today)).sort(byMed);
+    const ended = list.filter((m) => validDate(m.end) && m.end < today).sort(byMed);
+    const upcoming = list.filter((m) => !medActive(m, today) && !ended.includes(m)).sort(byMed);
     const timesOf = (m) => ((m.times || []).length ? m.times.map(slotName).join('·') : '필요할 때');
     const refill = (m) => {
       if (!validDate(m.refill)) return '';
@@ -4055,6 +4056,8 @@
   const ymdOf = (y, m, d) => y + '-' + pad2(m + 1) + '-' + pad2(clampDay(y, m, d));
   const ddText = (dd) => (dd === 0 ? '오늘' : dd > 0 ? 'D-' + dd : -dd + '일 지남');
   const esc = (s) => escapeHtml(s == null ? '' : String(s));
+  // 날짜가 없는 목록(보험·렌탈·학원·저축·직장·부업·복약)은 이름(가나다) 순으로 늘어놓는다. 날짜가 있는 목록은 날짜순을 그대로 둔다.
+  function nameSort(label) { return (a, b) => String(label(a) || '').localeCompare(String(label(b) || ''), 'ko'); }
 
   // start 이후 오늘까지 도래한 납입일 수(end가 있으면 그 날짜 전까지만 센다).
   function dueCount(start, day, today, end, freq, payMonth) {
@@ -4155,7 +4158,8 @@
     const ppl = people();
     const list = insurance.filter((p) => whoPick(conWho, p.who));
     const tag = (p) => (conWho === 'all' && ppl.length > 1 ? `<span class="who-tag">${esc(whoName(p.who))}</span>` : '');
-    const by = (st) => list.filter((p) => insState(p, today) === st);
+    const insLabel = (p) => (p.insurer ? p.insurer + ' ' : '') + p.name;
+    const by = (st) => list.filter((p) => insState(p, today) === st).sort(nameSort(insLabel));
     const active = by('active'), paidup = by('paidup'), ended = by('ended');
     const monthly = Math.round(active.reduce((s, p) => s + monthlyOf(p), 0));
     const yearly = active.reduce((s, p) => s + (p.freq === 'once' ? 0 : p.freq === 'year' ? p.premium : p.premium * 12), 0);
@@ -4197,7 +4201,7 @@
       return `<button type="button" class="visit" data-ins="${p.id}"><div class="v1"><span>${esc(p.insurer ? p.insurer + ' ' : '')}${esc(p.name)}${tag(p)}${p.kind ? `<span class="ins-badge">${esc(p.kind)}</span>` : ''}${badge}</span><span>${p.freq === 'once' ? '일시납 ' : p.freq === 'year' ? '연 ' : '월 '}${formatWon(p.premium)}</span></div>
         <div class="v2">${parts.filter(Boolean).map(esc).join(' · ')}</div></button>`;
     };
-    if (active.length) html += `<div class="h-sec">납입 중 · ${active.length}건</div>` + active.sort((a, b) => monthlyOf(b) - monthlyOf(a)).map(row).join('');
+    if (active.length) html += `<div class="h-sec">납입 중 · ${active.length}건</div>` + active.map(row).join('');
     if (paidup.length) html += `<div class="h-sec">납입 완료 (보장 중) · ${paidup.length}건</div>` + paidup.map(row).join('');
     if (ended.length) html += `<div class="h-sec">해지·종료 · ${ended.length}건</div>` + ended.map(row).join('');
     return html;
@@ -4209,8 +4213,9 @@
     const list = rentals.filter((r) => whoPick(conWho, r.who));
     if (!list.length) return '<div class="empty-msg">등록한 렌탈·구독이 없어요<br>아래 “＋ 렌탈·구독 추가”로 정수기·안마의자 같은 렌탈 계약이나 넷플릭스·음악 같은 구독을 기록하세요</div>';
     const tag = (r) => (conWho === 'all' && ppl.length > 1 ? `<span class="who-tag">${esc(whoName(r.who))}</span>` : '');
-    const live = list.filter((r) => rentState(r, today) !== 'ended');
-    const ended = list.filter((r) => rentState(r, today) === 'ended');
+    const rentLabel = (r) => (r.company ? r.company + ' ' : '') + r.name;
+    const live = list.filter((r) => rentState(r, today) !== 'ended').sort(nameSort(rentLabel));
+    const ended = list.filter((r) => rentState(r, today) === 'ended').sort(nameSort(rentLabel));
     const monthly = live.reduce((s, r) => s + (+r.fee || 0), 0);
     let html = `<div class="ins-sum">이용 중 <b>${live.length}건</b> · 월 <b>${formatWon(monthly)}</b><br>연 ${formatWon(monthly * 12)}</div>`;
 
@@ -4441,10 +4446,11 @@
     const list = academies.filter((a) => whoPick(conWho, a.who));
     if (!list.length) { el('aca-body').innerHTML = '<div class="empty-msg">등록한 학원이 없어요<br>아래 “＋ 학원 추가”로 학원과 월 수강료를 기록하세요</div>'; return; }
     const tag = (a) => (conWho === 'all' && ppl.length > 1 ? `<span class="who-tag">${esc(whoName(a.who))}</span>` : '');
-    const live = list.filter((a) => a.status === 'active' && acaInMonth(a, ym));
-    const idle = list.filter((a) => a.status === 'active' && !acaInMonth(a, ym));
-    const paused = list.filter((a) => a.status === 'paused');
-    const ended = list.filter((a) => a.status === 'ended');
+    const byAca = nameSort((a) => a.name);
+    const live = list.filter((a) => a.status === 'active' && acaInMonth(a, ym)).sort(byAca);
+    const idle = list.filter((a) => a.status === 'active' && !acaInMonth(a, ym)).sort(byAca);
+    const paused = list.filter((a) => a.status === 'paused').sort(byAca);
+    const ended = list.filter((a) => a.status === 'ended').sort(byAca);
     const total = live.reduce((s, a) => s + (+a.fee || 0), 0);
     const paidList = live.filter((a) => acaPaid(a, ym));
     const paidSum = paidList.reduce((s, a) => s + (+a.fee || 0), 0);
@@ -5132,7 +5138,7 @@
     const perWho = conWho === 'all' && ppl.length > 1 ? by(savWho, ppl) : '';
     const perKind = savKind === 'all' ? by((a) => a.kind || '기타', SAV_KINDS.map((k) => ({ id: k, name: k }))) : '';
     let html = `<div class="ins-sum">모은 돈 <b>${formatWon(total)}</b> · 통장·목표 ${list.length}개<br>이번 달 <b class="inc">${signWon(net(ym))}</b> · 올해 <b class="inc">${signWon(net(yr))}</b>${goalSum ? `<br>목표 합계 ${formatWon(goalSum)} 중 ${Math.round((goalHave / goalSum) * 100)}% 달성` : ''}${perWho ? '<br>' + perWho : ''}${perKind ? '<br>' + perKind : ''}</div>`;
-    html += list.map((a) => {
+    html += [...list].sort(nameSort((a) => a.name)).map((a) => {
       const bal = savBal(a.id), left = Math.max(0, a.goal - bal), pct = a.goal > 0 ? Math.round((bal / a.goal) * 100) : 0;
       const sub = [];
       if (a.goal > 0) sub.push(left > 0 ? `목표 ${formatWon(a.goal)} · 남은 ${formatWon(left)}` : `목표 ${formatWon(a.goal)} 달성 🎉`);
@@ -5621,12 +5627,13 @@
     }
 
     // 부업별(이번 달 순수익이 큰 순서)
-    const rows = jobs.map((j) => ({ j, mo: sideStats(logs.filter((l) => l.jid === j.id && l.date.startsWith(ym))), all: sideStats(logs.filter((l) => l.jid === j.id)) })).sort((a, b) => b.mo.net - a.mo.net);
+    const rows = jobs.map((j) => ({ j, mo: sideStats(logs.filter((l) => l.jid === j.id && l.date.startsWith(ym))), all: sideStats(logs.filter((l) => l.jid === j.id)) })).sort((a, b) => String(a.j.name).localeCompare(String(b.j.name), 'ko'));
+    const maxNet = Math.max(...rows.map((r) => r.mo.net));
     html += '<h2 class="section-title" style="margin:18px 0 4px">부업별 · ' + (sideView.m + 1) + '월</h2>' + rows.map(({ j, mo }, i) => {
       const gp = j.goal > 0 ? Math.round((mo.net / j.goal) * 100) : 0, st = SIDE_STATUS.find((x) => x[0] === (j.status || 'on')) || SIDE_STATUS[0];
       const sub = [`수입 ${formatWon(mo.income)}`, `비용 ${formatWon(mo.expense)}`, SIDE_UNIT[j.pay] && mo.qty > 0 ? mo.qty + SIDE_UNIT[j.pay] : '', mo.hours > 0 ? hoursTxt(mo.hours) : '', mo.hours > 0 ? wageTxt(mo.net, mo.hours) : '', j.pay && j.pay !== 'free' && j.rate > 0 ? SIDE_RATE[j.pay] + ' ' + formatWon(j.rate) : ''].filter(Boolean).join(' · ');
       const who = conWho === 'all' && ppl.length > 1 ? `<span class="who-tag">${esc(whoName(sideWho(j)))}</span>` : '';
-      return `<button type="button" class="visit" data-sj="${attr(j.id)}"><div class="v1"><span>${rows.length > 1 && i === 0 && mo.net > 0 ? '👑 ' : ''}${who}${esc(j.name)}${j.kind ? ` <span class="rt" style="font-size:10px;background:var(--accent-soft);color:var(--accent);border-radius:99px;padding:1px 7px">${esc(j.kind)}</span>` : ''}${st[0] !== 'on' ? ` <span class="rt" style="font-size:10px;background:var(--bg);color:var(--text-muted);border:1px solid var(--border);border-radius:99px;padding:1px 7px">${st[1]}</span>` : ''}</span><b style="${mo.net < 0 ? 'color:var(--expense)' : ''}">${net(mo.net)}</b></div>`
+      return `<button type="button" class="visit" data-sj="${attr(j.id)}"><div class="v1"><span>${rows.length > 1 && mo.net > 0 && mo.net === maxNet ? '👑 ' : ''}${who}${esc(j.name)}${j.kind ? ` <span class="rt" style="font-size:10px;background:var(--accent-soft);color:var(--accent);border-radius:99px;padding:1px 7px">${esc(j.kind)}</span>` : ''}${st[0] !== 'on' ? ` <span class="rt" style="font-size:10px;background:var(--bg);color:var(--text-muted);border:1px solid var(--border);border-radius:99px;padding:1px 7px">${st[1]}</span>` : ''}</span><b style="${mo.net < 0 ? 'color:var(--expense)' : ''}">${net(mo.net)}</b></div>`
         + (j.goal > 0 ? `<div class="bar" style="margin:6px 0 4px"><i class="${gp >= 100 ? '' : gp < 50 ? 'near' : ''}" style="width:${Math.max(0, Math.min(100, gp))}%"></i></div><div class="v2">월 목표 ${formatWon(j.goal)} · ${gp}%</div>` : '')
         + `<div class="v2">${sub}</div></button>`;
     }).join('');
@@ -5849,7 +5856,7 @@
         <div class="vz-labels">${months.map((x) => `<span class="${x.ym === ym ? 'sel' : ''}">${x.m}월</span>`).join('')}</div>`;
     }
 
-    html += '<h2 class="section-title" style="margin:18px 0 4px">직장별</h2>' + jobs.map((j) => {
+    html += '<h2 class="section-title" style="margin:18px 0 4px">직장별</h2>' + [...jobs].sort(nameSort((j) => j.name)).map((j) => {
       const all = salSum(logs.filter((l) => l.jid === j.id && l.date.startsWith(yr))), cur = salSum(logs.filter((l) => l.jid === j.id && l.date.startsWith(ym)));
       const st = SAL_STATUS.find((x) => x[0] === (j.status || 'on')) || SAL_STATUS[0];
       const who = conWho === 'all' && ppl.length > 1 ? `<span class="who-tag">${esc(whoName(salWho(j)))}</span>` : '';
@@ -8130,7 +8137,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v91'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v92'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span style="display:block;margin-bottom:4px">다달이, 매일의 기록이 모여 더 나은 생활이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
