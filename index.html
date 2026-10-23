@@ -213,9 +213,9 @@
     --text: #1c1e21;
     --text-muted: #566070;   /* 흰 바탕 6.4:1, 연한 칸 위에서도 5.7:1 이상 */
     --border: #e5e7eb;
-    --accent: #0f766e;   /* 강조색 하나: 로고 민트(#02c9b9)와 같은 색상(청록)을 진하고 차분하게 낮춘 색 — 흰 글씨 5.5:1, 형광처럼 튀지 않는다 */
-    --accent-fill: #0f766e;   /* 흰 글씨를 얹는 채움색(라이트·다크 모두 6.3:1). 다크의 --accent는 글씨용으로 밝아서 채움에는 이걸 쓴다 */
-    --accent-soft: #e3f4f1;
+    --accent: #c2255c;   /* 강조색 하나: 로고 민트(#02c9b9, 색상 175°)의 보색(반대 색상)인 장미빛 라즈베리 — 흰 글씨 5.7:1, 원색 빨강처럼 튀지 않는다 */
+    --accent-fill: #c2255c;   /* 흰 글씨를 얹는 채움색(라이트·다크 모두 6.3:1). 다크의 --accent는 글씨용으로 밝아서 채움에는 이걸 쓴다 */
+    --accent-soft: #fbe9ef;
     --income: #136f34;   /* 연한 초록 칸 위 5.5:1 이상 */
     --income-soft: #ecfdf3;
     --expense: #b91c1c;   /* 연한 빨강 칸 위 5.9:1 */
@@ -233,8 +233,8 @@
       --text: #eef0f3;
       --text-muted: #9aa0ab;
       --border: #2c2f38;
-      --accent: #4cc9bd;
-      --accent-soft: #10282a;
+      --accent: #f06595;
+      --accent-soft: #2f1823;
       --income: #4ade80;
       --income-soft: #1b2b20;
       --expense: #f87171;
@@ -711,7 +711,7 @@
   /* 공통 입력 방식: 꼭 써야 하는 칸의 이름 뒤에 빨간 *, 삭제는 한 번 더 눌러야 지워진다 */
   label.req::after { content: ' *'; color: var(--expense); font-weight: 700; }
   .req-note { font-size: 13px; color: var(--text-muted); margin: 10px 0 0; }
-  .sheet-actions [data-delete].armed { background: var(--expense); color: #fff; }
+  .sheet-actions [data-delete].armed { background: var(--expense); color: var(--card-bg); }   /* 빨강 채움 위 글씨: 라이트는 흰색, 다크는 어두운 색(대비 4.5:1 이상) */
   /* 대시보드 위쪽: 자주 쓰는 메뉴 · 오늘 · 다가오는 납부일 · 주요 기록 요약 · 첫 사용자 안내 */
   .dash-cap { font-size: 13px; font-weight: 700; color: var(--text-muted); margin: 16px 0 6px; }
   .dash-quick { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
@@ -1017,7 +1017,7 @@
   .cyc-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; text-align: center; font-size: 13px; }
   .cyc-grid .dow { color: var(--text-muted); font-size: 12px; padding: 3px 0; }
   .cyc-grid button { height: 36px; border: 1px solid transparent; border-radius: 8px; background: none; color: var(--text); font-size: 13px; cursor: pointer; padding: 0; }
-  .cyc-grid button.period { background: var(--expense); color: #fff; }
+  .cyc-grid button.period { background: var(--expense); color: var(--card-bg); }
   .cyc-grid button.pred { border: 1px dashed var(--expense); color: var(--expense); }
   .cyc-grid button.fert { background: var(--mc-soft); color: var(--mc-text); }
   .cyc-grid button.ovul { border-color: var(--mc-text); font-weight: 700; }
@@ -2100,7 +2100,7 @@
   });
 
   let breakdownAll = false;   // "기타" 펼침(화면 한정, 저장 안 함)
-  const BK_COLORS = ['#0f766e', '#f59e0b', '#3b82f6', '#ec4899', '#8b5cf6'];   // 상위 5개(색 구분이 되는 한도)
+  const BK_COLORS = ['#c2255c', '#f59e0b', '#3b82f6', '#14b8a6', '#8b5cf6'];   // 상위 5개(색 구분이 되는 한도)
   const BK_ETC = '#9ca3af';
   function renderBreakdown(expenseTx) {
     const wrap = el('breakdown-list');
@@ -8646,7 +8646,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v126'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v127'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span class="slogan">다달이, 매일의 기록이 모여<br><b>더 나은 생활</b>이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
