@@ -163,7 +163,7 @@
     ]);
     put('dadari_fridge_v1', [['우유', '1L', 'fridge', 2], ['두부', '1모', 'fridge', 1], ['달걀', '10구', 'fridge', 9], ['김치', '1통', 'fridge', 30], ['양파', '3개', 'room', 14], ['밥', '2공기', 'freezer', 20], ['돼지고기', '300g', 'freezer', 25], ['애호박', '1개', 'fridge', 3], ['대파', '1단', 'fridge', 5], ['어묵', '1봉', 'fridge', -1]].map(function (x) { return { id: nid(), name: x[0], qty: x[1], store: x[2], bought: off(-3), expiry: off(x[3]), note: '' }; }));
     put('dadari_goallog_v1', [{ id: nid(), gid: '', text: '10km 완주', date: off(-35), note: '처음으로 쉬지 않고 달렸어요' }, { id: nid(), gid: '', text: '자격증 시험 합격', date: off(-70), note: '' }, { id: nid(), gid: '', text: '월 100만원 저축', date: off(-12), note: '3개월 연속!' }]);
-    put('dadari_profile_v1', { show: true, emoji: '🚀', name: '체험', intro: '샘플 데이터로 둘러보는 중이에요', birth: (Y - 34) + '-05-20', goals: [{ id: nid(), text: '부업 수입 월 50만원', done: false }, { id: nid(), text: '책 12권 읽기', done: false }, { id: nid(), text: '운동 주 3회', done: false }], updatedAt: new Date().toISOString() });
+    put('dadari_profile_v1', { show: true, emoji: '🚀', name: '체험', intro: '샘플 데이터로 둘러보는 중이에요', birth: (Y - 34) + '-05-20', goals: [{ id: nid(), text: 'N잡 수입 월 50만원', done: false }, { id: nid(), text: '책 12권 읽기', done: false }, { id: nid(), text: '운동 주 3회', done: false }], updatedAt: new Date().toISOString() });
 
     // ⑦ 운동관리
     var fl = [], types = ['run', 'gym', 'walk', 'yoga', 'swim'];
@@ -173,7 +173,7 @@
     s.call(localStorage, P + 'demo_seeded', SEED_V);
   }
   // 샘플 내용을 고치면 SEED_V를 올린다: 이미 체험판을 열어 본 기기도 새 샘플로 다시 채운다(체험 중 입력은 사라진다).
-  var SEED_V = '13';
+  var SEED_V = '14';
   try {
     if (g.call(localStorage, P + 'demo_seeded') !== SEED_V) {
       var olds = [], oi;
@@ -1249,7 +1249,7 @@
   <div class="ad-slot" id="ad-slot-side-1" data-slot="side-1" role="complementary" aria-label="광고 자리"><span class="ad-tag">AD</span>광고 배너 자리</div>
   <section class="card">
     <div class="member-chips" id="side-who" hidden></div>
-    <div class="biz-shops" id="side-jobs" data-cap="부업" hidden></div>
+    <div class="biz-shops" id="side-jobs" data-cap="N잡" hidden></div>
     <div class="biz-shops" id="side-status" data-cap="상태" hidden></div>
     <div class="period-box"><div class="pb-title">📅 기간</div>
     <div class="seg" id="side-mode" role="group" aria-label="기간 보기 방식"></div>
@@ -1265,7 +1265,7 @@
     </div>
     <div id="side-body"></div>
     <div class="cards-actions" style="flex-wrap:wrap">
-      <button type="button" class="mini-btn" id="add-side-btn">＋ 부업 추가</button>
+      <button type="button" class="mini-btn" id="add-side-btn">＋ N잡 추가</button>
       <button type="button" class="mini-btn" id="add-sidelog-btn">＋ 수입·비용 기록</button>
       <button type="button" class="mini-btn" id="side-member-btn">👥 구성원 관리</button>
     </div>
@@ -3175,7 +3175,7 @@
       }
     },
     side: {
-      count: (id) => { const n = side.jobs.filter((j) => sideWho(j) === id).length; return [n ? `부업 ${n}개와 기록` : '', '']; },
+      count: (id) => { const n = side.jobs.filter((j) => sideWho(j) === id).length; return [n ? `N잡 ${n}개와 기록` : '', '']; },
       purge: (id) => {
         const l = side.jobs.filter((j) => sideWho(j) === id);
         tomb(...l.map((j) => j.id), ...side.log.filter((x) => l.some((j) => j.id === x.jid)).map((x) => x.id));
@@ -4164,7 +4164,7 @@
   const ymdOf = (y, m, d) => y + '-' + pad2(m + 1) + '-' + pad2(clampDay(y, m, d));
   const ddText = (dd) => (dd === 0 ? '오늘' : dd > 0 ? 'D-' + dd : -dd + '일 지남');
   const esc = (s) => escapeHtml(s == null ? '' : String(s));
-  // 날짜가 없는 목록(보험·렌탈·학원·저축·직장·부업·복약)은 이름(가나다) 순으로 늘어놓는다. 날짜가 있는 목록은 날짜순을 그대로 둔다.
+  // 날짜가 없는 목록(보험·렌탈·학원·저축·직장·N잡·복약)은 이름(가나다) 순으로 늘어놓는다. 날짜가 있는 목록은 날짜순을 그대로 둔다.
   function nameSort(label) { return (a, b) => String(label(a) || '').localeCompare(String(label(b) || ''), 'ko'); }
 
   // start 이후 오늘까지 도래한 납입일 수(end가 있으면 그 날짜 전까지만 센다).
@@ -5676,7 +5676,7 @@
   if (lockCfg()) { lockDraw(); lockCooldown(); } else hideLock();
 
   /* ---------- 기간 보기(월별·연간·기간 지정) 공통 ---------- */
-  // 나는 N잡러·나는 샐러리는 월별(◀▶), 연간(1년 합계, ◀▶로 해 이동), 기간 지정(시작일~종료일)로 볼 수 있다. 합계·그래프·직장/부업별·기록이 모두 그 기간을 따른다.
+  // 나는 N잡러·나는 샐러리는 월별(◀▶), 연간(1년 합계, ◀▶로 해 이동), 기간 지정(시작일~종료일)로 볼 수 있다. 합계·그래프·직장/N잡별·기록이 모두 그 기간을 따른다.
   function periodOf(per, view) {
     if (per.mode === 'year') return { kind: 'year', from: view.y + '-01-01', to: view.y + '-12-31', label: view.y + '년' };
     if (per.mode === 'custom') {
@@ -5737,7 +5737,7 @@
   function barLabel(x, many) { return many ? String(x.y).slice(2) + '.' + x.m : x.m + '월'; }   // 12개월 넘으면 "26.3"처럼
 
   /* ---------- N잡·부수입 ---------- */
-  // 부업(배달·프리랜서·온라인 판매·콘텐츠 등)마다 달별 수입·비용·투자 시간을 기록해 순수익·시급·월 목표 달성을 본다. 정식 사업 관리("나는CEO")와는 따로다.
+  // N잡(배달·프리랜서·온라인 판매·콘텐츠 등)마다 달별 수입·비용·투자 시간을 기록해 순수익·시급·월 목표 달성을 본다. 정식 사업 관리("나는CEO")와는 따로다.
   // 수입을 기록할 때 "가계부에도 수입(부수입)으로 기록"을 고르면 가계부 수입에도 넣고(`txId`), 기본은 가계부와 따로 둔다.
   const SIDE_KEY = 'dadari_side_v1';
   let side = loadJson(SIDE_KEY, { jobs: [], log: [] });   // jobs: {id,name,kind,status,goal(월 목표 순수익),who,start,note,pay('free'|'count'|'hour'|'day'),rate(단가 원)}, log: {id,jid,date,income,expense,hours,qty(건수·일수),memo,txId}
@@ -5750,7 +5750,7 @@
   const SIDE_RATE = { count: '건당 단가', hour: '시급', day: '일당' };
   const SIDE_STATUS = [['on', '진행 중'], ['pause', '쉬는 중'], ['end', '종료']];
   const sideWho = (j) => j.who || 'me';   // 구성원이 없던 항목은 "나"의 것으로 본다
-  let sideSel = 'all';   // 부업 선택('all' 또는 부업 id): 나는CEO의 사업 칩처럼 한 부업만 따로 본다
+  let sideSel = 'all';   // N잡 선택('all' 또는 N잡 id): 나는CEO의 사업 칩처럼 한 N잡만 따로 본다
   let sideSt = 'all';   // 상태 필터. 구성원 필터는 보험·렌탈·저축과 같은 conWho를 쓴다
   let sideView = { y: new Date().getFullYear(), m: new Date().getMonth() };
   const sidePer = { mode: 'month', from: '', to: '' };   // 보는 방식: month 월별 | year 연간 | custom 기간 지정
@@ -5767,8 +5767,8 @@
   function sideHtml() {
     const ppl = people(), ym = ymKey(sideView), yr = String(sideView.y), P = periodOf(sidePer, sideView), inP = (l) => l.date >= P.from && l.date <= P.to;
     const jobs = sideVisible(), ids = new Set(jobs.map((j) => j.id));
-    if (!side.jobs.length) return '<div class="empty-msg">등록한 부업이 없어요<br>아래 “＋ 부업 추가”로 배달·프리랜서·온라인 판매 같은 부업을 만들고<br>수입·비용·일한 시간을 기록하면 순수익과 시급이 계산돼요</div>';
-    if (!jobs.length) return '<div class="empty-msg">이 조건에 맞는 부업이 없어요<br>위의 구성원·상태 선택을 “전체”로 바꿔 보세요</div>';
+    if (!side.jobs.length) return '<div class="empty-msg">등록한 N잡이 없어요<br>아래 “＋ N잡 추가”로 배달·프리랜서·온라인 판매 같은 N잡을 만들고<br>수입·비용·일한 시간을 기록하면 순수익과 시급이 계산돼요</div>';
+    if (!jobs.length) return '<div class="empty-msg">이 조건에 맞는 N잡이 없어요<br>위의 구성원·상태 선택을 “전체”로 바꿔 보세요</div>';
     const logs = side.log.filter((l) => ids.has(l.jid));
     const month = sideStats(logs.filter(inP)), year = sideStats(logs.filter((l) => l.date.startsWith(yr))), mCount = Math.max(1, elapsedMonths(P));
     const goalSum = jobs.filter((j) => (j.status || 'on') === 'on').reduce((a, j) => a + (+j.goal || 0), 0);
@@ -5792,14 +5792,14 @@
       const max = Math.max(1, ...months.map((x) => Math.max(x.income, x.expense))), hp = (v) => (v > 0 ? Math.max(3, Math.round((v / max) * 100)) : 0), isSel = (mo) => P.kind === 'month' && mo.ym === ym;
       html += `<h2 class="section-title" style="margin:18px 0 6px">${chartTitle}</h2>
         <div class="vz-key"><span><i class="c1"></i>수입</span><span><i class="c2"></i>비용</span><span class="vz-max">최대 ${shortWon(max)}</span></div>
-        <div class="vz-plot" role="img" aria-label="${chartTitle} 부업 수입과 비용 막대그래프">${months.map((mo) => `<div class="vz-col${isSel(mo) ? ' sel' : ''}" aria-label="${mo.y}년 ${mo.m}월 수입 ${formatWon(mo.income)}, 비용 ${formatWon(mo.expense)}"><i class="c1" style="height:${hp(mo.income)}%"></i><i class="c2" style="height:${hp(mo.expense)}%"></i></div>`).join('')}</div>
+        <div class="vz-plot" role="img" aria-label="${chartTitle} N잡 수입과 비용 막대그래프">${months.map((mo) => `<div class="vz-col${isSel(mo) ? ' sel' : ''}" aria-label="${mo.y}년 ${mo.m}월 수입 ${formatWon(mo.income)}, 비용 ${formatWon(mo.expense)}"><i class="c1" style="height:${hp(mo.income)}%"></i><i class="c2" style="height:${hp(mo.expense)}%"></i></div>`).join('')}</div>
         <div class="vz-labels">${months.map((mo) => `<span class="${isSel(mo) ? 'sel' : ''}"${many ? ' style="font-size:9px"' : ''}>${barLabel(mo, many)}</span>`).join('')}</div>`;
     }
 
-    // 부업별(이번 달 순수익이 큰 순서)
+    // N잡별(이번 달 순수익이 큰 순서)
     const rows = jobs.map((j) => ({ j, mo: sideStats(logs.filter((l) => l.jid === j.id && inP(l))), all: sideStats(logs.filter((l) => l.jid === j.id)) })).sort((a, b) => String(a.j.name).localeCompare(String(b.j.name), 'ko'));
     const maxNet = Math.max(...rows.map((r) => r.mo.net));
-    html += '<h2 class="section-title" style="margin:18px 0 4px">부업별 · ' + P.label + '</h2>' + rows.map(({ j, mo }, i) => {
+    html += '<h2 class="section-title" style="margin:18px 0 4px">N잡별 · ' + P.label + '</h2>' + rows.map(({ j, mo }, i) => {
       const gp = j.goal > 0 && P.kind === 'month' ? Math.round((mo.net / j.goal) * 100) : 0, st = SIDE_STATUS.find((x) => x[0] === (j.status || 'on')) || SIDE_STATUS[0];
       const sub = [`수입 ${formatWon(mo.income)}`, `비용 ${formatWon(mo.expense)}`, SIDE_UNIT[j.pay] && mo.qty > 0 ? mo.qty + SIDE_UNIT[j.pay] : '', mo.hours > 0 ? hoursTxt(mo.hours) : '', mo.hours > 0 ? wageTxt(mo.net, mo.hours) : '', j.pay && j.pay !== 'free' && j.rate > 0 ? SIDE_RATE[j.pay] + ' ' + formatWon(j.rate) : ''].filter(Boolean).join(' · ');
       const who = conWho === 'all' && ppl.length > 1 ? `<span class="who-tag">${esc(whoName(sideWho(j)))}</span>` : '';
@@ -5823,11 +5823,11 @@
     if (sideSt !== 'all' && !sts.some((x) => x[0] === sideSt)) sideSt = 'all';
     el('side-status').hidden = sts.length < 2;
     el('side-status').innerHTML = [['all', '전체 ' + inWho.length], ...sts.map(([k, n]) => [k, n + ' ' + inWho.filter((j) => (j.status || 'on') === k).length])].map(([k, n]) => `<button type="button" data-ss="${k}" class="${k === sideSt ? 'active' : ''}">${n}</button>`).join('');
-    // 부업 칩: 구성원·상태 조건에 맞는 부업을 하나씩 골라 볼 수 있다(두 개 이상일 때)
+    // N잡 칩: 구성원·상태 조건에 맞는 N잡을 하나씩 골라 볼 수 있다(두 개 이상일 때)
     const pickable = inWho.filter((j) => sideSt === 'all' || (j.status || 'on') === sideSt);
     if (sideSel !== 'all' && !pickable.some((j) => j.id === sideSel)) sideSel = 'all';
     el('side-jobs').hidden = pickable.length < 2;
-    el('side-jobs').innerHTML = [['all', '전체 부업'], ...pickable.map((j) => [j.id, j.name])].map(([k, n]) => `<button type="button" data-sjsel="${attr(k)}" class="${k === sideSel ? 'active' : ''}">${esc(n)}</button>`).join('')
+    el('side-jobs').innerHTML = [['all', '전체 N잡'], ...pickable.map((j) => [j.id, j.name])].map(([k, n]) => `<button type="button" data-sjsel="${attr(k)}" class="${k === sideSel ? 'active' : ''}">${esc(n)}</button>`).join('')
       + (sideSel !== 'all' ? '<button type="button" data-sjedit style="border-style:dashed">✏️ 이름·수정</button>' : '');
     drawPeriodBar('side', sidePer, sideView);
     el('side-body').innerHTML = sideHtml();
@@ -5838,9 +5838,9 @@
     const who = j ? sideWho(j) : conWho === 'all' ? 'me' : conWho;
     const kinds = j && j.kind && !SIDE_KINDS.includes(j.kind) ? [...SIDE_KINDS, j.kind] : SIDE_KINDS;
     openSheet(`<form>
-      <h3>${j ? '부업 수정' : '부업 추가'}</h3>
-      <label>누구의 부업인가요</label><select name="who">${people().map((x) => `<option value="${attr(x.id)}"${x.id === who ? ' selected' : ''}>${esc(x.name)}</option>`).join('')}</select>
-      <label>부업 이름</label><input name="name" required maxlength="30" placeholder="예: 주말 배달, 스마트스토어, 블로그 광고" value="${val(j && j.name)}" autocomplete="off">
+      <h3>${j ? 'N잡 수정' : 'N잡 추가'}</h3>
+      <label>누구의 N잡인가요</label><select name="who">${people().map((x) => `<option value="${attr(x.id)}"${x.id === who ? ' selected' : ''}>${esc(x.name)}</option>`).join('')}</select>
+      <label>N잡 이름</label><input name="name" required maxlength="30" placeholder="예: 주말 배달, 스마트스토어, 블로그 광고" value="${val(j && j.name)}" autocomplete="off">
       <label>종류 (직접 적거나 목록에서 골라요)</label><input name="kind" list="side-kinds" maxlength="14" placeholder="예: 배달·운전" value="${val(j ? j.kind : '')}" autocomplete="off"><datalist id="side-kinds">${kinds.map((k) => `<option value="${attr(k)}"></option>`).join('')}</datalist>
       <label>수익 방식</label><select name="pay">${SIDE_PAY.map(([k, n]) => `<option value="${k}"${(j && j.pay || 'free') === k ? ' selected' : ''}>${n}</option>`).join('')}</select>
       <div id="side-rate-wrap"><label id="side-rate-lbl">단가 (원)</label><input name="rate" type="number" min="0" inputmode="numeric" value="${val(j && j.rate ? j.rate : '')}" placeholder="예: 3000"></div>
@@ -5851,12 +5851,12 @@
       <div class="sheet-actions"><button type="button" data-cancel>취소</button>${j ? '<button type="button" data-delete>삭제</button>' : ''}<button type="submit">저장</button></div>
     </form>`, (fd) => {
       const name = String(fd.get('name')).trim();
-      if (!name) { showToast('부업 이름을 입력해 주세요'); return false; }
+      if (!name) { showToast('N잡 이름을 입력해 주세요'); return false; }
       const rec = { who: String(fd.get('who')), name, kind: String(fd.get('kind')).trim(), status: String(fd.get('status')), pay: String(fd.get('pay')) || 'free', rate: String(fd.get('pay')) === 'free' ? 0 : Math.max(0, parseInt(fd.get('rate'), 10) || 0), goal: Math.max(0, parseInt(fd.get('goal'), 10) || 0), start: validDate(String(fd.get('start'))) ? String(fd.get('start')) : '', note: String(fd.get('note')).trim() };
       if (j) Object.assign(j, rec); else side.jobs.push({ id: newId(), ...rec });
       saveSide();
       renderSide();
-      showToast(j ? '수정했어요' : '부업을 추가했어요');
+      showToast(j ? '수정했어요' : 'N잡을 추가했어요');
     });
     const paySel = sheetBody.querySelector('select[name=pay]'), rateWrap = sheetBody.querySelector('#side-rate-wrap');
     const payChange = () => { rateWrap.hidden = paySel.value === 'free'; sheetBody.querySelector('#side-rate-lbl').textContent = (SIDE_RATE[paySel.value] || '단가') + ' (원)'; };
@@ -5877,13 +5877,13 @@
   }
 
   function openSideLogSheet(l, jid) {
-    if (!side.jobs.length) { showToast('먼저 부업을 추가해 주세요'); return; }
+    if (!side.jobs.length) { showToast('먼저 N잡을 추가해 주세요'); return; }
     const val = (x) => attr(x == null ? '' : String(x));
     const sel = l ? l.jid : jid || (sideVisible()[0] || side.jobs[0]).id;
     const defDate = l ? l.date : (ymKey(sideView) === todayStr().slice(0, 7) ? todayStr() : ymKey(sideView) + '-01');
     openSheet(`<form>
       <h3>${l ? '기록 수정' : '수입·비용 기록'}</h3>
-      <label>부업</label><select name="jid">${side.jobs.map((j) => `<option value="${attr(j.id)}"${j.id === sel ? ' selected' : ''}>${esc(j.name)}${people().length > 1 ? ' · ' + esc(whoName(sideWho(j))) : ''}</option>`).join('')}</select>
+      <label>N잡</label><select name="jid">${side.jobs.map((j) => `<option value="${attr(j.id)}"${j.id === sel ? ' selected' : ''}>${esc(j.name)}${people().length > 1 ? ' · ' + esc(whoName(sideWho(j))) : ''}</option>`).join('')}</select>
       <label>날짜</label><input name="date" type="date" required value="${val(defDate)}">
       <div id="side-qty-wrap" hidden><label id="side-qty-lbl">건수</label><input name="qty" type="number" min="0" step="0.5" inputmode="decimal" value="${val(l && l.qty ? l.qty : '')}" placeholder="0"></div>
       <label>수입 (원)</label><input name="income" type="number" min="0" inputmode="numeric" value="${val(l && l.income ? l.income : '')}" placeholder="0">
@@ -5919,7 +5919,7 @@
       renderSide();
       showToast(l ? '수정했어요' : '기록했어요');
     });
-    // 건당·시간당·일당 부업이면 단가 × 수량을 수입 칸에 자동으로 넣는다(수입을 직접 고치면 그 값을 따른다)
+    // 건당·시간당·일당 N잡이면 단가 × 수량을 수입 칸에 자동으로 넣는다(수입을 직접 고치면 그 값을 따른다)
     const jobSel = sheetBody.querySelector('select[name=jid]'), qtyEl = sheetBody.querySelector('input[name=qty]'), hrsEl = sheetBody.querySelector('input[name=hours]'), incEl = sheetBody.querySelector('input[name=income]');
     let incTouched = !!(l && l.income);
     incEl.addEventListener('input', () => { incTouched = true; });
@@ -7777,7 +7777,7 @@
       row('📚', '학원비', `수강 ${liveAca.length}건 · 납부 ${liveAca.length - acaUnpaid.length}/${liveAca.length}`, acaUnpaid.length ? `미납 ${acaUnpaid.length}건 ${formatWon(sum(acaUnpaid, (a) => +a.fee || 0))}` : '', acaTotal ? formatWon(acaTotal) : '-', 'academy'),
       row('🩺', '건강', `접종 예정 ${planned.length} · 병원 예약 ${visitsNext}${medsLeft ? ` · 오늘 복약 ${medsLeft}개 남음` : ''}`, [overdueVac ? `접종 ${overdueVac}건 지남` : '', claimTodo ? `실비 청구 필요 ${claimTodo}건` : ''].filter(Boolean).join(' · '), '-', 'health'),
       row('🗓', '시간표', `오늘 일정 ${todaySch}개 · 구성원 ${schedule.members.length}명`, '', '-', 'schedule'),
-      row('💼', '나는 N잡러', side.jobs.length ? `부업 ${side.jobs.length}개 · 이번 달 수입 ${money(sideMonth.income)}${sideMonth.hours > 0 ? ' · ' + hoursTxt(sideMonth.hours) : ''}` : '등록한 부업이 없어요', '', side.jobs.length ? `${sideMonth.net < 0 ? '-' : ''}${formatWon(Math.abs(sideMonth.net))}` : '-', 'side'),
+      row('💼', '나는 N잡러', side.jobs.length ? `N잡 ${side.jobs.length}개 · 이번 달 수입 ${money(sideMonth.income)}${sideMonth.hours > 0 ? ' · ' + hoursTxt(sideMonth.hours) : ''}` : '등록한 N잡이 없어요', '', side.jobs.length ? `${sideMonth.net < 0 ? '-' : ''}${formatWon(Math.abs(sideMonth.net))}` : '-', 'side'),
       row('💪', '운동관리', fit.log.length ? `이번 주 ${fitWk.n}회 · ${fitWk.min ? fmtMin(fitWk.min) : '0분'}` : '아직 운동 기록이 없어요', '', fit.log.length ? `🔥 ${fitStreak(fit.log)}일` : '-', 'fit'),
       row('💵', '나는 샐러리', salary.jobs.length ? `직장 ${salary.jobs.length}개 · 이번 달 실수령 ${money(salMonth.net)}` : '등록한 직장이 없어요', '', salary.jobs.length ? formatWon(salMonth.net) : '-', 'salary'),
       row('📈', '나는CEO', (biz.shops.length > 1 ? `사업 ${biz.shops.length}개 · ` : '') + (bizMonth.length ? `매출 ${formatWon(bizSales)} · 비용 ${formatWon(bizCost)}` : '이번 달 입력 없음'), bizTarget > 0 && bizSales < bizTarget ? `목표 ${formatWon(bizTarget)} 중 ${Math.round((bizSales / bizTarget) * 100)}%` : '', bizMonth.length ? `${bizSales - bizCost < 0 ? '-' : ''}${formatWon(Math.abs(bizSales - bizCost))}` : '-', 'biz'),
@@ -8306,7 +8306,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v99'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v100'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span style="display:block;margin-bottom:4px">다달이, 매일의 기록이 모여 더 나은 생활이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
