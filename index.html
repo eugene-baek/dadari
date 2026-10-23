@@ -1001,16 +1001,16 @@
 <nav class="viewtabs" id="viewtabs">
   <button type="button" data-view="status"><span class="ic">📊</span>대시보드</button>
   <button type="button" data-view="calendar"><span class="ic">📅</span>캘린더</button>
+  <button type="button" data-view="salary"><span class="ic">💵</span>나는 샐러리</button>
+  <button type="button" data-view="side"><span class="ic">💼</span>나는 N잡러</button>
+  <button type="button" data-view="biz"><span class="ic">📈</span>나는CEO</button>
   <button type="button" data-view="ledger" class="active"><span class="ic">💰</span>가계부</button>
   <button type="button" data-view="savings"><span class="ic">🐷</span>저축</button>
-  <button type="button" data-view="schedule"><span class="ic">🗓</span>시간표</button>
+  <button type="button" data-view="rental"><span class="ic">🧰</span>렌탈·구독</button>
   <button type="button" data-view="health"><span class="ic">🩺</span>건강</button>
   <button type="button" data-view="insurance"><span class="ic">🛡</span>보험</button>
-  <button type="button" data-view="rental"><span class="ic">🧰</span>렌탈·구독</button>
+  <button type="button" data-view="schedule"><span class="ic">🗓</span>시간표</button>
   <button type="button" data-view="academy"><span class="ic">📚</span>학원비</button>
-  <button type="button" data-view="biz"><span class="ic">📈</span>나는CEO</button>
-  <button type="button" data-view="side"><span class="ic">💼</span>나는 N잡러</button>
-  <button type="button" data-view="salary"><span class="ic">💵</span>나는 샐러리</button>
   <button type="button" data-view="food"><span class="ic">🍳</span>오늘뭐먹지</button>
 </nav>
 <div class="viewtabs-foot"><button type="button" class="tab-order-btn" id="tab-order-btn">⚙ 메뉴 관리 (순서·사용 여부)</button></div>
@@ -6187,7 +6187,7 @@
   // 대시보드는 설정(백업·동기화·앱 잠금)이 들어 있어 항상 사용한다.
   const TAB_KEY = 'dadari_tab_order_v1';
   const TAB_HIDE_KEY = 'dadari_tab_hidden_v1';
-  const TAB_LABELS = { status: '📊 대시보드', calendar: '📅 캘린더', ledger: '💰 가계부', savings: '🐷 저축', schedule: '🗓 시간표', health: '🩺 건강', insurance: '🛡 보험', rental: '🧰 렌탈·구독', academy: '📚 학원비', biz: '📈 나는CEO', side: '💼 나는 N잡러', salary: '💵 나는 샐러리', food: '🍳 오늘뭐먹지' };
+  const TAB_LABELS = { status: '📊 대시보드', calendar: '📅 캘린더', salary: '💵 나는 샐러리', side: '💼 나는 N잡러', biz: '📈 나는CEO', ledger: '💰 가계부', savings: '🐷 저축', rental: '🧰 렌탈·구독', health: '🩺 건강', insurance: '🛡 보험', schedule: '🗓 시간표', academy: '📚 학원비', food: '🍳 오늘뭐먹지' };
   const TAB_FIXED = ['status'];
   var tabsReady = false;   // 처음 화면을 그리기 전에는 메뉴를 옮기지 않는다(아래 초기화에서 true)
   function tabOrder() {
@@ -7161,7 +7161,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v57'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v58'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span style="display:block;margin-bottom:4px">다달이, 매일의 기록이 모여 더 나은 생활이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
