@@ -1509,7 +1509,7 @@
   // toISOString은 UTC 기준이라 한국 시간 새벽(0~9시)에 전날 날짜가 나오므로 로컬 날짜로 만든다.
   // 매월 날짜: 1~30일과 "말일". 말일은 31로 저장한다(달에 없는 날은 그 달 마지막 날로 맞추므로 31이 곧 매월 말일이다).
   const dayLabel = (d) => (+d >= 31 ? '말일' : d + '일');
-  const dayInput = (name, cur, required) => `<select name="${name}"${required ? ' required' : ''}>${required ? '<option value="" disabled selected>날짜 선택</option>' : '<option value="">선택 안 함</option>'}<option value="31"${+cur >= 31 ? ' selected' : ''}>말일 (매월 마지막 날)</option>${Array.from({ length: 30 }, (_, i) => `<option value="${i + 1}"${+cur === i + 1 ? ' selected' : ''}>${i + 1}일</option>`).join('')}</select>`;
+  const dayInput = (name, cur, required) => `<select name="${name}"${required ? ' required' : ''}>${required ? '<option value="" disabled selected>날짜 선택</option>' : '<option value="">선택 안 함</option>'}${Array.from({ length: 30 }, (_, i) => `<option value="${i + 1}"${+cur === i + 1 ? ' selected' : ''}>${i + 1}일</option>`).join('')}<option value="31"${+cur >= 31 ? ' selected' : ''}>말일 (매월 마지막 날)</option></select>`;
 
   function todayStr() {
     const d = new Date();
@@ -7161,7 +7161,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v58'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v59'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span style="display:block;margin-bottom:4px">다달이, 매일의 기록이 모여 더 나은 생활이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
