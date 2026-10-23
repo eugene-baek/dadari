@@ -995,6 +995,8 @@
     <div id="alarm-opts"></div>
     <button class="install-btn" id="alarm-export" type="button">📅 캘린더 파일 만들기</button>
     <p class="goal-hint" id="alarm-result" style="margin:8px 0 0"></p>
+    <div class="backup-row" style="margin-top:10px"><button type="button" id="notif-btn">🔔 이 기기에서 앱 알림 허용</button></div>
+    <p class="goal-hint" id="notif-status" style="margin:6px 0 0"></p>
   </section>
 
   <section class="card" id="sync-card" data-sub="set">
@@ -5304,6 +5306,70 @@
   // 캘린더 메뉴는 내 일정(기간·반복·색)과 건강·냉장고 소비기한·공휴일을 다이어리처럼 보여 준다.
   // 돈과 관련된 날짜(납부일·결제일·수입 예정·보험 갱신·저축일과 날짜별 실제 수입·지출)는 가계부의 "금융캘린더" 탭에 따로 모은다.
   // 직접 적는 일정만 저장하고(`dadari_calendar_v1`), 나머지는 각 메뉴의 기록에서 그때그때 계산한다.
+  // 일정 알림: 시작 몇 분 전에 알릴지. 시간이 없는 일정은 그날 오전 9시를 시작으로 본다.
+  const CAL_ALARMS = [['', '알림 없음'], ['at', '시작할 때'], ['10m', '10분 전'], ['30m', '30분 전'], ['1h', '1시간 전'], ['1d', '하루 전'], ['2d', '이틀 전']];
+  const CAL_ALARM_MIN = { at: 0, '10m': 10, '30m': 30, '1h': 60, '1d': 1440, '2d': 2880 };
+  // .ics 알람(TRIGGER): 시간 있는 일정은 시작 기준 앞, 하루 종일 일정은 자정 기준 오전 9시에서 앞당긴다.
+  function icsAlarmTrig(c) {
+    const m = CAL_ALARM_MIN[c.alarm] || 0;
+    if (c.time) return m ? '-PT' + m + 'M' : 'PT0S';
+    const off = 540 - m;
+    return off >= 0 ? 'PT' + off + 'M' : '-PT' + -off + 'M';
+  }
+  // 알림을 정해 둔 내 일정의 (알림 시각, 끝 시각) 목록: 어제~3일 뒤 사이. 반복·여러 날 일정은 시작일마다 한 번씩.
+  function calAlarmDue(now) {
+    const t0 = dstr(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1)), t1 = dstr(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 3));
+    const { map } = calRange('diary', t0, t1, true), out = [];
+    Object.keys(map).forEach((date) => map[date].forEach((e) => {
+      if (e.kind !== 'mine' || e.first === false) return;
+      const c = calItems.find((x) => x.id === e.id);
+      if (!c || !c.alarm) return;
+      const base = new Date(date + 'T' + (e.time || '09:00') + ':00');
+      const end = e.time ? new Date(date + 'T' + (e.endTime || e.time) + ':00') : new Date(date + 'T23:59:59');
+      if (e.time) end.setMinutes(end.getMinutes() + 60);   // 시작 뒤 한 시간(끝나는 시간이 있으면 그때까지)은 계속 보여 준다
+      out.push({ e: { ...e, date }, at: new Date(base.getTime() - CAL_ALARM_MIN[c.alarm] * 60000), end });
+    }));
+    return out;
+  }
+  // 앱이 열려 있는 동안 30초마다 확인해 알림 시각이 되면 알려 준다(토스트 + 허용했다면 기기 알림). 같은 알림은 한 번만.
+  const ALARM_FIRED_KEY = 'dadari_alarm_fired_v1';
+  function checkCalAlarms() {
+    let fired = [];
+    try { fired = JSON.parse(localStorage.getItem(ALARM_FIRED_KEY)) || []; } catch (err) { /* 처음 */ }
+    const now = new Date();
+    let changed = false;
+    calAlarmDue(now).forEach(({ e, at }) => {
+      const key = e.id + '|' + e.date + '|' + at.getTime();
+      if (now < at || now - at > 10 * 60000 || fired.includes(key)) return;
+      fired.push(key);
+      changed = true;
+      const msg = `⏰ ${e.time ? e.time + ' ' : ''}${e.text}`;
+      showToast(msg);
+      try {
+        if ('Notification' in window && Notification.permission === 'granted') {
+          if (navigator.serviceWorker && navigator.serviceWorker.ready) navigator.serviceWorker.ready.then((r) => r.showNotification('다달이 일정', { body: msg.slice(2), tag: key })).catch(() => new Notification('다달이 일정', { body: msg.slice(2) }));
+          else new Notification('다달이 일정', { body: msg.slice(2) });
+        }
+      } catch (err) { /* 기기 알림을 못 띄워도 토스트와 확인할 일 배너로 알린다 */ }
+    });
+    if (changed) { try { localStorage.setItem(ALARM_FIRED_KEY, JSON.stringify(fired.slice(-100))); } catch (err) { /* 무시 */ } renderTodo(); }
+  }
+  setInterval(checkCalAlarms, 30000);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkCalAlarms(); });
+  setTimeout(checkCalAlarms, 1500);
+  // 기기 알림 허용: 웹 앱은 꺼져 있을 때 스스로 알림을 못 울리므로, 앱이 열려 있거나 잠깐 백그라운드일 때만 쓸 수 있다.
+  function renderNotifStatus() {
+    const st = el('notif-status');
+    if (!('Notification' in window)) { st.textContent = '이 브라우저는 앱 알림을 지원하지 않아요. 일정 알림은 아래 “캘린더 파일 만들기”로 폰 캘린더에 넣으면 앱이 꺼져 있어도 울려요.'; el('notif-btn').hidden = true; return; }
+    const p = Notification.permission;
+    st.textContent = p === 'granted' ? '허용됨 — 앱이 열려 있을 때 정한 시각에 알려 줘요. (앱이 꺼져 있을 땐 캘린더 파일 알람을 쓰세요.)' : p === 'denied' ? '차단됨 — 브라우저·기기 설정에서 이 사이트의 알림을 허용으로 바꿔 주세요.' : '아직 허용하지 않았어요. 허용하지 않아도 앱 안 알림(토스트·확인할 일)은 나와요.';
+    el('notif-btn').hidden = p === 'granted';
+  }
+  el('notif-btn').addEventListener('click', async () => {
+    try { await Notification.requestPermission(); } catch (err) { /* 요청을 못 하는 환경 */ }
+    renderNotifStatus();
+  });
+  renderNotifStatus();
   var finReady = false;   // 가계부가 데이터를 바꿀 때 금융캘린더도 다시 그리기 위한 표시(const 초기화 전에 불리지 않게 var)
   const CAL_KEY = 'dadari_calendar_v1';
   let calItems = loadJson(CAL_KEY, []);   // {id, title, date, endDate(선택), time(선택), endTime(선택), repeat('none'|'week'|'month'|'year'), color, memo}
@@ -5352,9 +5418,9 @@
   }
 
   // from~to(포함) 사이 날짜별 일정과(금융) 날짜별 실제 수입·지출. cal: 'diary' | 'fin'
-  function calRange(cal, from, to) {
+  function calRange(cal, from, to, force) {
     const map = {}, money = {}, src = CAL_SRC[cal], off = calOff[cal];
-    const on = (k) => src.includes(k) && !off.has(k);
+    const on = (k) => src.includes(k) && (force || !off.has(k));
     const add = (kind, date, o) => { if (o.view && tabHidden(o.view)) return; if (on(kind) && validDate(date) && date >= from && date <= to) (map[date] = map[date] || []).push({ kind, color: CAL_KIND_COLOR[kind], ...o }); };
     const ms = [];
     for (let d = new Date(+from.slice(0, 4), +from.slice(5, 7) - 1, 1); dstr(d) <= to; d.setMonth(d.getMonth() + 1)) ms.push([d.getFullYear(), d.getMonth()]);
@@ -5604,6 +5670,7 @@
       <label>종료일 (여러 날 일정일 때, 선택)</label><input name="endDate" type="date" value="${val(item && item.endDate)}">
       <div class="dc-times"><div><label>시작 시간 (선택)</label><input name="time" type="time" value="${val(item && item.time)}"></div><div><label>끝나는 시간 (선택)</label><input name="endTime" type="time" value="${val(item && item.endTime)}"></div></div>
       <label>반복</label><select name="repeat">${CAL_REPEATS.map(([k, n]) => `<option value="${k}"${((item && item.repeat) || 'none') === k ? ' selected' : ''}>${n}</option>`).join('')}</select>
+      <label>알림</label><select name="alarm">${CAL_ALARMS.map(([k, n]) => `<option value="${k}"${(item && item.alarm || '') === k ? ' selected' : ''}>${n}</option>`).join('')}</select>
       <label>색</label><div class="cal-sw-row">${CAL_COLORS.map((c) => `<label class="cal-sw"><input type="radio" name="color" value="${c}"${c === curColor ? ' checked' : ''}><i style="background:${c}"></i></label>`).join('')}</div>
       <label>메모 (선택)</label><input name="memo" maxlength="120" value="${val(item && item.memo)}">
       <div class="sheet-actions"><button type="button" data-cancel>취소</button>${item ? '<button type="button" data-delete>삭제</button>' : ''}<button type="submit">저장</button></div>
@@ -5612,7 +5679,7 @@
       if (!title || !validDate(d0)) { showToast('제목과 시작일을 확인해 주세요'); return false; }
       if (validDate(d1) && d1 < d0) { showToast('종료일은 시작일보다 빠를 수 없어요'); return false; }
       const tm = (k) => (/^\d{2}:\d{2}$/.test(String(fd.get(k))) ? String(fd.get(k)) : '');
-      const rec = { title, date: d0, endDate: validDate(d1) && d1 > d0 ? d1 : '', time: tm('time'), endTime: tm('endTime'), repeat: String(fd.get('repeat')), color: String(fd.get('color')) || CAL_COLORS[0], memo: String(fd.get('memo')).trim() };
+      const rec = { title, date: d0, endDate: validDate(d1) && d1 > d0 ? d1 : '', time: tm('time'), endTime: tm('endTime'), repeat: String(fd.get('repeat')), alarm: String(fd.get('alarm')), color: String(fd.get('color')) || CAL_COLORS[0], memo: String(fd.get('memo')).trim() };
       if (item) Object.assign(item, rec); else calItems.push({ id: newId(), ...rec });
       saveCal();
       const S = CS.diary, dd = dparse(d0);
@@ -5899,6 +5966,11 @@
       if (dd !== null) add(dd, `${c.name} 결제일`, 'ledger', '💳');
     });
     fridge.forEach((f) => { const dd = within(f.expiry, -30, 2); if (dd !== null) add(dd, `냉장고 · ${f.name} 소비기한${dd < 0 ? ' 지남' : ''}`, 'food', '🧊'); });
+    // 알림을 정해 둔 내 일정: 알림 시각이 지났고 아직 끝나지 않았으면 "확인할 일"에 올린다
+    calAlarmDue(new Date()).forEach(({ e, at, end }) => {
+      const nowT = new Date();
+      if (nowT >= at && nowT <= end) add(diffDays(e.date, today), `${e.time ? e.time + ' ' : ''}${e.text}`, 'calendar', '⏰');
+    });
     return items.filter((i) => !tabHidden(i.view)).sort((a, b) => (a.dd === null ? 9999 : a.dd) - (b.dd === null ? 9999 : b.dd));
   }
 
@@ -6034,7 +6106,7 @@
       const rr = { week: 'FREQ=WEEKLY', month: 'FREQ=MONTHLY', year: 'FREQ=YEARLY' }[rep];
       ev({ uid: 'cal-' + c.id, summary: '📅 ' + c.title, desc: c.memo || '', date: c.date,
         ...(c.time ? { time: c.time, ...(/^\d{2}:\d{2}$/.test(c.endTime || '') && c.endTime > c.time ? { endTime: c.endTime } : {}), alarms: ['-PT30M'] } : (validDate(c.endDate) && c.endDate > c.date ? { endDate: c.endDate } : {})),
-        ...(rr ? { rrule: rr } : {}) });
+        ...(rr ? { rrule: rr } : {}), ...(c.alarm !== undefined ? { alarms: c.alarm ? [icsAlarmTrig(c)] : [] } : {}) });
     });
     if (on('food')) fridge.forEach((f) => { if (validDate(f.expiry) && f.expiry >= today) ev({ uid: 'food-' + f.id, summary: `🧊 ${f.name} 소비기한`, date: f.expiry, alarms: ['-PT15H', 'PT9H'] }); });
     if (on('med')) health.meds.forEach((m) => {
@@ -6713,7 +6785,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v52'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v53'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span style="display:block;margin-bottom:4px">다달이, 매일의 기록이 모여 더 나은 생활이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
