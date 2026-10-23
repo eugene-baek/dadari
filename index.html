@@ -818,6 +818,9 @@
   .biz-shops { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
   .biz-shops[hidden] { display: none; }
   .month-nav[hidden] { display: none; }
+  .period-hint { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 12px 0 0; font-size: 13px; line-height: 1.5; color: var(--text-muted); }
+  .period-hint b { color: var(--text); font-weight: 700; }
+  .period-hint .ph-label { flex-basis: 100%; font-size: 14px; font-weight: 800; color: var(--text); }
   .period-range { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 12px; }
   .period-range[hidden] { display: none; }
   .period-range input { width: auto; flex: 1; min-width: 130px; }
@@ -4679,7 +4682,7 @@
       <div class="summary-item income"><div class="lbl">매출</div><div class="val">${formatWon(sales)}</div></div>
       <div class="summary-item expense"><div class="lbl">비용</div><div class="val">${formatWon(costs)}</div></div>
       <div class="summary-item balance"><div class="lbl">순이익</div><div class="val" style="${profit < 0 ? 'color:var(--expense)' : ''}">${profit < 0 ? '-' : ''}${formatWon(Math.abs(profit))}</div></div></div>
-      <p class="goal-hint" style="margin:8px 0 0">${P.kind === 'month' ? '' : P.label + ' · '}${sales ? `마진 ${pct(profit, sales)}% · 비용률 ${pct(costs, sales)}%` : '아직 이 기간 매출이 없어요'}${P.kind !== 'month' && sales ? ` · 월 평균 매출 ${formatWon(Math.round(sales / mCount))} (${mCount}개월)` : ''}${diff !== null ? ` · ${P.kind === 'year' ? '전년' : '전월'} 매출 대비 ${diff >= 0 ? '+' : ''}${diff}%` : ''}</p>`;
+      ${periodHint(P, sales ? [['마진', pct(profit, sales) + '%'], ['비용률', pct(costs, sales) + '%'], P.kind !== 'month' ? ['월 평균 매출', formatWon(Math.round(sales / mCount)) + ' (' + mCount + '개월)'] : '', diff !== null ? [(P.kind === 'year' ? '전년' : '전월') + ' 매출 대비', (diff >= 0 ? '+' : '') + diff + '%'] : ''] : ['아직 이 기간 매출이 없어요'])}`;
 
     if (target > 0 && P.kind === 'month') {
       const p = Math.round((sales / target) * 100);
@@ -5634,6 +5637,11 @@
   }
   // 월 평균을 낼 때 쓰는 달 수: 아직 오지 않은 달(올해의 남은 달)은 빼고 센다
   function elapsedMonths(P) { const t = todayStr(), to = P.to > t ? t : P.to; return P.from > to ? 1 : periodMonths({ from: P.from, to }, 600).length; }
+  // 요약 아래 한 줄 설명을 항목별(라벨 + 값)로 나눠 읽기 쉽게 보여 준다. parts: [라벨, 값] 또는 문장, 비어 있으면 건너뛴다.
+  function periodHint(P, parts) {
+    const items = parts.filter(Boolean).map((x) => (Array.isArray(x) ? `<span>${x[0]} <b>${x[1]}</b></span>` : `<span>${x}</span>`)).join('');
+    return `<div class="period-hint">${P.kind === 'month' ? '' : `<span class="ph-label">${escapeHtml(P.label)}</span>`}${items}</div>`;
+  }
   function presetPeriod(k) {
     const t = new Date(), y = t.getFullYear(), ymd = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
     if (k === 'ytd') return { from: y + '-01-01', to: ymd(t) };
@@ -5711,7 +5719,7 @@
       <div class="summary-item income"><div class="lbl">수입</div><div class="val">${formatWon(month.income)}</div></div>
       <div class="summary-item expense"><div class="lbl">비용</div><div class="val">${formatWon(month.expense)}</div></div>
       <div class="summary-item balance"><div class="lbl">순수익</div><div class="val" style="${month.net < 0 ? 'color:var(--expense)' : ''}">${net(month.net)}</div></div></div>
-      <p class="goal-hint" style="margin:8px 0 0">${P.kind === 'month' ? '' : P.label + ' · '}${month.hours > 0 ? `일한 시간 ${hoursTxt(month.hours)} · 시급 ${wageTxt(month.net, month.hours)} · ` : ''}${P.kind === 'month' ? '올해 순수익 ' + net(year.net) : '월 평균 순수익 ' + net(Math.round(month.net / mCount)) + ' (' + mCount + '개월)'}</p>`;
+      ${periodHint(P, [month.hours > 0 ? ['일한 시간', hoursTxt(month.hours)] : '', month.hours > 0 ? ['시급', wageTxt(month.net, month.hours)] : '', P.kind === 'month' ? ['올해 순수익', net(year.net)] : ['월 평균 순수익', net(Math.round(month.net / mCount)) + ' (' + mCount + '개월)']])}`;
     if (goalSum > 0 && P.kind === 'month') {
       html += `<div style="margin-top:12px"><div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-muted);margin-bottom:5px"><span>월 목표 순수익 ${formatWon(goalSum)}</span><span>${pct}% 달성${month.net < goalSum ? ' · ' + formatWon(goalSum - Math.max(0, month.net)) + ' 남음' : ' 👑'}</span></div>
         <div class="bar"><i class="${pct >= 100 ? '' : pct < 50 ? 'near' : ''}" style="width:${Math.max(0, Math.min(100, pct))}%"></i></div></div>`;
@@ -5946,7 +5954,7 @@
       <div class="summary-item balance"><div class="lbl">세전 총급여</div><div class="val">${formatWon(mo.gross)}</div></div>
       <div class="summary-item expense"><div class="lbl">공제</div><div class="val">${formatWon(mo.deduct)}</div></div>
       <div class="summary-item income"><div class="lbl">실수령</div><div class="val">${formatWon(mo.net)}</div></div></div>
-      <p class="goal-hint" style="margin:8px 0 0">${P.kind === 'month' ? '' : P.label + ' · '}${mo.gross ? `공제율 ${rate(mo.gross, mo.deduct)}% · ` : ''}${P.kind === 'month' ? `올해 실수령 ${formatWon(yo.net)}${monthsWithPay ? ` (월 평균 ${formatWon(Math.round(yo.net / monthsWithPay))})` : ''}<br>최근 12개월 세전 합계(연봉 환산) ${formatWon(last12.gross)}` : `월 평균 실수령 ${formatWon(Math.round(mo.net / mCount))} (${mCount}개월)`}</p>`;
+      ${periodHint(P, [mo.gross ? ['공제율', rate(mo.gross, mo.deduct) + '%'] : '', ...(P.kind === 'month' ? [['올해 실수령', formatWon(yo.net) + (monthsWithPay ? ' (월 평균 ' + formatWon(Math.round(yo.net / monthsWithPay)) + ')' : '')], ['최근 12개월 세전 합계(연봉 환산)', formatWon(last12.gross)]] : [['월 평균 실수령', formatWon(Math.round(mo.net / mCount)) + ' (' + mCount + '개월)']])])}`;
 
     const months = P.kind === 'month' ? (() => { const o = []; for (let i = 5; i >= 0; i--) { const d = new Date(salView.y, salView.m - i, 1); o.push({ y: d.getFullYear(), m: d.getMonth() + 1, ym: monthKey(d) }); } return o; })() : periodMonths(P, 24);
     months.forEach((x) => Object.assign(x, salSum(logs.filter((l) => l.date.startsWith(x.ym)))));
@@ -8239,7 +8247,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v95'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v96'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span style="display:block;margin-bottom:4px">다달이, 매일의 기록이 모여 더 나은 생활이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
