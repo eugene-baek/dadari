@@ -499,9 +499,7 @@
   .qn-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
   .quick-nav button { min-height: 52px; padding: 8px 4px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); color: var(--text); font-size: 12.5px; line-height: 1.25; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; word-break: keep-all; }
   .quick-nav button .ic { font-size: 18px; }
-  .quick-nav button { border-top: 3px solid var(--mc); }
-  .quick-nav button.qn-top { border-top: 1px solid var(--border); }
-  .quick-nav button.active { background: var(--mc); border-color: var(--mc); color: #fff; }
+  .quick-nav button.active { background: var(--accent-fill); border-color: var(--accent-fill); color: #fff; }
   .quick-nav .qn-top { grid-column: 1 / -1; min-height: 44px; flex-direction: row; justify-content: center; font-weight: 700; }
   @media (max-width: 600px) { input, select, textarea { font-size: 16px; } }
   @media (max-width: 360px) { .month-nav .label { font-size: 14px; } .month-nav button { padding: 8px 10px; } }
@@ -1094,8 +1092,7 @@
     gap: 1px;
     white-space: nowrap;
   }
-  .viewtabs button { border-top: 3px solid var(--mc); }
-  .viewtabs button.active { background: var(--mc); border-color: var(--mc); color: #fff; }
+  .viewtabs button.active { background: var(--accent-fill); border-color: var(--accent-fill); color: #fff; }   /* 위쪽 메뉴 칸은 색 없이 단색(선택만 강조색) */
   .day-tabs { display: flex; gap: 6px; margin-bottom: 12px; }
   .day-tabs button {
     flex: 1;
@@ -8644,7 +8641,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v119'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v120'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span class="slogan">다달이, 매일의 기록이 모여<br><b>더 나은 생활</b>이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
