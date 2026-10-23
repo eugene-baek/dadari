@@ -257,7 +257,7 @@
   }
   .refresh-btn {
     position: absolute;
-    top: 20px;
+    top: 26px;
     right: 20px;
     padding: 8px 12px;
     border-radius: 10px;
@@ -269,18 +269,18 @@
   }
   .ver { text-align: center; color: var(--text-muted); font-size: 11px; margin: 20px 0 0; }
   .wm { color: #00cdbe; }   /* 로고 글자색: "다달"은 본문 글자색, "이"만 민트(처음 받은 로고 그림과 같다) */
-  header h1 .logo { width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0; }
+  header h1 .logo { width: 48px; height: 48px; border-radius: 12px; flex-shrink: 0; }
   header h1 {
-    font-size: 22px;
-    margin: 0 0 4px;
+    font-size: 32px;
+    margin: 0 0 6px;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 12px;
   }
   header p {
     margin: 0;
     color: var(--text-muted);
-    font-size: 13px;
+    font-size: 15px;
   }
   main {
     max-width: 720px;
@@ -1147,7 +1147,7 @@
 
 <header>
   <button class="refresh-btn" id="refresh-btn" type="button" aria-label="새로고침">🔄 새로고침</button>
-  <h1><img class="logo" src="icon-192.png" alt="" width="32" height="32"><span>다달<span class="wm">이</span></span></h1>
+  <h1><img class="logo" src="icon-192.png" alt="" width="48" height="48"><span>다달<span class="wm">이</span></span></h1>
   <p>나의 생활을 한눈에 · 돈 관리부터 시간 관리까지</p>
 </header>
 
@@ -8306,7 +8306,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v101'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v102'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span style="display:block;margin-bottom:4px">다달이, 매일의 기록이 모여 더 나은 생활이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
