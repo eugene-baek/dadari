@@ -114,6 +114,7 @@
       { id: nid(), who: 'me', company: 'OO렌탈', name: '정수기', fee: 29900, payDay: 20, cardId: null, start: ds(Y - 1, 5, 20), termMonths: 36, visitEvery: 4, nextVisit: off(12), status: 'active', auto: false, recurId: '', note: '' },
       { id: nid(), who: 'me', company: 'OO가전', name: '안마의자', fee: 59000, payDay: 15, cardId: null, start: ds(Y - 3, M, 15), termMonths: 36, visitEvery: 0, nextVisit: '', status: 'active', auto: false, recurId: '', note: '약정 만료 임박' },
       { id: nid(), who: 'me', company: '', name: '영상 구독', fee: 17000, payDay: 5, cardId: 'democ1', start: '', termMonths: 0, visitEvery: 0, nextVisit: '', status: 'active', auto: false, recurId: '', note: '' },
+      { id: nid(), who: 'me', company: '통신사', name: '영상 구독(무료 제공)', fee: 0, payDay: 0, cardId: null, start: '', termMonths: 0, visitEvery: 0, nextVisit: '', status: 'active', auto: false, recurId: '', note: '요금제 혜택' },
       { id: nid(), who: 'me', company: '', name: '음악 구독', fee: 10900, payDay: 12, cardId: 'democ1', start: '', termMonths: 0, visitEvery: 0, nextVisit: '', status: 'active', auto: false, recurId: '', note: '' }
     ]);
     var paidMap = {}; [-1, -2, -3, -4].forEach(function (mo) { paidMap[ds(Y, M + mo, 1).slice(0, 7)] = true; });
@@ -172,7 +173,7 @@
     s.call(localStorage, P + 'demo_seeded', SEED_V);
   }
   // 샘플 내용을 고치면 SEED_V를 올린다: 이미 체험판을 열어 본 기기도 새 샘플로 다시 채운다(체험 중 입력은 사라진다).
-  var SEED_V = '12';
+  var SEED_V = '13';
   try {
     if (g.call(localStorage, P + 'demo_seeded') !== SEED_V) {
       var olds = [], oi;
@@ -2158,7 +2159,7 @@
             renderInsurance();
           }
           if (Array.isArray(data.rentals)) {
-            mergeById(rentals, data.rentals, (r) => typeof r.name === 'string' && r.fee > 0);
+            mergeById(rentals, data.rentals, (r) => typeof r.name === 'string' && r.fee >= 0);
             saveRentals();
             renderRental();
           }
@@ -4232,7 +4233,7 @@
       const badge = st === 'expired' ? '<span class="ins-badge warn">약정 만료</span>' : st === 'ended' ? '<span class="ins-badge">해지·종료</span>' : '';
       const visit = st !== 'ended' && validDate(r.nextVisit) && +r.visitEvery > 0
         ? `<button type="button" class="vcheck" data-visitdone="${r.id}" aria-label="방문 완료">방문 완료</button>` : '';
-      return `<div class="vrow"><button type="button" class="visit" data-rent="${r.id}"><div class="v1"><span>${esc(r.company ? r.company + ' ' : '')}${esc(r.name)}${tag(r)}${badge}</span><span>월 ${formatWon(+r.fee || 0)}</span></div>
+      return `<div class="vrow"><button type="button" class="visit" data-rent="${r.id}"><div class="v1"><span>${esc(r.company ? r.company + ' ' : '')}${esc(r.name)}${tag(r)}${badge}</span><span>${+r.fee > 0 ? '월 ' + formatWon(+r.fee) : '무료'}</span></div>
         <div class="v2">${parts.filter(Boolean).map(esc).join(' · ')}</div></button>${visit}</div>`;
     };
     if (live.length) html += `<div class="h-sec">이용 중 · ${live.length}건</div>` + live.map(row).join('');
@@ -4333,7 +4334,7 @@
       <label>명의 · 사용자</label><select name="who">${whoOpts}</select>
       <label>업체·서비스 (선택)</label><input name="company" maxlength="20" placeholder="예: OO렌탈, 넷플릭스" value="${val(r && r.company)}">
       <label>품목</label><input name="name" required maxlength="40" placeholder="예: 정수기, 안마의자, 넷플릭스 구독" value="${val(r && r.name)}">
-      <label>월 이용료 (원)</label><input name="fee" type="number" min="1" inputmode="numeric" required value="${val(r && r.fee)}">
+      <label>월 이용료 (원 · 무료로 제공받는 것은 0)</label><input name="fee" type="number" min="0" inputmode="numeric" required placeholder="무료면 0" value="${val(r && r.fee != null ? r.fee : '')}">
       <label>결제일 (매월 며칠)</label>${dayInput('payDay', r && r.payDay)}
       <label>결제수단</label><select name="card">${cardSelectOptions(r && r.cardId)}</select>
       <label>계약 시작일 (선택)</label><input name="start" type="date" value="${val(r && r.start)}">
@@ -4349,7 +4350,7 @@
     </form>`, (fd) => {
       const name = String(fd.get('name')).trim();
       const fee = parseInt(fd.get('fee'), 10);
-      if (!name || !(fee > 0)) { showToast('품목과 월 이용료를 확인해 주세요'); return false; }
+      if (!name || !(fee >= 0)) { showToast('품목과 월 이용료를 확인해 주세요(무료면 0을 적어요)'); return false; }
       const date = (k) => (validDate(String(fd.get(k))) ? String(fd.get(k)) : '');
       const rec = {
         who: String(fd.get('who')), company: String(fd.get('company')).trim(), name, fee,
@@ -4360,7 +4361,7 @@
       };
       let item = r;
       if (r) Object.assign(r, rec); else { item = { id: newId(), recurId: '', ...rec }; rentals.push(item); }
-      syncRecur(item, rec.auto && rec.status !== 'ended', {
+      syncRecur(item, rec.auto && rec.status !== 'ended' && fee > 0, {   // 무료 제공(0원)은 가계부에 기록하지 않는다
         cardId: rec.cardId || null, name: (rec.company ? rec.company + ' ' : '') + name, amount: fee, day: rec.payDay || (validDate(rec.start) ? +rec.start.slice(8, 10) : 1), category: '렌탈', auto: true
       });
       saveRentals();
@@ -6471,7 +6472,7 @@
           if ((!validDate(p.start) || d >= p.start) && (!end || d < end)) add('pay', d, { icon: '🛡', text: `보험료 ${p.name}`, amt: +p.premium || 0, view: 'insurance' });
         });
         rentals.forEach((r) => {
-          if (r.status === 'ended' || !(r.payDay >= 1)) return;
+          if (r.status === 'ended' || !(r.payDay >= 1) || !(+r.fee > 0)) return;
           const d = ymdOf(y, m, r.payDay), end = rentEnd(r);
           if ((!validDate(r.start) || d >= r.start) && (!end || d <= end)) add('pay', d, { icon: '🧰', text: `이용료 ${r.name}`, amt: +r.fee || 0, view: 'rental' });
         });
@@ -7258,7 +7259,7 @@
     });
     rentals.forEach((r) => {
       if (rentState(r, today) === 'ended') return;
-      const d = nextPay(r.payDay, today, 'month');
+      const d = +r.fee > 0 ? nextPay(r.payDay, today, 'month') : '';   // 무료 제공은 납부일이 없다
       const dd = d ? within(d, 0, 3) : null;
       if (dd !== null) add(dd, `이용료 ${r.name} ${formatWon(+r.fee || 0)}`, 'rental', '🧰');
       const v = within(r.nextVisit, -7, 7);
@@ -7387,7 +7388,7 @@
         else monthly({ uid: 'pay-ins-' + p.id, summary }, p.payDay);
       });
       rentals.forEach((r) => {
-        if (rentState(r, today) === 'ended' || !(r.payDay >= 1)) return;
+        if (rentState(r, today) === 'ended' || !(r.payDay >= 1) || !(+r.fee > 0)) return;
         monthly({ uid: 'pay-rent-' + r.id, summary: `🧰 이용료 ${r.name} ${formatWon(+r.fee || 0)}` }, r.payDay);
       });
       academies.forEach((a) => {
@@ -8129,7 +8130,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v90'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v91'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span style="display:block;margin-bottom:4px">다달이, 매일의 기록이 모여 더 나은 생활이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
