@@ -877,7 +877,7 @@
   .fg-day.miss em { color: var(--expense); }
   .fg-day.today { color: var(--text); font-weight: 800; }
   .fg-day.today i { border-color: var(--accent); }
-  .subtabs { position: sticky; top: 0; z-index: 8; display: flex; gap: 4px; overflow-x: auto; padding: 6px 0; margin: 0 0 -6px; background: var(--bg); scrollbar-width: none; }
+  .subtabs { position: sticky; top: 0; z-index: 8; display: flex; gap: 4px; overflow-x: auto; padding: 6px 0; margin: -6px 0; background: var(--bg); scrollbar-width: none; }
   .subtabs::-webkit-scrollbar { display: none; }
   .subtabs button { flex: 1 0 auto; padding: 9px 8px; border: 1px solid var(--border); border-radius: 99px; background: var(--card-bg); color: var(--text-muted); font-size: 12.5px; font-weight: 600; white-space: nowrap; cursor: pointer; }
   .subtabs button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
@@ -1355,8 +1355,8 @@
 </main>
 
 <main id="view-fit" hidden>
-  <nav class="subtabs" id="sub-fit" aria-label="운동 관리 메뉴"></nav>
   <div class="ad-slot" id="ad-slot-fit-1" data-slot="fit-1" role="complementary" aria-label="광고 자리"><span class="ad-tag">AD</span>광고 배너 자리</div>
+  <nav class="subtabs" id="sub-fit" aria-label="운동 관리 메뉴"></nav>
   <section class="card">
     <div class="member-chips" id="fit-who" hidden></div>
     <div class="period-box slim">
@@ -1407,8 +1407,8 @@
 </div>
 
 <main id="view-status" hidden>
-  <nav class="subtabs" id="sub-status" aria-label="대시보드 메뉴"></nav>
   <div class="ad-slot" id="ad-slot-status-1" data-slot="status-1" role="complementary" aria-label="광고 자리"><span class="ad-tag">AD</span>광고 배너 자리</div>
+  <nav class="subtabs" id="sub-status" aria-label="대시보드 메뉴"></nav>
   <section class="card">
     <div id="status-body"></div>
   </section>
@@ -1547,8 +1547,8 @@
 
 <main id="view-ledger">
 
-  <nav class="subtabs" id="sub-ledger" aria-label="가계부 메뉴"></nav>
   <div class="ad-slot" id="ad-slot-ledger-1" data-slot="ledger-1" role="complementary" aria-label="광고 자리"><span class="ad-tag">AD</span>광고 배너 자리</div>
+  <nav class="subtabs" id="sub-ledger" aria-label="가계부 메뉴"></nav>
 
   <section class="card" data-sub="sum plan list card">
     <div class="month-nav" style="margin-bottom:0">
@@ -8613,7 +8613,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v117'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v118'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span class="slogan">다달이, 매일의 기록이 모여<br><b>더 나은 생활</b>이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
