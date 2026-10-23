@@ -702,6 +702,7 @@
   .fx-row:first-child { border-top: none; }
   .fx-row span { color: var(--text-muted); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .fx-row span em { font-style: normal; color: var(--text); }
+  .set-group { font-size: 13px; font-weight: 800; color: var(--text-muted); margin: 6px 2px -8px; }
   .viewtabs-foot { max-width: 720px; margin: 0 auto 10px; padding: 0 20px; text-align: right; }
   #viewtabs button[hidden] { display: none; }
   .rec.tab-off .rec-name { color: var(--text-muted); text-decoration: line-through; }
@@ -1191,8 +1192,8 @@
   <button type="button" data-view="academy"><span class="ic">📚</span>학원비</button>
   <button type="button" data-view="food"><span class="ic">🍳</span>오늘 뭐 먹지</button>
   <button type="button" data-view="fit"><span class="ic">💪</span>운동 관리</button>
+  <button type="button" data-view="settings"><span class="ic">⚙️</span>설정</button>
 </nav>
-<div class="viewtabs-foot"><button type="button" class="tab-order-btn" id="tab-order-btn">⚙ 메뉴 관리 (순서·사용 여부)</button></div>
 
 <main id="view-insurance" hidden>
   <div class="ad-slot" id="ad-slot-insurance-1" data-slot="insurance-1" role="complementary" aria-label="광고 자리"><span class="ad-tag">AD</span>광고 배너 자리</div>
@@ -1375,7 +1376,29 @@
     <div id="status-body"></div>
   </section>
 
-  <section class="card" data-sub="set">
+  <div class="ad-slot" id="ad-slot-status-2" data-slot="status-2" role="complementary" aria-label="광고 자리"><span class="ad-tag">AD</span>광고 배너 자리</div>
+</main>
+
+<main id="view-settings" hidden>
+  <div class="set-group">내 정보</div>
+  <section class="card" id="profile-set-card">
+    <h2 class="section-title">🙂 프로필·목표</h2>
+    <p class="goal-hint" style="margin:0 0 10px">화면 맨 위에 이름, 한 줄 소개, 올해 목표를 보여 줘요. 카드를 감췄다면 여기서 다시 켤 수 있어요.</p>
+    <div class="backup-row"><button type="button" id="profile-edit-btn">프로필·목표 고치기</button></div>
+  </section>
+  <section class="card" id="member-set-card">
+    <h2 class="section-title">👥 구성원 관리</h2>
+    <p class="goal-hint" style="margin:0 0 10px">가족·구성원은 메뉴마다 따로 관리해요. 관리할 메뉴를 고르면 그 메뉴 화면에서 구성원 창이 열려요.</p>
+    <div class="biz-shops" id="member-set-menus" style="margin-bottom:0"></div>
+  </section>
+  <div class="set-group">화면</div>
+  <section class="card" id="tab-set-card">
+    <h2 class="section-title">🧭 메뉴 관리</h2>
+    <p class="goal-hint" style="margin:0 0 10px">메뉴의 순서를 바꾸고, 쓰지 않는 메뉴는 감출 수 있어요. 감춰도 입력한 데이터는 그대로예요.</p>
+    <div class="backup-row"><button type="button" id="tab-order-btn">메뉴 순서·사용 여부 바꾸기</button></div>
+  </section>
+  <div class="set-group">데이터</div>
+  <section class="card">
     <h2 class="section-title">백업 &amp; 복원</h2>
     <div class="backup-row">
       <button id="export-btn" type="button">내보내기 (JSON)</button>
@@ -1383,8 +1406,16 @@
       <input type="file" id="import-input" accept="application/json">
     </div>
   </section>
-
-  <section class="card" id="alarm-card" data-sub="set">
+  <section class="card" id="sync-card">
+    <h2 class="section-title">동기화 (폰 · 컴퓨터)</h2>
+    <p class="goal-hint" id="sync-status" style="margin:0 0 10px"></p>
+    <div class="backup-row">
+      <button type="button" id="sync-setup">연결 설정</button>
+      <button type="button" id="sync-now">지금 동기화</button>
+    </div>
+  </section>
+  <div class="set-group">알림 · 보안</div>
+  <section class="card" id="alarm-card">
     <h2 class="section-title">📅 알람 (캘린더로 내보내기)</h2>
     <p class="goal-hint" style="margin:0 0 10px">병원 예약·접종·납부일·갱신·렌탈 방문·복약 시간을 아이폰 캘린더에 넣어 진짜 알림으로 울리게 해요. 앱이 꺼져 있어도 울려요.</p>
     <div id="alarm-opts"></div>
@@ -1393,23 +1424,7 @@
     <div class="backup-row" style="margin-top:10px"><button type="button" id="notif-btn">🔔 이 기기에서 앱 알림 허용</button></div>
     <p class="goal-hint" id="notif-status" style="margin:6px 0 0"></p>
   </section>
-
-  <section class="card" id="sync-card" data-sub="set">
-    <h2 class="section-title">동기화 (폰 · 컴퓨터)</h2>
-    <p class="goal-hint" id="sync-status" style="margin:0 0 10px"></p>
-    <div class="backup-row">
-      <button type="button" id="sync-setup">연결 설정</button>
-      <button type="button" id="sync-now">지금 동기화</button>
-    </div>
-  </section>
-
-  <section class="card" id="profile-set-card" data-sub="set">
-    <h2 class="section-title">🙂 프로필·목표</h2>
-    <p class="goal-hint" style="margin:0 0 10px">화면 맨 위에 이름, 한 줄 소개, 올해 목표를 보여 줘요. 카드를 감췄다면 여기서 다시 켤 수 있어요.</p>
-    <div class="backup-row"><button type="button" id="profile-edit-btn">프로필·목표 고치기</button></div>
-  </section>
-
-  <section class="card" id="lock-card" data-sub="set">
+  <section class="card" id="lock-card">
     <h2 class="section-title">🔒 앱 잠금</h2>
     <p class="goal-hint" id="lock-status" style="margin:0 0 10px"></p>
     <div class="backup-row">
@@ -1419,13 +1434,11 @@
     </div>
     <p class="goal-hint" style="margin:8px 0 0">이 폰·컴퓨터에서 앱을 열 때 비밀번호를 묻는 화면 잠금이에요. 비밀번호는 이 기기에만 저장되고 동기화·백업에는 들어가지 않아요.</p>
   </section>
-
-  <section class="card" id="install-card" data-sub="set" hidden>
+  <section class="card" id="install-card" hidden>
     <h2 class="section-title">홈 화면에 설치</h2>
     <button class="install-btn" id="install-btn" type="button" hidden>앱으로 설치하기</button>
     <p class="goal-hint" id="install-hint" style="margin:0"></p>
   </section>
-  <div class="ad-slot" id="ad-slot-status-2" data-slot="status-2" role="complementary" aria-label="광고 자리"><span class="ad-tag">AD</span>광고 배너 자리</div>
 </main>
 
 <main id="view-food" hidden>
@@ -2983,6 +2996,8 @@
     el('view-side').hidden = v !== 'side';
     el('view-salary').hidden = v !== 'salary';
     el('view-fit').hidden = v !== 'fit';
+    el('view-settings').hidden = v !== 'settings';
+    if (v === 'settings') renderSettingsView();
     document.querySelectorAll('#viewtabs button').forEach((b) => b.classList.toggle('active', b.dataset.view === v));
     saveJson(VIEW_KEY, v);
     if (v === 'schedule') renderSchedule();
@@ -3003,6 +3018,18 @@
   el('viewtabs').addEventListener('click', (e) => {
     const b = e.target.closest('button[data-view]');
     if (b) setView(b.dataset.view);
+  });
+
+  // 설정 화면: 백업·동기화·잠금·프로필 같은 관리 기능을 한곳에 모은다. 구성원은 메뉴마다 따로라서 메뉴를 고르면 그 메뉴에서 구성원 창을 연다.
+  function renderSettingsView() {
+    el('member-set-menus').innerHTML = MEMBER_MENUS.filter(([k]) => !tabHidden(k)).map(([k, n]) => `<button type="button" data-msm="${attr(k)}">${esc(n)}</button>`).join('');
+  }
+  el('member-set-menus').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-msm]');
+    if (!b) return;
+    setView(b.dataset.msm);
+    window.scrollTo(0, 0);
+    openMemberManager();
   });
 
   // 긴 화면(조금 내려가면 나타남)에서 위로 올라가지 않고 다른 메뉴로 가는 떠 있는 "메뉴" 버튼. 이름·순서·사용 여부는 위쪽 메뉴 칸을 그대로 따른다.
@@ -7376,7 +7403,7 @@
   const SUBS = {
     ledger: [['sum', '요약'], ['fin', '금융캘린더'], ['rec', '기록'], ['list', '내역'], ['plan', '목표·분석'], ['card', '카드·이체']],
     fit: [['log', '기록'], ['stats', '목표·통계']],
-    status: [['table', '현황표'], ['chart', '그래프'], ['fixed', '고정·카드'], ['set', '설정']]
+    status: [['table', '현황표'], ['chart', '그래프'], ['fixed', '고정·카드']]
   };
   const subGet = () => { try { return JSON.parse(localStorage.getItem(SUB_KEY)) || {}; } catch (e) { return {}; } };
   function subCurrent(view) { const k = subGet()[view]; return SUBS[view].some((x) => x[0] === k) ? k : SUBS[view][0][0]; }
@@ -7427,6 +7454,7 @@
   function applyTabOrder() {
     const nav = el('viewtabs'), hid = hiddenTabs();
     tabOrder().forEach((id) => { const b = nav.querySelector(`[data-view="${id}"]`); if (b) { nav.appendChild(b); b.hidden = hid.has(id); } });
+    const st = nav.querySelector('[data-view="settings"]'); if (st) nav.appendChild(st);   // 설정은 순서·숨김 대상이 아니고 늘 맨 끝
     // 지금 보던 메뉴를 감췄으면 첫 번째 보이는 메뉴로 옮긴다
     const act = nav.querySelector('button.active');
     if (tabsReady && act && act.hidden) setView(tabOrder().find((id) => !hid.has(id)) || 'status');
@@ -8420,7 +8448,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v108'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v109'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span class="slogan">다달이, 매일의 기록이 모여<br><b>더 나은 생활</b>이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
@@ -8479,7 +8507,7 @@
   renderFit = inMenu('fit', renderFit);
   renderCal = inMenu('calendar', renderCal);
   const savedView = loadJson(VIEW_KEY, 'ledger');
-  setView(['status', 'calendar', 'savings', 'schedule', 'health', 'insurance', 'rental', 'academy', 'biz', 'side', 'salary', 'food', 'fit'].includes(savedView) ? savedView : 'ledger');
+  setView(['status', 'calendar', 'savings', 'schedule', 'health', 'insurance', 'rental', 'academy', 'biz', 'side', 'salary', 'food', 'fit', 'settings'].includes(savedView) ? savedView : 'ledger');
   if (tabHidden(savedView)) setView('status');   // 마지막에 보던 메뉴를 감춰 두었으면 대시보드로 연다
   tabsReady = true;
   applyTabOrder();
