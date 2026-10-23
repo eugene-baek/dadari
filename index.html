@@ -8570,7 +8570,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v114'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v115'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span class="slogan">다달이, 매일의 기록이 모여<br><b>더 나은 생활</b>이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
@@ -8631,6 +8631,14 @@
   const savedView = loadJson(VIEW_KEY, 'ledger');
   setView(['status', 'calendar', 'savings', 'schedule', 'health', 'insurance', 'rental', 'academy', 'biz', 'side', 'salary', 'food', 'fit', 'settings'].includes(savedView) ? savedView : 'ledger');
   if (tabHidden(savedView)) setView('status');   // 마지막에 보던 메뉴를 감춰 두었으면 대시보드로 연다
+  // 분류가 비어 있는 자동이체(예전 버전에서 만든 것)는 연결된 메뉴 이름으로 채운다: 렌탈·보험·학원비에서 만든 것은 그 이름, 나머지는 기타(수입은 급여). 렌탈·보험·학원비 입력창에는 분류 칸이 없고 늘 그 이름으로 기록된다.
+  let recurCatFixed = false;
+  recurs.forEach((r) => {
+    if (r.category) return;
+    r.category = rentals.some((x) => x.recurId === r.id) ? '렌탈' : insurance.some((x) => x.recurId === r.id) ? '보험' : academies.some((x) => x.recurId === r.id) ? '학원비' : r.type === 'income' ? '급여' : '기타';
+    recurCatFixed = true;
+  });
+  if (recurCatFixed) renderAll();   // 이미 그려진 화면에도 바뀐 분류가 보이게
   tabsReady = true;
   applyTabOrder();
   renderAlarmOpts();
