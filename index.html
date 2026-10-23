@@ -146,14 +146,15 @@
     put('dadari_biz_v1', { entries: be, shops: [{ id: 'bz_main', name: '내 사업', target: 2000000 }, { id: 'demobz2', name: '온라인 클래스', target: 800000 }], target: 0 });
 
     // ⑥ 캘린더 · 냉장고(오늘뭐먹지) · 프로필
+    put('dadari_caltabs_v1', [{ id: 'demot1', name: '가족', color: '#e87ba4' }, { id: 'demot2', name: '업무', color: '#6250d6' }, { id: 'demot3', name: '학교', color: '#2a78d6' }]);
     put('dadari_calendar_v1', [
-      { id: nid(), title: '학부모 상담', date: off(2), time: '14:30', endTime: '15:30', repeat: 'none', alarm: '30m', color: '#2a78d6', memo: '' },
-      { id: nid(), title: '가족 여행', date: off(10), endDate: off(13), repeat: 'none', alarm: '1d', color: '#eb6834', memo: '' },
-      { id: nid(), title: '엄마 생신', date: ds(Y, M, 28), repeat: 'year', alarm: '1d', color: '#e87ba4', memo: '' },
-      { id: nid(), title: '주간 회의', date: off(-10), time: '09:00', endTime: '10:00', repeat: 'week', alarm: '10m', color: '#6250d6', memo: '' },
+      { id: nid(), title: '학부모 상담', date: off(2), time: '14:30', endTime: '15:30', repeat: 'none', alarm: '30m', who: 'demom1', tab: 'demot3', color: '#2a78d6', memo: '' },
+      { id: nid(), title: '가족 여행', date: off(10), endDate: off(13), repeat: 'none', alarm: '1d', who: '', tab: 'demot1', color: '#eb6834', memo: '' },
+      { id: nid(), title: '엄마 생신', date: ds(Y, M, 28), repeat: 'year', alarm: '1d', who: '', tab: 'demot1', color: '#e87ba4', memo: '' },
+      { id: nid(), title: '주간 회의', date: off(-10), time: '09:00', endTime: '10:00', repeat: 'week', alarm: '10m', who: 'me', tab: 'demot2', color: '#6250d6', memo: '' },
       { id: nid(), title: '치과 검진', date: off(5), time: '10:30', endTime: '11:00', repeat: 'none', alarm: '1h', color: '#1baf7a', memo: '' },
       { id: nid(), title: '아파트 관리비 확인', date: ds(Y, M, 20), repeat: 'month', alarm: '', color: '#eda100', memo: '' },
-      { id: nid(), title: '팀 회식', date: off(7), time: '18:30', endTime: '21:00', repeat: 'none', alarm: '30m', color: '#2a78d6', memo: '' }
+      { id: nid(), title: '팀 회식', date: off(7), time: '18:30', endTime: '21:00', repeat: 'none', alarm: '30m', who: 'me', tab: 'demot2', color: '#2a78d6', memo: '' }
     ]);
     put('dadari_fridge_v1', [['우유', '1L', 'fridge', 2], ['두부', '1모', 'fridge', 1], ['달걀', '10구', 'fridge', 9], ['김치', '1통', 'fridge', 30], ['양파', '3개', 'room', 14], ['밥', '2공기', 'freezer', 20], ['돼지고기', '300g', 'freezer', 25], ['애호박', '1개', 'fridge', 3], ['대파', '1단', 'fridge', 5], ['어묵', '1봉', 'fridge', -1]].map(function (x) { return { id: nid(), name: x[0], qty: x[1], store: x[2], bought: off(-3), expiry: off(x[3]), note: '' }; }));
     put('dadari_profile_v1', { show: true, emoji: '🚀', name: '체험', intro: '샘플 데이터로 둘러보는 중이에요', birth: (Y - 34) + '-05-20', goals: [{ id: nid(), text: '월 100만원 저축', done: true }, { id: nid(), text: '부업 수입 월 50만원', done: false }, { id: nid(), text: '책 12권 읽기', done: false }, { id: nid(), text: '운동 주 3회', done: false }], updatedAt: new Date().toISOString() });
@@ -166,7 +167,7 @@
     s.call(localStorage, P + 'demo_seeded', SEED_V);
   }
   // 샘플 내용을 고치면 SEED_V를 올린다: 이미 체험판을 열어 본 기기도 새 샘플로 다시 채운다(체험 중 입력은 사라진다).
-  var SEED_V = '3';
+  var SEED_V = '4';
   try {
     if (g.call(localStorage, P + 'demo_seeded') !== SEED_V) {
       var olds = [], oi;
@@ -709,6 +710,8 @@
   .dc-modes button.active { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
   .dc-filters { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px; }
   .dc-filters button { padding: 4px 10px; border: 1px solid var(--border); border-radius: 99px; background: none; color: var(--text-muted); font-size: 12px; cursor: pointer; text-decoration: line-through; opacity: .7; }
+  .dc-filters button.cf-edit { text-decoration: none; opacity: 1; border-style: dashed; }
+  .dc-filters .cf-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; vertical-align: 0; }
   .dc-filters button.on { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); text-decoration: none; opacity: 1; }
   .dc-grid { border-top: 1px solid var(--border); }
   .dc-dowrow, .dc-week7 { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); border-left: 1px solid var(--border); }
@@ -1219,9 +1222,10 @@
     <div class="dc-modes" id="cal-modes">
       <button type="button" data-cm="month">월</button><button type="button" data-cm="week">주</button><button type="button" data-cm="list">목록</button><button type="button" id="cal-today">오늘</button>
     </div>
+    <div class="member-chips" id="cal-who" hidden></div>
     <div class="dc-filters" id="cal-filters"></div>
     <div id="cal-body"></div>
-    <div class="cards-actions"><button type="button" class="mini-btn" id="cal-add">＋ 일정 추가</button></div>
+    <div class="cards-actions"><button type="button" class="mini-btn" id="cal-add">＋ 일정 추가</button><button type="button" class="mini-btn" id="cal-member-btn">👥 구성원 관리</button></div>
   </section>
 </main>
 
@@ -2005,7 +2009,7 @@
 
   el('export-btn').addEventListener('click', () => {
     // 예전 백업은 내역 배열만 있었다. 지금은 카드·자동이체·월 목표까지 한 파일에 담고, 불러올 때 두 형식을 모두 받는다.
-    const backup = { app: 'dadari', version: 2, transactions, categories, cards, recurs, recurDone: [...recurDone], goal, schedule, health, insurance, rentals, academies, biz, fridge, calendar: calItems, savings, side, salary, fit, profile };
+    const backup = { app: 'dadari', version: 2, transactions, categories, cards, recurs, recurDone: [...recurDone], goal, schedule, health, insurance, rentals, academies, biz, fridge, calendar: calItems, calTabs, savings, side, salary, fit, profile };
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -2147,6 +2151,10 @@
             mergeById(savings.log, data.savings.log, (l) => validDate(l.date) && typeof l.amount === 'number' && savings.accounts.some((a) => a.id === l.sid));
             saveSav();
             renderSavings();
+          }
+          if (Array.isArray(data.calTabs)) {
+            mergeById(calTabs, data.calTabs, (t) => typeof t.name === 'string' && t.name);
+            saveCalTabs();
           }
           if (Array.isArray(data.calendar)) {
             mergeById(calItems, data.calendar, (c) => typeof c.title === 'string' && c.title && validDate(c.date));
@@ -3006,7 +3014,9 @@
     if (sals.length) parts.push(`직장 ${sals.length}개`);
     const fitN = fit.log.filter((l) => fitWho(l) === id).length + fit.weights.filter((w) => fitWho(w) === id).length;
     if (fitN) parts.push(`운동·체중 기록 ${fitN}건`);
-    if (!confirm(`“${m.name}”을(를) 삭제할까요?` + (parts.length ? `\n${parts.join(', ')}도 함께 지워져요.` : '') + String.fromCharCode(10, 10) + '※ 모든 메뉴에서 완전히 지워지고 되돌릴 수 없어요. 이 메뉴에서만 안 보이게 하려면 취소하고 “사용” 스위치를 끄세요.')) return false;
+    const calN = calItems.filter((c) => c.who === id).length;
+    if (!confirm(`“${m.name}”을(를) 삭제할까요?` + (parts.length ? `\n${parts.join(', ')}도 함께 지워져요.` : '') + (calN ? `
+캘린더 일정 ${calN}건은 지워지지 않고 “함께”로 바뀌어요.` : '') + String.fromCharCode(10, 10) + '※ 모든 메뉴에서 완전히 지워지고 되돌릴 수 없어요. 이 메뉴에서만 안 보이게 하려면 취소하고 “사용” 스위치를 끄세요.')) return false;
     // 보험·렌탈·학원에 연결된 가계부 자동 기록 항목도 함께 지운다(이미 기록된 내역은 남는다).
     policies.forEach((p) => syncRecur(p, false, null));
     rents.forEach((r) => syncRecur(r, false, null));
@@ -3040,6 +3050,9 @@
     delete fit.goals[id];
     saveFit();
     renderFit();
+    // 이 사람의 캘린더 일정은 지우지 않고 "함께"로 바꾼다
+    calItems.forEach((c) => { if (c.who === id) c.who = ''; });
+    saveCal();
     schedule.members = schedule.members.filter((x) => x.id !== id);
     schedule.items = schedule.items.filter((i) => i.memberId !== id);
     health.visits = health.visits.filter((v) => v.who !== id);
@@ -3273,7 +3286,7 @@
   }
   // 구성원 목록(이름·생년월일)은 모든 메뉴가 함께 쓰지만, 메뉴마다 쓸 구성원을 따로 고른다.
   // `off`: 그 구성원을 감춘 메뉴 목록(구성원 객체, "나"는 프로필). 감춰도 기록은 지워지지 않고 그 메뉴에서만 안 보인다. 없으면 모든 메뉴에서 보인다.
-  const MEMBER_MENUS = [['schedule', '시간표'], ['health', '건강'], ['insurance', '보험'], ['rental', '렌탈·구독'], ['academy', '학원비'], ['savings', '저축'], ['side', '나는 N잡러'], ['salary', '나는 샐러리'], ['fit', '운동관리']];
+  const MEMBER_MENUS = [['schedule', '시간표'], ['health', '건강'], ['insurance', '보험'], ['rental', '렌탈·구독'], ['academy', '학원비'], ['savings', '저축'], ['side', '나는 N잡러'], ['salary', '나는 샐러리'], ['fit', '운동관리'], ['calendar', '캘린더']];
   let curMenu = 'ledger';   // 지금 보는 메뉴(setView가 바꾸고, 메뉴 그리기 함수는 자기 메뉴로 잠깐 바꿨다가 되돌린다)
   function memberOff(id) {
     if (id === 'me') { try { const o = JSON.parse(localStorage.getItem('dadari_profile_v1')).off; return Array.isArray(o) ? o : []; } catch (e) { return []; } }
@@ -6108,9 +6121,15 @@
   renderNotifStatus();
   var finReady = false;   // 가계부가 데이터를 바꿀 때 금융캘린더도 다시 그리기 위한 표시(const 초기화 전에 불리지 않게 var)
   const CAL_KEY = 'dadari_calendar_v1';
-  let calItems = loadJson(CAL_KEY, []);   // {id, title, date, endDate(선택), time(선택), endTime(선택), repeat('none'|'week'|'month'|'year'), color, memo}
+  let calItems = loadJson(CAL_KEY, []);   // {id, title, date, endDate(선택), time(선택), endTime(선택), repeat('none'|'week'|'month'|'year'), who('' 함께|구성원 id), tab(캘린더 탭 id, 선택), color, memo}
   if (!Array.isArray(calItems)) calItems = [];
   const saveCal = () => saveJson(CAL_KEY, calItems);
+  // 내가 만드는 캘린더 탭(내 일정을 묶는 분류): {id, name, color}. 일정의 `tab`이 이 id를 가리키고, 없거나 지워진 탭이면 "내 일정"이다.
+  const CALTAB_KEY = 'dadari_caltabs_v1';
+  let calTabs = loadJson(CALTAB_KEY, []);
+  if (!Array.isArray(calTabs)) calTabs = [];
+  const saveCalTabs = () => saveJson(CALTAB_KEY, calTabs);
+  const calTabKey = (c) => (c.tab && calTabs.some((t) => t.id === c.tab) ? 't:' + c.tab : 'mine');
   const CAL_DAYN = ['일', '월', '화', '수', '목', '금', '토'];
   const CAL_COLORS = ['#2a78d6', '#eb6834', '#1baf7a', '#e87ba4', '#6250d6', '#eda100'];   // 검증한 범주 팔레트 앞 6칸(파랑·주황·청록·분홍·보라·노랑)
   const CAL_REPEATS = [['none', '반복 안 함'], ['week', '매주'], ['month', '매월'], ['year', '매년']];
@@ -6154,19 +6173,23 @@
   }
 
   // from~to(포함) 사이 날짜별 일정과(금융) 날짜별 실제 수입·지출. cal: 'diary' | 'fin'
-  function calRange(cal, from, to, force) {
+  // who: 사람 필터('all' | 구성원 id). 주면 내 일정·건강 기록을 사람 기준으로 걸러 낸다(안 주면 거르지 않는다: 알림·확인할 일).
+  function calRange(cal, from, to, force, who) {
     const map = {}, money = {}, src = CAL_SRC[cal], off = calOff[cal];
+    const pplIds = people('calendar').map((x) => x.id);
+    const wOk = (w) => who === undefined || (who === 'all' ? !w || pplIds.includes(w) : !w || w === who);   // 내 일정: 구성원 없음(함께)은 늘 보인다
+    const hOk = (w) => who === undefined || (who === 'all' ? pplIds.includes(w) : w === who);
     const on = (k) => src.includes(k) && (force || !off.has(k));
-    const add = (kind, date, o) => { if (o.view && tabHidden(o.view)) return; if (on(kind) && validDate(date) && date >= from && date <= to) (map[date] = map[date] || []).push({ kind, color: CAL_KIND_COLOR[kind], ...o }); };
+    const add = (kind, date, o) => { if (o.view && tabHidden(o.view)) return; if ((o.tabOk || on(kind)) && validDate(date) && date >= from && date <= to) (map[date] = map[date] || []).push({ kind, color: CAL_KIND_COLOR[kind], ...o }); };
     const ms = [];
     for (let d = new Date(+from.slice(0, 4), +from.slice(5, 7) - 1, 1); dstr(d) <= to; d.setMonth(d.getMonth() + 1)) ms.push([d.getFullYear(), d.getMonth()]);
 
     if (on('health')) {
-      health.visits.forEach((v) => {
+      health.visits.filter((v) => hOk(v.who)).forEach((v) => {
         add('health', v.date, { icon: '🏥', text: `${whoName(v.who)} · ${v.hospital} 진료`, view: 'health' });
         add('health', v.next, { icon: '🏥', text: `${whoName(v.who)} · ${v.hospital} 예약`, view: 'health' });
       });
-      health.vaccines.forEach((v) => add('health', v.date, { icon: '💉', text: `${whoName(v.who)} · ${v.name}${v.dose ? ' ' + v.dose : ''} 접종${v.done ? ' 완료' : ' 예정'}`, view: 'health' }));
+      health.vaccines.filter((v) => hOk(v.who)).forEach((v) => add('health', v.date, { icon: '💉', text: `${whoName(v.who)} · ${v.name}${v.dose ? ' ' + v.dose : ''} 접종${v.done ? ' 완료' : ' 예정'}`, view: 'health' }));
     }
     if (on('life')) fridge.forEach((f) => add('life', f.expiry, { icon: '🧊', text: `${f.name} 소비기한`, view: 'food' }));
 
@@ -6217,12 +6240,12 @@
     }
     if (on('hol')) for (let y = +from.slice(0, 4); y <= +to.slice(0, 4); y++) { const h = calHolidays(y); Object.keys(h).forEach((d) => add('hol', d, { text: h[d] })); }
 
-    if (on('mine')) {
+    if (src.includes('mine')) {
       const fromY = +from.slice(0, 4), toY = +to.slice(0, 4);
       const pm = new Date(ms[0][0], ms[0][1] - 1, 1);
       const msPrev = [[pm.getFullYear(), pm.getMonth()], ...ms];
       calItems.forEach((c) => {
-        if (!validDate(c.date)) return;
+        if (!validDate(c.date) || !wOk(c.who) || (!force && off.has(calTabKey(c)))) return;
         const end = validDate(c.endDate) && c.endDate >= c.date ? c.endDate : c.date, span = diffDays(end, c.date), rep = c.repeat || 'none';
         const starts = [];
         if (rep === 'none') starts.push(c.date);
@@ -6232,7 +6255,7 @@
           for (; s <= to; s = addDays(s, 7)) starts.push(s);
         } else if (rep === 'month') msPrev.forEach(([y, m]) => { const s = ymdOf(y, m, +c.date.slice(8, 10)); if (s >= c.date) starts.push(s); });
         else for (let y = fromY - 1; y <= toY; y++) { const s = ymdOf(y, +c.date.slice(5, 7) - 1, +c.date.slice(8, 10)); if (s >= c.date) starts.push(s); }
-        starts.forEach((s) => { for (let i = 0; i <= span; i++) add('mine', addDays(s, i), { text: c.title, time: c.time || '', endTime: c.endTime || '', id: c.id, color: c.color || CAL_COLORS[0], first: i === 0, last: i === span, repeat: rep !== 'none', multi: span > 0, occ: s, occEnd: addDays(s, span) }); });
+        starts.forEach((s) => { for (let i = 0; i <= span; i++) add('mine', addDays(s, i), { text: (c.who ? whoName(c.who) + ' · ' : '') + c.title, time: c.time || '', endTime: c.endTime || '', id: c.id, color: c.color || CAL_COLORS[0], tabOk: true, first: i === 0, last: i === span, repeat: rep !== 'none', multi: span > 0, occ: s, occEnd: addDays(s, span) }); });
       });
     }
     if (cal === 'fin') transactions.forEach((t) => {
@@ -6255,7 +6278,9 @@
     return `<span class="dc-chip" style="background:${tone(c, e.text)}">${e.time ? `<b class="tm">${e.time}</b> ` : ''}${esc(e.text)}</span>`;
   }
   function calFilterHtml(cal) {
-    return CAL_CHIPS[cal].map(([k, n]) => `<button type="button" data-cf="${k}" class="${calOff[cal].has(k) ? '' : 'on'}">${n}</button>`).join('');
+    const chips = cal === 'diary' ? [CAL_CHIPS.diary[0], ...calTabs.map((t) => ['t:' + t.id, t.name, t.color]), ...CAL_CHIPS.diary.slice(1)] : CAL_CHIPS[cal];
+    return chips.map(([k, n, c]) => `<button type="button" data-cf="${attr(k)}" class="${calOff[cal].has(k) ? '' : 'on'}">${c ? `<i class="cf-dot" style="background:${attr(c)}"></i>` : ''}${esc(n)}</button>`).join('')
+      + (cal === 'diary' ? '<button type="button" class="cf-edit" data-ctabs>✎ 탭 편집</button>' : '');
   }
   // 달력 격자: 주마다 7열 그리드. 여러 날 일정은 엑셀의 합치기처럼 틈 없이 이어진 한 줄 띠로 묶어 제목을 한 번만 보여 준다.
   // 한 칸에는 일정 몇 개만 한 줄로 보이고(나머지는 +N) 전체는 날짜를 눌렀을 때 아래 목록에 나온다.
@@ -6321,16 +6346,17 @@
   function renderCal() {
     const S = CS.diary, today = todayStr();
     el('cal-modes').querySelectorAll('[data-cm]').forEach((b) => b.classList.toggle('active', b.dataset.cm === S.mode));
+    drawContractWho(el('cal-who'));
     el('cal-filters').innerHTML = calFilterHtml('diary');
     let html = '';
     if (S.mode === 'month') {
       el('cal-label').innerHTML = `<small>${S.y}</small>${S.m + 1}월`;
-      const [from, to] = calGridRange('diary'), { map } = calRange('diary', from, to);
+      const [from, to] = calGridRange('diary'), { map } = calRange('diary', from, to, false, conWho);
       html = calGridHtml('diary', map, null) + calDayHtml('diary', S.sel, map);
     } else if (S.mode === 'week') {
       const sd = dparse(S.sel), start = new Date(sd.getFullYear(), sd.getMonth(), sd.getDate() - sd.getDay()), end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6);
       el('cal-label').innerHTML = `<small>${start.getFullYear()}</small>${start.getMonth() + 1}/${start.getDate()} ~ ${end.getMonth() + 1}/${end.getDate()}`;
-      const { map } = calRange('diary', dstr(start), dstr(end));
+      const { map } = calRange('diary', dstr(start), dstr(end), false, conWho);
       for (let i = 0; i < 7; i++) {
         const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i), date = dstr(d), evs = (map[date] || []).filter((e) => !(e.multi && e.first === false && i !== 0));
         html += `<div class="dc-week${date === today ? ' today' : ''}"><div class="dc-wd${i === 0 || evs.some((e) => e.kind === 'hol') ? ' sun' : i === 6 ? ' sat' : ''}" data-cadd="${date}" title="일정 추가"><b>${d.getDate()}</b><span>${CAL_DAYN[i]}</span></div>`
@@ -6338,7 +6364,7 @@
       }
     } else {
       el('cal-label').innerHTML = '<small>다가오는</small>60일';
-      const { map } = calRange('diary', today, addDays(today, 60));
+      const { map } = calRange('diary', today, addDays(today, 60), false, conWho);
       Object.keys(map).forEach((d) => { map[d] = map[d].filter((e) => !(e.multi && e.first === false && d !== today)); if (!map[d].length) delete map[d]; });
       const days = Object.keys(map).sort();
       html = days.length ? days.map((date) => {
@@ -6380,12 +6406,15 @@
   el('cal-today').addEventListener('click', () => { const t = todayStr(), d = dparse(t), S = CS.diary; S.sel = t; S.y = d.getFullYear(); S.m = d.getMonth(); renderCal(); });
   el('cal-modes').addEventListener('click', (e) => { const b = e.target.closest('[data-cm]'); if (b) { CS.diary.mode = b.dataset.cm; renderCal(); } });
   el('cal-add').addEventListener('click', () => openCalSheet(null, CS.diary.sel));
+  el('cal-who').addEventListener('click', (e) => { const b = e.target.closest('button[data-cw]'); if (b) { conWho = b.dataset.cw; renderCal(); } });
+  el('cal-member-btn').addEventListener('click', () => openMemberManager());
   el('fin-prev').addEventListener('click', () => calGo('fin', CS.fin.y, CS.fin.m - 1));
   el('fin-next').addEventListener('click', () => calGo('fin', CS.fin.y, CS.fin.m + 1));
   el('fin-today').addEventListener('click', () => { const d = new Date(); calGo('fin', d.getFullYear(), d.getMonth()); });
 
   function calClick(cal, e) {
     const S = CS[cal], redraw = () => (cal === 'diary' ? renderCal() : renderFin());
+    if (e.target.closest('[data-ctabs]')) { openCalTabsSheet(); return; }
     const cf = e.target.closest('[data-cf]');
     if (cf) { const k = cf.dataset.cf; if (calOff[cal].has(k)) calOff[cal].delete(k); else calOff[cal].add(k); calOffSave(); redraw(); return; }
     const day = e.target.closest('[data-cd]');
@@ -6408,7 +6437,10 @@
       <label>제목</label><input name="title" required maxlength="40" placeholder="예: 학부모 상담, 가족 모임, 엄마 생신" value="${val(item && item.title)}" autocomplete="off">
       <label>시작일</label><input name="date" type="date" required value="${val(item ? item.date : date || CS.diary.sel)}">
       <label>종료일 (여러 날 일정일 때, 선택)</label><input name="endDate" type="date" value="${val(item && item.endDate)}">
+      ${(() => { const cur = item ? item.who || '' : conWho === 'all' ? '' : conWho, ppl = people('calendar'); if (cur && !ppl.some((x) => x.id === cur)) ppl.push({ id: cur, name: whoName(cur) });
+        return ppl.length > 1 || cur ? `<label>누구 일정</label><select name="who"><option value="">함께 (가족 공통)</option>${ppl.map((x) => `<option value="${attr(x.id)}"${x.id === cur ? ' selected' : ''}>${esc(x.name)}</option>`).join('')}</select>` : ''; })()}
       <div class="dc-times"><div><label>시작 시간 (선택)</label><input name="time" type="time" value="${val(item && item.time)}"></div><div><label>끝나는 시간 (선택)</label><input name="endTime" type="time" value="${val(item && item.endTime)}"></div></div>
+      ${calTabs.length ? `<label>탭</label><select name="tab"><option value="">내 일정</option>${calTabs.map((t) => `<option value="${attr(t.id)}" data-color="${attr(t.color || '')}"${item && item.tab === t.id ? ' selected' : ''}>${esc(t.name)}</option>`).join('')}</select>` : ''}
       <label>반복</label><select name="repeat">${CAL_REPEATS.map(([k, n]) => `<option value="${k}"${((item && item.repeat) || 'none') === k ? ' selected' : ''}>${n}</option>`).join('')}</select>
       <label>알림</label><select name="alarm">${CAL_ALARMS.map(([k, n]) => `<option value="${k}"${(item && item.alarm || '') === k ? ' selected' : ''}>${n}</option>`).join('')}</select>
       <label>색</label><div class="cal-sw-row">${CAL_COLORS.map((c) => `<label class="cal-sw"><input type="radio" name="color" value="${c}"${c === curColor ? ' checked' : ''}><i style="background:${c}"></i></label>`).join('')}</div>
@@ -6419,13 +6451,18 @@
       if (!title || !validDate(d0)) { showToast('제목과 시작일을 확인해 주세요'); return false; }
       if (validDate(d1) && d1 < d0) { showToast('종료일은 시작일보다 빠를 수 없어요'); return false; }
       const tm = (k) => (/^\d{2}:\d{2}$/.test(String(fd.get(k))) ? String(fd.get(k)) : '');
-      const rec = { title, date: d0, endDate: validDate(d1) && d1 > d0 ? d1 : '', time: tm('time'), endTime: tm('endTime'), repeat: String(fd.get('repeat')), alarm: String(fd.get('alarm')), color: String(fd.get('color')) || CAL_COLORS[0], memo: String(fd.get('memo')).trim() };
+      const rec = { title, date: d0, endDate: validDate(d1) && d1 > d0 ? d1 : '', time: tm('time'), endTime: tm('endTime'), repeat: String(fd.get('repeat')), who: String(fd.get('who') || ''), tab: String(fd.get('tab') || ''), alarm: String(fd.get('alarm')), color: String(fd.get('color')) || CAL_COLORS[0], memo: String(fd.get('memo')).trim() };
       if (item) Object.assign(item, rec); else calItems.push({ id: newId(), ...rec });
       saveCal();
       const S = CS.diary, dd = dparse(d0);
       S.sel = d0; S.y = dd.getFullYear(); S.m = dd.getMonth();
       renderCal();
       showToast(item ? '수정했어요' : '일정을 추가했어요');
+    });
+    const tabSel = sheetBody.querySelector('select[name=tab]');
+    if (tabSel) tabSel.addEventListener('change', () => {   // 탭을 고르면 그 탭의 색으로 맞춘다(아래에서 다른 색을 고를 수도 있다)
+      const c = tabSel.selectedOptions[0].dataset.color, r = c && sheetBody.querySelector('input[name=color][value="' + c + '"]');
+      if (r) r.checked = true;
     });
     const del = sheetBody.querySelector('[data-delete]');
     if (del) del.addEventListener('click', () => {
@@ -6437,6 +6474,66 @@
       renderCal();
       showToast('삭제했어요');
     });
+  }
+  // 캘린더 탭 편집: 내 일정을 묶는 탭을 더하고, 이름·색·순서를 바꾸고, 지운다(그 탭의 일정은 지워지지 않고 "내 일정"으로 돌아간다)
+  function openCalTabsSheet() {
+    const draw = () => {
+      sheetBody.innerHTML = `<form>
+        <h3>캘린더 탭 편집</h3>
+        <p class="goal-hint" style="margin:0 0 6px">“내 일정”을 나눠 볼 탭을 만들어요(예: 학교, 가족, 업무). 일정을 적을 때 탭을 고르고, 위의 탭 버튼을 눌러 보이게 하거나 숨길 수 있어요. 색 점을 누르면 색이 바뀌어요.</p>
+        ${calTabs.length ? calTabs.map((t) => `<div class="rec" data-id="${attr(t.id)}"><span class="grip" aria-label="끌어서 순서 바꾸기">☰</span><button type="button" class="icon-btn" data-tcolor="${attr(t.id)}" aria-label="색 바꾸기"><i class="cf-dot" style="background:${attr(t.color || CAL_COLORS[0])};width:16px;height:16px;margin:0"></i></button>
+          <div><div class="rec-name">${esc(t.name)}</div><div class="rec-sub">일정 ${calItems.filter((c) => c.tab === t.id).length}개</div></div>
+          <button type="button" class="icon-btn" data-tren="${attr(t.id)}" aria-label="이름 바꾸기">✎</button><button type="button" class="icon-btn" data-tdel="${attr(t.id)}" aria-label="탭 삭제">🗑</button></div>`).join('')
+          : '<div class="empty-msg" style="padding:10px 0">아직 만든 탭이 없어요</div>'}
+        <label>새 탭</label>
+        <div class="goal-row"><input id="ctab-new" maxlength="12" placeholder="탭 이름 (예: 학교)" autocomplete="off"><button type="button" data-tadd>추가</button></div>
+        <div class="sheet-actions"><button type="button" data-cancel>닫기</button></div>
+      </form>`;
+    };
+    const taken = (name, exceptId) => name === '내 일정' || ['건강', '냉장고', '공휴일'].includes(name) || calTabs.some((t) => t.name === name && t.id !== exceptId);
+    const done = () => { saveCalTabs(); renderCal(); draw(); };
+    makeSortable(sheetBody, '.rec[data-id]', '.grip', (ids) => {
+      const byId = new Map(calTabs.map((t) => [t.id, t]));
+      const next = ids.map((id) => byId.get(id)).filter(Boolean);
+      calTabs.forEach((t) => { if (!next.includes(t)) next.push(t); });
+      calTabs = next;
+      done();
+    });
+    sheetBody.onclick = (e) => {
+      const b = e.target.closest('button');
+      if (!b || b.disabled) return;
+      if (b.dataset.cancel !== undefined) closeSheet();
+      else if (b.dataset.tadd !== undefined) {
+        const name = sheetBody.querySelector('#ctab-new').value.trim();
+        if (!name) return;
+        if (taken(name)) { showToast('이미 있는 이름이에요'); return; }
+        calTabs.push({ id: newId(), name, color: CAL_COLORS[calTabs.length % CAL_COLORS.length] });
+        done();
+        showToast('탭을 추가했어요');
+      } else if (b.dataset.tcolor) {
+        const t = calTabs.find((x) => x.id === b.dataset.tcolor);
+        t.color = CAL_COLORS[(CAL_COLORS.indexOf(t.color) + 1) % CAL_COLORS.length];
+        done();
+      } else if (b.dataset.tren) {
+        const t = calTabs.find((x) => x.id === b.dataset.tren), name = (prompt('탭 이름을 입력하세요', t.name) || '').trim();
+        if (!name || name === t.name) return;
+        if (taken(name, t.id)) { showToast('이미 있는 이름이에요'); return; }
+        t.name = name;
+        done();
+      } else if (b.dataset.tdel) {
+        const t = calTabs.find((x) => x.id === b.dataset.tdel), n = calItems.filter((c) => c.tab === t.id).length;
+        if (!confirm(`“${t.name}” 탭을 삭제할까요?` + (n ? String.fromCharCode(10) + `이 탭의 일정 ${n}개는 지워지지 않고 “내 일정”으로 돌아가요.` : ''))) return;
+        calItems.forEach((c) => { if (c.tab === t.id) c.tab = ''; });
+        saveCal();
+        tomb(t.id);
+        calTabs = calTabs.filter((x) => x.id !== t.id);
+        calOff.diary.delete('t:' + t.id);
+        calOffSave();
+        done();
+      }
+    };
+    draw();
+    sheet.hidden = false;
   }
   finReady = true;
 
@@ -6845,7 +6942,7 @@
       const rep = c.repeat || 'none', last = validDate(c.endDate) && c.endDate >= c.date ? c.endDate : c.date;
       if (rep === 'none' && last < today) return;
       const rr = { week: 'FREQ=WEEKLY', month: 'FREQ=MONTHLY', year: 'FREQ=YEARLY' }[rep];
-      ev({ uid: 'cal-' + c.id, summary: '📅 ' + c.title, desc: c.memo || '', date: c.date,
+      ev({ uid: 'cal-' + c.id, summary: '📅 ' + (c.who ? '[' + whoName(c.who) + '] ' : '') + c.title, desc: c.memo || '', date: c.date,
         ...(c.time ? { time: c.time, ...(/^\d{2}:\d{2}$/.test(c.endTime || '') && c.endTime > c.time ? { endTime: c.endTime } : {}), alarms: ['-PT30M'] } : (validDate(c.endDate) && c.endDate > c.date ? { endDate: c.endDate } : {})),
         ...(rr ? { rrule: rr } : {}), ...(c.alarm !== undefined ? { alarms: c.alarm ? [icsAlarmTrig(c)] : [] } : {}) });
     });
@@ -7101,7 +7198,7 @@
 
   const snapshot = () => ({
     app: 'dadari', version: 3, updatedAt: new Date().toISOString(),
-    transactions, categories, cards, recurs, recurDone: [...recurDone], goal, schedule, health, insurance, rentals, academies, biz, fridge, calendar: calItems, savings, side, salary, fit, profile, tombs: [...tombs]
+    transactions, categories, cards, recurs, recurDone: [...recurDone], goal, schedule, health, insurance, rentals, academies, biz, fridge, calendar: calItems, calTabs, savings, side, salary, fit, profile, tombs: [...tombs]
   });
 
   // 두 기기가 따로 고친 내용을 합친다. 같은 id가 양쪽에 있으면 이 기기 것을 쓰고, 지운 항목(tombs)은 되살리지 않는다.
@@ -7129,6 +7226,7 @@
       academies: union(local.academies, remote.academies),
       fridge: union(local.fridge, remote.fridge),
       calendar: union(local.calendar, remote.calendar),
+      calTabs: union(local.calTabs, remote.calTabs),
       profile: (remote.profile && (!local.profile || String(remote.profile.updatedAt || '') > String(local.profile.updatedAt || ''))) ? remote.profile : local.profile,
       fit: {
         log: union(local.fit && local.fit.log, remote.fit && remote.fit.log),
@@ -7176,6 +7274,7 @@
       if (Array.isArray(s.academies)) academies = s.academies;
       if (Array.isArray(s.fridge)) fridge = s.fridge;
       if (Array.isArray(s.calendar)) calItems = s.calendar;
+      if (Array.isArray(s.calTabs)) calTabs = s.calTabs;
       if (s.profile && typeof s.profile === 'object') { profile = { show: true, emoji: '🙂', name: '', intro: '', ...s.profile, goals: Array.isArray(s.profile.goals) ? s.profile.goals : [] }; saveJson(PF_KEY, profile); }
       if (s.fit && Array.isArray(s.fit.log)) fit = { log: s.fit.log, weights: Array.isArray(s.fit.weights) ? s.fit.weights : [], goals: s.fit.goals && typeof s.fit.goals === 'object' ? s.fit.goals : {} };
       if (s.salary && Array.isArray(s.salary.jobs)) salary = { jobs: s.salary.jobs, log: Array.isArray(s.salary.log) ? s.salary.log : [] };
@@ -7198,6 +7297,7 @@
       saveBiz();
       saveFridge();
       saveCal();
+      saveCalTabs();
       saveSav();
       saveSide();
       saveSal();
@@ -7546,7 +7646,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v64'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v65'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span style="display:block;margin-bottom:4px">다달이, 매일의 기록이 모여 더 나은 생활이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
@@ -7603,6 +7703,7 @@
   renderSide = inMenu('side', renderSide);
   renderSalary = inMenu('salary', renderSalary);
   renderFit = inMenu('fit', renderFit);
+  renderCal = inMenu('calendar', renderCal);
   const savedView = loadJson(VIEW_KEY, 'ledger');
   setView(['status', 'calendar', 'savings', 'schedule', 'health', 'insurance', 'rental', 'academy', 'biz', 'side', 'salary', 'food', 'fit'].includes(savedView) ? savedView : 'ledger');
   if (tabHidden(savedView)) setView('status');   // 마지막에 보던 메뉴를 감춰 두었으면 대시보드로 연다
