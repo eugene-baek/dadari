@@ -711,6 +711,10 @@
   .dash-quick { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
   .dash-quick button { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 10px 2px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg); color: var(--text); font-size: 12.5px; line-height: 1.25; cursor: pointer; word-break: keep-all; }
   .dash-quick .ic { font-size: 20px; }
+  button.dash-row, button.dash-empty { width: 100%; text-align: left; background: none; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; color: var(--text); font: inherit; font-size: 14px; cursor: pointer; }
+  button.dash-row:active, button.dash-empty:active, .dash-tile:active, .dash-quick button:active { background: var(--accent-soft); }
+  button.dash-empty { display: block; color: var(--text-muted); font-size: 13px; }
+  .summary-grid [data-sv] { cursor: pointer; }
   .dash-row { display: flex; align-items: baseline; gap: 10px; padding: 9px 2px; border-bottom: 1px solid var(--border); font-size: 14px; }
   .dash-row:last-child { border-bottom: none; }
   .dash-row .dd { flex: none; width: 44px; color: var(--text-muted); font-size: 13px; font-variant-numeric: tabular-nums; }
@@ -3068,18 +3072,19 @@
   function dashAgenda() {
     const today = todayStr(), dow = new Date().getDay(), DAYN = ['일', '월', '화', '수', '목', '금', '토'];
     const evs = (calRange('diary', today, today).map[today] || []).filter((e) => e.kind !== 'life');
-    const rows = evs.slice(0, 6).map((e) => `<div class="dash-row"><span class="dd">${e.time ? esc(e.time) : e.kind === 'hol' ? '공휴일' : '종일'}</span><span class="tx">${e.icon ? e.icon + ' ' : ''}${esc(e.text)}</span></div>`);
-    if (evs.length > 6) rows.push(`<div class="dash-empty">그 밖에 ${evs.length - 6}건 더 있어요 (캘린더에서 볼 수 있어요)</div>`);
+    const row = (view, sub, dd, tx, am) => `<button type="button" class="dash-row" data-sv="${attr(view)}"${sub ? ` data-ssub="${attr(sub)}"` : ''}>${dd}<span class="tx">${tx}</span>${am || ''}</button>`;   // 줄을 누르면 그 메뉴로 간다
+    const rows = evs.slice(0, 6).map((e) => row(e.view || 'calendar', e.sub, `<span class="dd">${e.time ? esc(e.time) : e.kind === 'hol' ? '공휴일' : '종일'}</span>`, `${e.icon ? e.icon + ' ' : ''}${esc(e.text)}`));
+    if (evs.length > 6) rows.push(`<button type="button" class="dash-empty link" data-sv="calendar">그 밖에 ${evs.length - 6}건 더 있어요 › 캘린더에서 보기</button>`);
     const medsLeft = health.meds.filter((m) => medActive(m, today) && (m.times || []).some((t) => !((m.taken && m.taken[today]) || []).includes(t))).length;
-    if (medsLeft && !tabHidden('health')) rows.push(`<div class="dash-row"><span class="dd">복약</span><span class="tx">💊 오늘 먹을 약 ${medsLeft}개 남음</span></div>`);
+    if (medsLeft && !tabHidden('health')) rows.push(row('health', '', '<span class="dd">복약</span>', `💊 오늘 먹을 약 ${medsLeft}개 남음`));
     const sch = schedule.items.filter((i) => i.day === dow);
-    if (sch.length && !tabHidden('schedule')) rows.push(`<div class="dash-row"><span class="dd">시간표</span><span class="tx">🗓 ${sch.slice(0, 3).map((i) => esc(i.title)).join(', ')}${sch.length > 3 ? ' 외 ' + (sch.length - 3) + '개' : ''}</span></div>`);
+    if (sch.length && !tabHidden('schedule')) rows.push(row('schedule', '', '<span class="dd">시간표</span>', `🗓 ${sch.slice(0, 3).map((i) => esc(i.title)).join(', ')}${sch.length > 3 ? ' 외 ' + (sch.length - 3) + '개' : ''}`));
     const up = calRange('fin', today, addDays(today, 14), true).map, ups = [];
     Object.keys(up).sort().forEach((d) => up[d].filter((e) => e.kind === 'pay' || e.kind === 'inc').forEach((e) => ups.push({ d, e })));
-    const upRows = ups.slice(0, 6).map(({ d, e }) => { const dd = diffDays(d, today); return `<div class="dash-row"><span class="dd${dd === 0 ? ' today' : ''}">${dd === 0 ? '오늘' : 'D-' + dd}</span><span class="tx">${e.icon ? e.icon + ' ' : ''}${esc(e.text)}</span>${e.amt ? `<span class="am${e.kind === 'inc' ? ' inc' : ''}">${e.kind === 'inc' ? '+' : ''}${formatWon(e.amt)}</span>` : ''}</div>`; });
-    if (ups.length > 6) upRows.push(`<div class="dash-empty">그 밖에 ${ups.length - 6}건 더 있어요 (가계부 › 금융캘린더)</div>`);
-    return `<h2 class="section-title" style="margin:18px 0 0">오늘 · ${new Date().getMonth() + 1}월 ${new Date().getDate()}일 (${DAYN[dow]})</h2>${rows.join('') || '<div class="dash-empty">오늘은 등록된 일정이 없어요</div>'}`
-      + `<h2 class="section-title" style="margin:18px 0 0">다가오는 납부일 · 14일 이내</h2>${upRows.join('') || '<div class="dash-empty">14일 안에 납부·수입 예정이 없어요</div>'}`;
+    const upRows = ups.slice(0, 6).map(({ d, e }) => { const dd = diffDays(d, today); return row(e.view || 'ledger', e.sub, `<span class="dd${dd === 0 ? ' today' : ''}">${dd === 0 ? '오늘' : 'D-' + dd}</span>`, `${e.icon ? e.icon + ' ' : ''}${esc(e.text)}`, e.amt ? `<span class="am${e.kind === 'inc' ? ' inc' : ''}">${e.kind === 'inc' ? '+' : ''}${formatWon(e.amt)}</span>` : ''); });
+    if (ups.length > 6) upRows.push(`<button type="button" class="dash-empty link" data-sv="ledger" data-ssub="fin">그 밖에 ${ups.length - 6}건 더 있어요 › 금융캘린더에서 보기</button>`);
+    return `<h2 class="section-title" style="margin:18px 0 0">오늘 · ${new Date().getMonth() + 1}월 ${new Date().getDate()}일 (${DAYN[dow]})</h2>${rows.join('') || '<button type="button" class="dash-empty link" data-sv="calendar">오늘은 등록된 일정이 없어요 › 일정 추가하러 가기</button>'}`
+      + `<h2 class="section-title" style="margin:18px 0 0">다가오는 납부일 · 14일 이내</h2>${upRows.join('') || '<button type="button" class="dash-empty link" data-sv="ledger" data-ssub="card">14일 안에 납부·수입 예정이 없어요 › 자동이체 보기</button>'}`;
   }
   // 운동·건강·저축·냉장고 한눈 요약(눌러서 해당 메뉴로)
   function dashTiles() {
@@ -8019,7 +8024,7 @@
     const fixedHtml = parts.length
       ? `<h2 class="section-title" style="margin:18px 0 8px">매달 고정으로 나가는 돈</h2>
         <div class="ins-sum">월 약 <b>${formatWon(fixedTotal)}</b> · 연 ${formatWon(fixedTotal * 12)}${inc ? `<br>이번 달 수입 대비 ${Math.round((fixedTotal / inc) * 100)}%` : ''}</div>`
-        + parts.map(([n, v]) => `<div class="bar-row"><div class="cat-name" style="width:84px">${n}</div><div class="bar-track"><div class="bar-fill" style="width:${Math.max(4, Math.round((v / maxPart) * 100))}%"></div></div><div class="cat-amt" style="width:96px">${formatWon(v)}</div></div>`).join('')
+        + parts.map(([n, v]) => `<div class="bar-row" data-sv="${{ '보험': 'insurance', '렌탈·구독': 'rental', '학원비': 'academy' }[n] || 'ledger'}"${n === '자동이체·기타' ? ' data-ssub="card"' : ''} style="cursor:pointer"><div class="cat-name" style="width:84px">${n}</div><div class="bar-track"><div class="bar-fill" style="width:${Math.max(4, Math.round((v / maxPart) * 100))}%"></div></div><div class="cat-amt" style="width:96px">${formatWon(v)}</div></div>`).join('')
       : '';
 
     // 카드별 현황
@@ -8031,9 +8036,9 @@
     const DAYN = ['일', '월', '화', '수', '목', '금', '토'];
     el('status-body').innerHTML = `<div class="month-nav" style="margin-bottom:10px"><div class="label">${now.getFullYear()}년 ${now.getMonth() + 1}월 ${now.getDate()}일 (${DAYN[dow]})</div></div>
       <div class="summary-grid">
-        <div class="summary-item income"><div class="lbl">이번 달 수입</div><div class="val">${formatWon(inc)}</div></div>
-        <div class="summary-item expense"><div class="lbl">지출</div><div class="val">${formatWon(exp)}</div></div>
-        <div class="summary-item balance"><div class="lbl">잔액</div><div class="val">${bal < 0 ? '-' : ''}${formatWon(Math.abs(bal))}</div></div></div>
+        <div class="summary-item income" data-sv="ledger" role="button" tabindex="0"><div class="lbl">이번 달 수입</div><div class="val">${formatWon(inc)}</div></div>
+        <div class="summary-item expense" data-sv="ledger" role="button" tabindex="0"><div class="lbl">지출</div><div class="val">${formatWon(exp)}</div></div>
+        <div class="summary-item balance" data-sv="ledger" role="button" tabindex="0"><div class="lbl">잔액</div><div class="val">${bal < 0 ? '-' : ''}${formatWon(Math.abs(bal))}</div></div></div>
       <div data-sub="chart">${statusChartsHtml() || '<div class="empty-msg">아직 그래프로 보여 줄 기록이 없어요</div>'}</div>
       <div data-sub="table">${dashWelcome()}${dashShortcuts()}${dashAgenda()}${dashTiles()}<h2 class="section-title" style="margin:18px 0 0">관리 현황표</h2>
       <table class="st-table"><thead><tr><th>영역</th><th>현황</th><th>금액</th></tr></thead><tbody>${rows}</tbody></table>
@@ -8532,7 +8537,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v112'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v113'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span class="slogan">다달이, 매일의 기록이 모여<br><b>더 나은 생활</b>이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
