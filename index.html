@@ -12,6 +12,137 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <title>다달이 — 나의 생활을 한눈에</title>
 <meta name="description" content="돈 관리부터 시간 관리까지, 일상의 모든 기록을 다달이에서 간편하게 관리하세요.">
+<script>
+// 체험(데모) 버전: 주소 끝에 ?demo=1 을 붙여 열면 샘플 데이터로 모든 기능을 둘러볼 수 있다.
+// 저장은 "demo:" 접두사 영역과 demo_ 이름의 IndexedDB에만 하고, 실제 데이터·동기화 토큰·앱 잠금은 읽지도 쓰지도 않는다.
+(function () {
+  if (!/[?&]demo(=1|=true)?(&|$)/.test(location.search)) return;
+  window.__DEMO__ = true;
+  document.documentElement.className += ' demo-mode';
+  var P = 'demo:', S = Storage.prototype, g = S.getItem, s = S.setItem, r = S.removeItem, k = S.key;
+  var hidden = { dadari_sync_v1: 1, dadari_lock_v1: 1 };
+  S.getItem = function (n) { n = String(n); return hidden[n] ? null : g.call(this, P + n); };
+  S.setItem = function (n, v) { n = String(n); if (!hidden[n]) s.call(this, P + n, v); };
+  S.removeItem = function (n) { r.call(this, P + String(n)); };
+  S.clear = function () { var ks = [], i; for (i = 0; i < this.length; i++) { var kk = k.call(this, i); if (kk.indexOf(P) === 0) ks.push(kk); } for (i = 0; i < ks.length; i++) r.call(this, ks[i]); };
+  var io = IDBFactory.prototype.open, dd = IDBFactory.prototype.deleteDatabase;
+  IDBFactory.prototype.open = function (n, v) { return v === undefined ? io.call(this, 'demo_' + n) : io.call(this, 'demo_' + n, v); };
+  IDBFactory.prototype.deleteDatabase = function (n) { return dd.call(this, 'demo_' + n); };
+
+  // 처음 열 때(또는 "처음 상태로" 뒤) 샘플 데이터를 넣는다. 날짜는 오늘 기준이라 언제 열어도 최근 데이터처럼 보인다. 이름·금액은 모두 가상이다.
+  function seed() {
+    var NL = String.fromCharCode(10), d = new Date(), Y = d.getFullYear(), M = d.getMonth(), T = d.getDate();
+    var p2 = function (n) { return (n < 10 ? '0' : '') + n; };
+    var ds = function (y, m, day) { var x = new Date(y, m, day); return x.getFullYear() + '-' + p2(x.getMonth() + 1) + '-' + p2(x.getDate()); };
+    var off = function (n) { return ds(Y, M, T + n); };
+    var put = function (key, v) { s.call(localStorage, P + key, JSON.stringify(v)); };
+    var id = 0, nid = function () { return 'demo' + (++id); };
+
+    // 가계부: 이번 달과 지난 두 달
+    var tx = [], plan = [
+      [25, 'income', '급여', 3200000, '월급', 0, 0], [1, 'expense', '주거/공과금', 550000, '월세', 'transfer', 1], [5, 'expense', '통신', 65000, '통신비', 'card', 1],
+      [7, 'expense', '식비', 48000, '마트 장보기', 'card', 0], [9, 'expense', '교통', 55000, '교통카드 충전', 'card', 0], [12, 'expense', '식비', 32000, '가족 외식', 'card', 0],
+      [14, 'expense', '쇼핑', 89000, '의류', 'card', 0], [16, 'expense', '의료/건강', 23000, '병원·약국', 'cash', 0], [19, 'expense', '여가/문화', 45000, '영화·카페', 'card', 0], [21, 'expense', '식비', 27000, '배달 음식', 'card', 0]
+    ];
+    [0, -1, -2].forEach(function (mo) {
+      plan.forEach(function (x) {
+        if (mo === 0 && x[0] > T) return;
+        var t = { id: nid(), type: x[1], date: ds(Y, M + mo, x[0]), category: x[2], amount: x[3] + (mo === -1 ? 3000 : mo === -2 ? -2000 : 0), memo: x[4] };
+        if (x[1] === 'expense') { t.pay = x[5]; if (x[5] === 'card') t.cardId = 'democ1'; }
+        if (x[6]) t.fixed = true;
+        tx.push(t);
+      });
+    });
+    put('dadari_transactions_v1', tx);
+    put('dadari_goal_v1', 1800000);
+    put('dadari_cards_v1', [{ id: 'democ1', name: '생활카드', kind: 'credit', payDay: 15, fee: 15000, brand: '', fixedDefault: true, benefits: ['전월실적 30만원', '대중교통 10% 할인', '통신비 5천원 할인'].join(NL) }, { id: 'democ2', name: '체크카드', kind: 'check', payDay: 0, fee: 0, brand: '', benefits: '' }]);
+    put('dadari_recurs_v1', [
+      { id: 'demor1', type: 'expense', cardId: null, name: '월세 자동이체', amount: 550000, day: 1, category: '주거/공과금', auto: false, start: off(-90) },
+      { id: 'demor2', type: 'expense', cardId: 'democ1', name: '영상 구독', amount: 17000, day: 5, category: '여가/문화', auto: false, start: off(-90) },
+      { id: 'demor3', type: 'expense', cardId: null, name: '전기·수도 공과금', amount: 80000, day: 31, category: '주거/공과금', auto: false, start: off(-90) },
+      { id: 'demor4', type: 'income', cardId: null, name: '월급', amount: 3200000, day: 25, category: '급여', auto: false, start: off(-90) }
+    ]);
+
+    // 시간표 / 건강
+    var items = [];
+    [1, 2, 3, 4, 5].forEach(function (day) {
+      [['demom1', '08:30', '09:00', '등교'], ['demom1', '09:00', '13:00', '수업'], ['demom1', '15:00', '16:00', '영어(어학원)'], ['demom1', '16:30', '17:30', '수학(학원)'], ['demom1', '18:00', '', '집'],
+        ['demom2', '09:00', '13:30', '유치원'], ['demom2', '15:00', '16:00', '미술(문화센터)'], ['demom2', '17:00', '', '집']].forEach(function (x) {
+        if (x[0] === 'demom2' && day === 5 && x[3] === '미술(문화센터)') return;
+        items.push({ id: nid(), memberId: x[0], day: day, time: x[1], end: x[2], title: x[3], note: '' });
+      });
+    });
+    put('dadari_schedule_v1', { members: [{ id: 'demom1', name: '민지', birth: (Y - 9) + '-03-12' }, { id: 'demom2', name: '준호', birth: (Y - 6) + '-08-21' }], items: items });
+    put('dadari_health_v1', {
+      visits: [{ id: nid(), who: 'demom1', date: off(-20), hospital: 'OO소아과', dept: '소아과', reason: '감기', cost: 12000, next: off(4), note: '', claim: 'todo' }, { id: nid(), who: 'me', date: off(-45), hospital: 'OO내과', dept: '내과', reason: '건강검진', cost: 35000, next: '', note: '', claim: 'done', claimDate: off(-40), claimAmt: 30000 }],
+      periods: [],
+      vaccines: [{ id: nid(), who: 'demom2', name: '인플루엔자(독감)', dose: '', date: off(10), done: false, place: '', note: '' }, { id: nid(), who: 'demom2', name: '일본뇌염', dose: '1차', date: off(-200), done: true, place: '', note: '' }],
+      meds: [{ id: nid(), who: 'me', name: '비타민', dose: '1정', times: ['morning'], start: off(-30), end: '', place: '', note: '', taken: {} }]
+    });
+
+    // 보험 · 렌탈·구독 · 학원비
+    put('dadari_insurance_v1', [
+      { id: nid(), who: 'me', insurer: 'OO생명', name: '실손의료보험', kind: '실손의료', premium: 42000, freq: 'month', payDay: 10, payMonth: 0, cardId: null, start: ds(Y - 3, 0, 10), payYears: 0, expiry: '', renewal: off(40), status: 'active', auto: false, recurId: '', note: '' },
+      { id: nid(), who: 'demom1', insurer: 'OO화재', name: '어린이보험', kind: '어린이', premium: 31000, freq: 'month', payDay: 15, payMonth: 0, cardId: null, start: ds(Y - 2, 2, 15), payYears: 20, expiry: '', renewal: '', status: 'active', auto: false, recurId: '', note: '' }
+    ]);
+    put('dadari_rentals_v1', [
+      { id: nid(), who: 'me', company: 'OO렌탈', name: '정수기', fee: 29900, payDay: 20, cardId: null, start: ds(Y - 1, 5, 20), termMonths: 36, visitEvery: 4, nextVisit: off(12), status: 'active', auto: false, recurId: '', note: '' },
+      { id: nid(), who: 'me', company: '', name: '영상 구독', fee: 17000, payDay: 5, cardId: 'democ1', start: '', termMonths: 0, visitEvery: 0, nextVisit: '', status: 'active', auto: false, recurId: '', note: '' }
+    ]);
+    put('dadari_academies_v1', [{ id: nid(), who: 'demom1', name: '영어 학원', subject: '영어', fee: 280000, payDay: 25, cardId: null, status: 'active', auto: false, recurId: '', paid: {}, start: ds(Y, M - 6, 1) }]);
+
+    // 저축 · N잡러 · 샐러리 · CEO
+    var sv = [{ id: 'demos1', who: 'me', name: '비상금', kind: '비상금', goal: 3000000, goalDate: '', monthly: 200000, payDay: 25, note: '' }, { id: 'demos2', who: 'me', name: '여행 적금', kind: '적금', goal: 1200000, goalDate: off(180), monthly: 100000, payDay: 31, note: '' }], svl = [];
+    [-2, -1, 0].forEach(function (mo) { svl.push({ id: nid(), sid: 'demos1', date: ds(Y, M + mo, 25), amount: 200000, memo: '' }, { id: nid(), sid: 'demos2', date: ds(Y, M + mo, 28), amount: 100000, memo: '' }); });
+    svl.push({ id: nid(), sid: 'demos1', date: ds(Y, M - 3, 1), amount: 400000, memo: '시작 잔액', start: true });
+    put('dadari_savings_v1', { accounts: sv, log: svl });
+    var jl = [];
+    [-2, -1, 0].forEach(function (mo) { jl.push({ id: nid(), jid: 'demoj1', date: ds(Y, M + mo, 5), income: 180000 + mo * 10000, expense: 20000, hours: 8, memo: '1주차' }, { id: nid(), jid: 'demoj1', date: ds(Y, M + mo, 12), income: 150000, expense: 10000, hours: 6, memo: '2주차' }, { id: nid(), jid: 'demoj2', date: ds(Y, M + mo, 15), income: 90000, expense: 40000, hours: 5, memo: '정산' }); });
+    put('dadari_side_v1', { jobs: [{ id: 'demoj1', who: 'me', name: '주말 배달', kind: '배달·운전', status: 'on', goal: 500000, start: '', note: '' }, { id: 'demoj2', who: 'me', name: '스마트스토어', kind: '온라인 판매', status: 'on', goal: 300000, start: '', note: '' }], log: jl });
+    var ll = [];
+    [-2, -1, 0].forEach(function (mo) { ll.push({ id: nid(), jid: 'demol1', date: ds(Y, M + mo, 25), type: '월급', gross: 3800000, deduct: 420000, net: 3380000, memo: '' }); });
+    put('dadari_salary_v1', { jobs: [{ id: 'demol1', who: 'me', name: 'OO회사', kind: '정규직', status: 'on', payDay: 25, note: '' }], log: ll });
+    var be = [];
+    [-2, -1, 0].forEach(function (mo) { be.push({ id: nid(), bid: 'bz_main', date: ds(Y, M + mo, 8), kind: 'sale', name: '자사몰', amount: 1400000 + mo * 100000, memo: '' }, { id: nid(), bid: 'bz_main', date: ds(Y, M + mo, 10), kind: 'cost', name: '매입·원가', amount: 700000, memo: '' }, { id: nid(), bid: 'bz_main', date: ds(Y, M + mo, 18), kind: 'cost', name: '광고비', amount: 150000, memo: '' }); });
+    put('dadari_biz_v1', { entries: be, shops: [{ id: 'bz_main', name: '내 사업', target: 2000000 }], target: 0 });
+
+    // 캘린더 · 냉장고 · 프로필
+    put('dadari_calendar_v1', [
+      { id: nid(), title: '학부모 상담', date: off(2), time: '14:30', endTime: '15:30', repeat: 'none', alarm: '30m', color: '#2a78d6', memo: '' },
+      { id: nid(), title: '가족 여행', date: off(10), endDate: off(13), repeat: 'none', alarm: '1d', color: '#eb6834', memo: '' },
+      { id: nid(), title: '엄마 생신', date: ds(Y, M, 28), repeat: 'year', alarm: '1d', color: '#e87ba4', memo: '' },
+      { id: nid(), title: '주간 회의', date: off(-10), time: '09:00', endTime: '10:00', repeat: 'week', alarm: '10m', color: '#6250d6', memo: '' }
+    ]);
+    put('dadari_fridge_v1', [['우유', '1L', 'fridge', 2], ['두부', '1모', 'fridge', 1], ['달걀', '10구', 'fridge', 9], ['김치', '1통', 'fridge', 30], ['양파', '3개', 'room', 14], ['밥', '2공기', 'freezer', 20]].map(function (x) { return { id: nid(), name: x[0], qty: x[1], store: x[2], bought: off(-3), expiry: off(x[3]), note: '' }; }));
+    put('dadari_profile_v1', { show: true, emoji: '🚀', name: '체험', intro: '샘플 데이터로 둘러보는 중이에요', birth: '', goals: [{ id: nid(), text: '월 100만원 저축', done: true }, { id: nid(), text: '부업 수입 월 50만원', done: false }, { id: nid(), text: '책 12권 읽기', done: false }], updatedAt: new Date().toISOString() });
+    put('dadari_view_v1', 'status');
+    s.call(localStorage, P + 'demo_seeded', '1');
+  }
+  try { if (g.call(localStorage, P + 'demo_seeded') !== '1') seed(); } catch (e) { /* 저장소를 못 쓰면 빈 화면으로 열린다 */ }
+
+  // 위쪽 안내 줄: 체험 중임을 알리고 처음 상태로 되돌리거나 나갈 수 있게 한다.
+  document.addEventListener('DOMContentLoaded', function () {
+    document.title = '[체험] ' + document.title;
+    var bar = document.createElement('div');
+    bar.className = 'demo-bar';
+    bar.innerHTML = '<span>🧪 <b>체험 버전</b> · 샘플 데이터예요. 입력해도 내 실제 데이터에는 영향이 없어요.</span><button type="button" id="demo-reset">처음 상태로</button><a href="./">체험 끝내기</a>';
+    document.body.insertBefore(bar, document.body.firstChild);
+    document.getElementById('demo-reset').addEventListener('click', function () {
+      if (!confirm('체험 중에 입력한 내용을 지우고 샘플 데이터를 처음 상태로 되돌릴까요? (내 실제 데이터는 그대로예요)')) return;
+      var ks = [], i;
+      for (i = 0; i < localStorage.length; i++) { var kk = k.call(localStorage, i); if (kk.indexOf(P) === 0) ks.push(kk); }
+      for (i = 0; i < ks.length; i++) r.call(localStorage, ks[i]);
+      try { dd.call(indexedDB, 'demo_dadari'); dd.call(indexedDB, 'demo_dadari_dishes'); } catch (e) { /* 사진 저장소가 없어도 계속 */ }
+      location.reload();
+    });
+  });
+})();
+</script>
+<style>
+  .demo-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; justify-content: center; padding: 8px 12px; background: #fff4d6; color: #5b4300; font-size: 12px; text-align: center; border-bottom: 1px solid #f1d98a; }
+  .demo-bar button, .demo-bar a { padding: 4px 10px; border: 1px solid #d9b94a; border-radius: 99px; background: #fff; color: #5b4300; font-size: 12px; font-weight: 600; text-decoration: none; cursor: pointer; }
+  html.demo-mode #sync-card, html.demo-mode #lock-card { display: none; }
+</style>
 <style>
   :root {
     --bg: #f5f6f8;
@@ -7030,7 +7161,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v56'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v57'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span style="display:block;margin-bottom:4px">다달이, 매일의 기록이 모여 더 나은 생활이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
