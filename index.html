@@ -1341,7 +1341,7 @@
     <div id="sch-body"></div>
     <div class="cards-actions">
       <button type="button" class="mini-btn" id="add-sch-btn">＋ 일정 추가</button>
-      <button type="button" class="mini-btn" id="add-member-btn">＋ 구성원 추가</button>
+      <button type="button" class="mini-btn" id="add-member-btn">👥 구성원 관리</button>
     </div>
   </section>
 </main>
@@ -2969,23 +2969,7 @@
     if (b) { schMember = b.dataset.member; renderSchedule(); }
   });
 
-  // 구성원은 시간표와 건강관리가 함께 쓰는 목록이다. 어느 화면에서 추가해도 양쪽에 나타난다.
-  function openMemberSheet() {
-    openSheet(`<form>
-      <h3>구성원 추가</h3>
-      <label>이름</label>
-      <input name="name" required maxlength="20" placeholder="예: 첫째, 나, 이름">
-      <div class="sheet-actions"><button type="button" data-cancel>취소</button><button type="submit">추가</button></div>
-    </form>`, (fd) => {
-      const name = String(fd.get('name')).trim();
-      if (!name) return false;
-      schedule.members.push({ id: newId(), name, off: othersOff() });
-      saveSchedule();
-      refreshNames();
-      showToast('추가했어요 (지금 보는 메뉴에서만 써요. 다른 메뉴는 구성원 관리에서 켤 수 있어요)');
-    });
-  }
-  el('add-member-btn').addEventListener('click', openMemberSheet);
+  el('add-member-btn').addEventListener('click', () => openMemberManager());
 
   // 구성원을 지우면 그 사람의 시간표 일정과 병원·접종 기록도 함께 지운다. 지우기 전에 몇 건인지 알려 주고 확인받는다.
   function removeMember(id) {
@@ -3108,9 +3092,9 @@
       sheetBody.innerHTML = `<form>
         <h3>구성원 관리${menuName ? ' · ' + escapeHtml(menuName) : ''}</h3>
         ${menuName ? `<p class="goal-hint" style="margin:0 0 6px">“${escapeHtml(menuName)}”에서 쓸 구성원을 스위치로 골라요. 꺼도 기록은 지워지지 않고 이 메뉴에서만 안 보여요. 이름·생년월일은 모든 메뉴가 같이 써요.</p>` : ''}
-        <div class="rec" data-me="1"><span class="grip" style="visibility:hidden" aria-hidden="true">☰</span><div><div class="rec-name">${escapeHtml(meName())}</div><div class="rec-sub">${validDate(profile.birth) ? profile.birth.replace(/-/g, '.') + ' · ' + ageText(monthsBetween(profile.birth, todayStr())) : '생년월일 미입력'} · 기본 구성원</div></div>
+        ${menu === 'schedule' ? '' : `<div class="rec" data-me="1"><span class="grip" style="visibility:hidden" aria-hidden="true">☰</span><div><div class="rec-name">${escapeHtml(meName())}</div><div class="rec-sub">${validDate(profile.birth) ? profile.birth.replace(/-/g, '.') + ' · ' + ageText(monthsBetween(profile.birth, todayStr())) : '생년월일 미입력'} · 기본 구성원</div></div>
           ${useBtn('me')}<button type="button" class="icon-btn" data-mbirth="me" aria-label="생년월일">🎂</button>
-          <button type="button" class="icon-btn" data-mren="me" aria-label="이름 바꾸기">✎</button></div>
+          <button type="button" class="icon-btn" data-mren="me" aria-label="이름 바꾸기">✎</button></div>`}
         ${schedule.members.length ? schedule.members.map((m) => `<div class="rec" data-id="${m.id}"><span class="grip" aria-label="끌어서 순서 바꾸기">☰</span><div><div class="rec-name">${escapeHtml(m.name)}</div>
           <div class="rec-sub">${validDate(m.birth) ? m.birth.replace(/-/g, '.') + ' · ' + ageText(monthsBetween(m.birth, todayStr())) : '생년월일 미입력'}</div></div>
           ${useBtn(m.id)}<button type="button" class="icon-btn" data-mbirth="${m.id}" aria-label="생년월일">🎂</button>
@@ -3177,7 +3161,7 @@
       else if (b.dataset.cancel !== undefined) closeSheet();
       else if (b.dataset.muse) {
         const on = memberOff(b.dataset.muse).includes(menu);   // 지금 꺼져 있으면 켠다
-        if (!on && people(menu).length <= 1) { showToast('이 메뉴에는 구성원이 한 명은 있어야 해요'); return; }
+        if (!on && people(menu).filter((x) => menu !== 'schedule' || x.id !== 'me').length <= 1) { showToast('이 메뉴에는 구성원이 한 명은 있어야 해요'); return; }
         setMemberUse(b.dataset.muse, menu, on);
         refreshNames();
         draw();
@@ -7646,7 +7630,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v65'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v66'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span style="display:block;margin-bottom:4px">다달이, 매일의 기록이 모여 더 나은 생활이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
