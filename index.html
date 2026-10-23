@@ -162,12 +162,12 @@
     // ⑦ 운동관리
     var fl = [], types = ['run', 'gym', 'walk', 'yoga', 'swim'];
     for (var fi = 0; fi < 45; fi++) { if (fi % 3 === 2) continue; fl.push({ id: nid(), who: 'me', date: off(-fi), type: types[fi % 5], level: fi % 4 === 0 ? 'high' : 'mid', min: 25 + (fi * 7) % 40, km: types[fi % 5] === 'run' || types[fi % 5] === 'walk' ? Math.round((3 + (fi % 4) * 1.3) * 10) / 10 : 0, kcal: fi % 2 ? 150 + (fi * 23) % 250 : 0, memo: '' }); }
-    put('dadari_fit_v1', { log: fl, weights: [{ id: nid(), who: 'me', date: off(-60), kg: 65.4 }, { id: nid(), who: 'me', date: off(-40), kg: 64.8 }, { id: nid(), who: 'me', date: off(-20), kg: 64.1 }, { id: nid(), who: 'me', date: off(-2), kg: 63.5 }], goals: { me: { perWeek: 3, minWeek: 150, days: [1, 3, 5] } } });
+    put('dadari_fit_v1', { log: fl, weights: [{ id: nid(), who: 'me', date: off(-60), kg: 65.4 }, { id: nid(), who: 'me', date: off(-40), kg: 64.8 }, { id: nid(), who: 'me', date: off(-20), kg: 64.1 }, { id: nid(), who: 'me', date: off(-2), kg: 63.5 }], goals: { me: { perWeek: 3, minWeek: 150, days: [1, 3, 5] } }, body: { me: { height: 165, goalKg: 62 } } });
     put('dadari_view_v1', 'status');
     s.call(localStorage, P + 'demo_seeded', SEED_V);
   }
   // 샘플 내용을 고치면 SEED_V를 올린다: 이미 체험판을 열어 본 기기도 새 샘플로 다시 채운다(체험 중 입력은 사라진다).
-  var SEED_V = '4';
+  var SEED_V = '5';
   try {
     if (g.call(localStorage, P + 'demo_seeded') !== SEED_V) {
       var olds = [], oi;
@@ -2131,6 +2131,7 @@
             mergeById(fit.log, data.fit.log, (l) => validDate(l.date) && typeof l.type === 'string');
             mergeById(fit.weights, data.fit.weights, (w) => validDate(w.date) && w.kg > 0);
             Object.keys(data.fit.goals || {}).forEach((k) => { if (!fit.goals[k]) fit.goals[k] = data.fit.goals[k]; });
+            Object.keys(data.fit.body || {}).forEach((k) => { if (!fit.body[k]) fit.body[k] = data.fit.body[k]; });
             saveFit();
             renderFit();
           }
@@ -3032,6 +3033,7 @@
     fit.log = fit.log.filter((l) => fitWho(l) !== id);
     fit.weights = fit.weights.filter((w) => fitWho(w) !== id);
     delete fit.goals[id];
+    delete fit.body[id];
     saveFit();
     renderFit();
     // 이 사람의 캘린더 일정은 지우지 않고 "함께"로 바꾼다
@@ -3088,16 +3090,18 @@
     const useBtn = (id) => (menuName ? (memberOff(id).includes(menu)
       ? `<button type="button" class="tt-sw" data-muse="${id}" role="switch" aria-checked="false">안 씀</button>`
       : `<button type="button" class="tt-sw on" data-muse="${id}" role="switch" aria-checked="true">사용</button>`) : '');
+    const bodyBtn = (id) => (menu === 'fit' ? `<button type="button" class="icon-btn" data-mbody="${id}" aria-label="신체 정보" title="신체 정보(키·목표 체중)">📏</button>` : '');
+    const bodySub = (id) => (menu === 'fit' && fitBodyText(id) ? ' · ' + escapeHtml(fitBodyText(id)) : '');
     const draw = () => {
       sheetBody.innerHTML = `<form>
         <h3>구성원 관리${menuName ? ' · ' + escapeHtml(menuName) : ''}</h3>
-        ${menuName ? `<p class="goal-hint" style="margin:0 0 6px">“${escapeHtml(menuName)}”에서 쓸 구성원을 스위치로 골라요. 꺼도 기록은 지워지지 않고 이 메뉴에서만 안 보여요. 이름·생년월일은 모든 메뉴가 같이 써요.</p>` : ''}
-        ${menu === 'schedule' ? '' : `<div class="rec" data-me="1"><span class="grip" style="visibility:hidden" aria-hidden="true">☰</span><div><div class="rec-name">${escapeHtml(meName())}</div><div class="rec-sub">${validDate(profile.birth) ? profile.birth.replace(/-/g, '.') + ' · ' + ageText(monthsBetween(profile.birth, todayStr())) : '생년월일 미입력'} · 기본 구성원</div></div>
-          ${useBtn('me')}<button type="button" class="icon-btn" data-mbirth="me" aria-label="생년월일">🎂</button>
+        ${menuName ? `<p class="goal-hint" style="margin:0 0 6px">“${escapeHtml(menuName)}”에서 쓸 구성원을 스위치로 골라요. 꺼도 기록은 지워지지 않고 이 메뉴에서만 안 보여요. 이름·생년월일은 모든 메뉴가 같이 써요.${menu === 'fit' ? ' 📏로 키·목표 체중을 적어 둘 수 있어요(운동관리에서만 써요).' : ''}</p>` : ''}
+        ${menu === 'schedule' ? '' : `<div class="rec" data-me="1"><span class="grip" style="visibility:hidden" aria-hidden="true">☰</span><div><div class="rec-name">${escapeHtml(meName())}</div><div class="rec-sub">${validDate(profile.birth) ? profile.birth.replace(/-/g, '.') + ' · ' + ageText(monthsBetween(profile.birth, todayStr())) : '생년월일 미입력'}${bodySub('me')} · 기본 구성원</div></div>
+          ${useBtn('me')}${bodyBtn('me')}<button type="button" class="icon-btn" data-mbirth="me" aria-label="생년월일">🎂</button>
           <button type="button" class="icon-btn" data-mren="me" aria-label="이름 바꾸기">✎</button></div>`}
         ${schedule.members.length ? schedule.members.map((m) => `<div class="rec" data-id="${m.id}"><span class="grip" aria-label="끌어서 순서 바꾸기">☰</span><div><div class="rec-name">${escapeHtml(m.name)}</div>
-          <div class="rec-sub">${validDate(m.birth) ? m.birth.replace(/-/g, '.') + ' · ' + ageText(monthsBetween(m.birth, todayStr())) : '생년월일 미입력'}</div></div>
-          ${useBtn(m.id)}<button type="button" class="icon-btn" data-mbirth="${m.id}" aria-label="생년월일">🎂</button>
+          <div class="rec-sub">${validDate(m.birth) ? m.birth.replace(/-/g, '.') + ' · ' + ageText(monthsBetween(m.birth, todayStr())) : '생년월일 미입력'}${bodySub(m.id)}</div></div>
+          ${useBtn(m.id)}${bodyBtn(m.id)}<button type="button" class="icon-btn" data-mbirth="${m.id}" aria-label="생년월일">🎂</button>
           <button type="button" class="icon-btn" data-mren="${m.id}" aria-label="이름 바꾸기">✎</button>
           <button type="button" class="icon-btn" data-mdel="${m.id}" aria-label="모든 메뉴에서 완전히 삭제" title="모든 메뉴에서 완전히 삭제">🗑</button></div>`).join('')
           : '<div class="empty-msg" style="padding:10px 0">아직 다른 구성원이 없어요</div>'}
@@ -3168,6 +3172,7 @@
       }
       else if (b.dataset.mdel) { if (removeMember(b.dataset.mdel)) { refreshNames(); draw(); } }
       else if (b.dataset.mren) rename(b.dataset.mren);
+      else if (b.dataset.mbody) openBodySheet(b.dataset.mbody);
       else if (b.dataset.mbirth) openBirthSheet(b.dataset.mbirth === 'me' ? 'me' : schedule.members.find((m) => m.id === b.dataset.mbirth), true);
     };
     draw();
@@ -5814,9 +5819,10 @@
   /* ---------- 운동관리 ---------- */
   // 운동 기록(종류·시간·거리·칼로리)과 체중을 적어 주간 횟수·시간, 주간 목표, 연속 운동일, 최근 6주 추이를 본다. 구성원마다 따로 볼 수 있다.
   const FIT_KEY = 'dadari_fit_v1';
-  let fit = loadJson(FIT_KEY, { log: [], weights: [], goals: {} });   // log: {id,who,date,type,min,km,kcal,memo}, weights: {id,who,date,kg}, goals: {구성원id: {perWeek(회), minWeek(분)}}
-  if (!fit || !Array.isArray(fit.log) || !Array.isArray(fit.weights)) fit = { log: [], weights: [], goals: {} };
+  let fit = loadJson(FIT_KEY, { log: [], weights: [], goals: {}, body: {} });   // body: {구성원id: {height(cm), goalKg}}, log: {id,who,date,type,min,km,kcal,memo}, weights: {id,who,date,kg}, goals: {구성원id: {perWeek(회), minWeek(분)}}
+  if (!fit || !Array.isArray(fit.log) || !Array.isArray(fit.weights)) fit = { log: [], weights: [], goals: {}, body: {} };
   if (!fit.goals || typeof fit.goals !== 'object') fit.goals = {};
+  if (!fit.body || typeof fit.body !== 'object') fit.body = {};
   const saveFit = () => saveJson(FIT_KEY, fit);
   const FIT_TYPES = [['run', '🏃 러닝'], ['walk', '🚶 걷기'], ['gym', '🏋️ 헬스'], ['yoga', '🧘 요가·필라테스'], ['swim', '🏊 수영'], ['bike', '🚴 자전거'], ['hike', '⛰️ 등산'], ['ball', '⚽ 구기·라켓'], ['etc', '✨ 기타']];
   const fitName = (k) => (FIT_TYPES.find((t) => t[0] === k) || FIT_TYPES[8])[1];
@@ -5847,6 +5853,28 @@
     }
     met *= { low: 0.85, mid: 1, high: 1.15 }[l.level || 'mid'] || 1;
     return { kcal: Math.round(met * kg * hrs), est: true, kg: kgRec };
+  }
+  // 신체 정보: 키(cm)·목표 체중(kg)은 운동관리에서만 쓰고(`fit.body`), 현재 체중은 체중 기록의 가장 최근 값이다.
+  const fitBodyText = (id) => { const b = fit.body[id] || {}; return [b.height ? '키 ' + b.height + 'cm' : '', b.goalKg ? '목표 ' + b.goalKg + 'kg' : ''].filter(Boolean).join(' · '); };
+  const fitBirth = (id) => (id === 'me' ? profile.birth : (schedule.members.find((m) => m.id === id) || {}).birth) || '';
+  function openBodySheet(id) {
+    const b = fit.body[id] || {}, kg = fitWeightFor(id, '9999-12-31');
+    openSheet(`<form>
+      <h3>신체 정보 · ${esc(whoName(id))}</h3>
+      <label>키 (cm, 선택)</label><input name="height" type="number" inputmode="decimal" min="50" max="250" step="0.1" value="${b.height || ''}" placeholder="예: 165">
+      <label>목표 체중 (kg, 선택)</label><input name="goalKg" type="number" inputmode="decimal" min="10" max="300" step="0.1" value="${b.goalKg || ''}" placeholder="예: 60">
+      <p class="goal-hint">${kg ? '지금 체중은 체중 기록의 최근 값(' + kg + 'kg)을 써요. ' : '체중은 “＋ 체중 기록”으로 적어요. '}키와 목표 체중이 있으면 체중 칸에 BMI(성인만)와 목표까지 남은 양을 보여 줘요. 이 기기와 내 비공개 동기화 저장소에만 저장돼요.</p>
+      <div class="sheet-actions"><button type="button" data-cancel>취소</button><button type="submit">저장</button></div>
+    </form>`, (fd) => {
+      const num = (k, lo, hi) => { const v = parseFloat(fd.get(k)); return v >= lo && v <= hi ? Math.round(v * 10) / 10 : 0; };
+      const height = num('height', 50, 250), goalKg = num('goalKg', 10, 300);
+      if (height || goalKg) fit.body[id] = { height, goalKg }; else delete fit.body[id];
+      saveFit();
+      renderFit();
+      showToast('저장했어요');
+      setTimeout(openMemberManager, 0);
+    });
+    sheetBody.querySelector('[data-cancel]').addEventListener('click', () => setTimeout(openMemberManager, 0));
   }
   const fitSum = (logs) => {
     const es = logs.map(fitEst);
@@ -5921,6 +5949,16 @@
       weightHtml += `<h2 class="section-title" style="margin:18px 0 4px">체중</h2><div class="ins-sum">최근 <b>${latest.kg}kg</b> (${latest.date.slice(5).replace('-', '/')}${ppl.length > 1 && conWho === 'all' ? ' · ' + esc(whoName(fitWho(latest))) : ''})${diff !== null ? `<br>${old.date.slice(5).replace('-', '/')} 대비 <b style="color:${diff > 0 ? 'var(--expense)' : 'var(--income)'}">${diff > 0 ? '+' : ''}${diff}kg</b>` : ''}</div>`
         + ws.slice(0, 5).map((w) => `<button type="button" class="visit" data-fw="${attr(w.id)}"><div class="v1"><span>${w.date.slice(2).replace(/-/g, '.')}${ppl.length > 1 && conWho === 'all' ? ' · ' + esc(whoName(fitWho(w))) : ''}</span><b>${w.kg}kg</b></div></button>`).join('');
     }
+
+    // 신체 정보(키·목표 체중): BMI는 성인(만 19세 이상, 또는 생년월일이 없을 때)만 계산한다. 참고용 지표다.
+    const bodyRows = ppl.filter((p) => whoPick(conWho, p.id) && fitBodyText(p.id)).map((p) => {
+      const b = fit.body[p.id], kg = fitWeightFor(p.id, '9999-12-31'), bd = fitBirth(p.id), adult = !validDate(bd) || monthsBetween(bd, todayStr()) >= 228;
+      const bmi = b.height && kg && adult ? Math.round((kg / ((b.height / 100) ** 2)) * 10) / 10 : 0, cat = bmi < 18.5 ? '저체중' : bmi < 23 ? '정상' : bmi < 25 ? '과체중' : '비만';
+      const gap = b.goalKg && kg ? Math.round((kg - b.goalKg) * 10) / 10 : null;
+      return `<div class="fx-row"><span>${ppl.length > 1 && conWho === 'all' ? esc(p.name) + ' · ' : ''}${b.height ? '키 ' + b.height + 'cm' : ''}${kg ? (b.height ? ' · ' : '') + kg + 'kg' : ''}${bmi ? ' · BMI <b>' + bmi + '</b> (' + cat + ')' : ''}</span>`
+        + (gap === null ? (b.goalKg ? `<b>목표 ${b.goalKg}kg</b>` : '') : gap === 0 ? '<b class="income">목표 달성 🎉</b>' : `<b>목표 ${b.goalKg}kg까지 ${gap > 0 ? '-' : '+'}${Math.abs(gap)}kg</b>`) + '</div>';
+    });
+    if (bodyRows.length) weightHtml += '<div class="ins-sum" style="margin-top:8px">' + bodyRows.join('') + '<div class="goal-hint" style="margin:4px 0 0">BMI는 성인 대략 지표(참고용)예요.</div></div>';
 
     // 선택한 주 기록
     const list = wk.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
@@ -7095,10 +7133,11 @@
     const expiredFood = soonFood.filter((f) => ddOf(f) < 0).length;
 
     const money = (n) => (n ? formatWon(n) : '-');
-    const row = (ic, name, main, warn, amt, view, sub) => tabHidden(view) ? '' : `<tr data-sv="${view}"${sub ? ` data-ssub="${sub}"` : ''}><td><span class="st-name">${ic} ${name}</span></td>
-      <td>${main}${warn ? `<div class="st-warn">${warn}</div>` : ''}</td><td class="st-amt">${amt}</td></tr>`;
+    // 현황표 줄은 메인 메뉴 순서(메뉴 관리에서 정한 순서)를 따라 늘어놓는다. 같은 메뉴의 줄(가계부·자동이체·카드)은 적은 순서를 지킨다.
+    const row = (ic, name, main, warn, amt, view, sub) => ({ v: view, h: tabHidden(view) ? '' : `<tr data-sv="${view}"${sub ? ` data-ssub="${sub}"` : ''}><td><span class="st-name">${ic} ${name}</span></td>
+      <td>${main}${warn ? `<div class="st-warn">${warn}</div>` : ''}</td><td class="st-amt">${amt}</td></tr>` });
     const goalTxt = goal > 0 ? `월 목표 ${formatWon(goal)} 중 ${Math.round((exp / goal) * 100)}% 사용` : '';
-    const rows = [
+    const rowList = [
       row('💰', '가계부', `수입 ${money(inc)} · 지출 ${money(exp)}<div class="st-sub">고정비 ${money(fixedExp)}${goalTxt ? ' · ' + goalTxt : ''}</div>`, goal > 0 && exp > goal ? '월 목표를 넘었어요' : '', `${bal < 0 ? '-' : ''}${formatWon(Math.abs(bal))}`, 'ledger', 'sum'),
       row('🔁', '자동이체·정기결제', `${expRecurs.length}건${incRecurs.length ? ` · 고정수입 ${incRecurs.length}건` : ''}`, '', money(sum(expRecurs, (r) => r.amount)) === '-' ? '-' : '월 ' + formatWon(sum(expRecurs, (r) => r.amount)), 'ledger', 'card'),
       row('💳', '카드', `등록 ${cards.length}장`, '', cards.length ? '이번 달 ' + formatWon(cardTotal) : '-', 'ledger', 'card'),
@@ -7113,7 +7152,9 @@
       row('📈', '나는CEO', (biz.shops.length > 1 ? `사업 ${biz.shops.length}개 · ` : '') + (bizMonth.length ? `매출 ${formatWon(bizSales)} · 비용 ${formatWon(bizCost)}` : '이번 달 입력 없음'), bizTarget > 0 && bizSales < bizTarget ? `목표 ${formatWon(bizTarget)} 중 ${Math.round((bizSales / bizTarget) * 100)}%` : '', bizMonth.length ? `${bizSales - bizCost < 0 ? '-' : ''}${formatWon(Math.abs(bizSales - bizCost))}` : '-', 'biz'),
       row('🐷', '저축', savings.accounts.length ? `통장·목표 ${savings.accounts.length}개 · 이번 달 입금 ${money(savMonthIn)}` : '등록한 통장이 없어요', savMiss ? `이번 달 저축 계획 미달 ${savMiss}건` : '', savings.accounts.length ? formatWon(savTotal) : '-', 'savings'),
       row('🍳', '냉장고', `재료 ${fridge.length}개 · 임박 ${soonFood.length - expiredFood}개`, expiredFood ? `기한 지남 ${expiredFood}개` : '', '-', 'food')
-    ].join('');
+    ];
+    const menuOrder = tabOrder();
+    const rows = rowList.filter((r) => r.h).sort((a, b) => menuOrder.indexOf(a.v) - menuOrder.indexOf(b.v)).map((r) => r.h).join('');
 
     // 매달 고정으로 나가는 돈 (보험·렌탈·학원비는 각 탭 데이터에서, 그 밖의 자동이체는 정기결제 목록에서)
     const parts = [['보험', insMonthly], ['렌탈·구독', rentMonthly], ['학원비', sum(academies.filter((a) => a.status === 'active'), (a) => +a.fee || 0)], ['자동이체·기타', otherRecurs]].filter((p) => p[1] > 0);
@@ -7215,7 +7256,8 @@
       fit: {
         log: union(local.fit && local.fit.log, remote.fit && remote.fit.log),
         weights: union(local.fit && local.fit.weights, remote.fit && remote.fit.weights),
-        goals: { ...((remote.fit && remote.fit.goals) || {}), ...((local.fit && local.fit.goals) || {}) }
+        goals: { ...((remote.fit && remote.fit.goals) || {}), ...((local.fit && local.fit.goals) || {}) },
+        body: { ...((remote.fit && remote.fit.body) || {}), ...((local.fit && local.fit.body) || {}) }
       },
       salary: (() => {
         const jobs = union(local.salary && local.salary.jobs, remote.salary && remote.salary.jobs);
@@ -7260,7 +7302,7 @@
       if (Array.isArray(s.calendar)) calItems = s.calendar;
       if (Array.isArray(s.calTabs)) calTabs = s.calTabs;
       if (s.profile && typeof s.profile === 'object') { profile = { show: true, emoji: '🙂', name: '', intro: '', ...s.profile, goals: Array.isArray(s.profile.goals) ? s.profile.goals : [] }; saveJson(PF_KEY, profile); }
-      if (s.fit && Array.isArray(s.fit.log)) fit = { log: s.fit.log, weights: Array.isArray(s.fit.weights) ? s.fit.weights : [], goals: s.fit.goals && typeof s.fit.goals === 'object' ? s.fit.goals : {} };
+      if (s.fit && Array.isArray(s.fit.log)) fit = { log: s.fit.log, weights: Array.isArray(s.fit.weights) ? s.fit.weights : [], goals: s.fit.goals && typeof s.fit.goals === 'object' ? s.fit.goals : {}, body: s.fit.body && typeof s.fit.body === 'object' ? s.fit.body : {} };
       if (s.salary && Array.isArray(s.salary.jobs)) salary = { jobs: s.salary.jobs, log: Array.isArray(s.salary.log) ? s.salary.log : [] };
       if (s.side && Array.isArray(s.side.jobs)) side = { jobs: s.side.jobs, log: Array.isArray(s.side.log) ? s.side.log : [] };
       if (s.savings && Array.isArray(s.savings.accounts)) savings = { accounts: s.savings.accounts, log: Array.isArray(s.savings.log) ? s.savings.log : [] };
@@ -7630,7 +7672,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v66'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v67'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span style="display:block;margin-bottom:4px">다달이, 매일의 기록이 모여 더 나은 생활이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
