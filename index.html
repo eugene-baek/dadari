@@ -473,6 +473,21 @@
     font-variant-numeric: tabular-nums;
   }
 
+  /* 지출 구성: 도넛(상위 5개 + 기타) + 항목·%·금액 목록. 도넛은 느낌만, 정확한 값은 목록에서 읽는다 */
+  .donut-wrap { display: flex; justify-content: center; margin: 4px 0 10px; }
+  .donut { width: 148px; height: 148px; border-radius: 50%; position: relative; }
+  .donut::after { content: ''; position: absolute; inset: 24px; border-radius: 50%; background: var(--card-bg); }
+  .donut-center { position: absolute; inset: 0; z-index: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+  .donut-center small { font-size: 12px; color: var(--text-muted); }
+  .donut-center b { font-size: 15px; font-variant-numeric: tabular-nums; }
+  .bk-row { display: flex; align-items: center; gap: 8px; padding: 9px 2px; border-bottom: 1px solid var(--border); font-size: 14px; }
+  .bk-row:last-child { border-bottom: none; }
+  .bk-row i { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+  .bk-row .bk-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .bk-row .bk-pct { width: 40px; text-align: right; color: var(--text-muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+  .bk-row .bk-amt { width: 92px; text-align: right; font-variant-numeric: tabular-nums; }
+  .bk-more { width: 100%; margin-top: 6px; border: none; background: none; color: var(--text-muted); font-size: 13px; padding: 8px; cursor: pointer; }
+
   .tx-list { display: flex; flex-direction: column; gap: 8px; }
   .tx-item {
     display: flex;
@@ -1941,6 +1956,9 @@
     showToast(goal ? '월 목표를 저장했어요' : '월 목표를 해제했어요');
   });
 
+  let breakdownAll = false;   // "기타" 펼침(화면 한정, 저장 안 함)
+  const BK_COLORS = ['#6366f1', '#14b8a6', '#f59e0b', '#ec4899', '#3b82f6'];   // 상위 5개(색 구분이 되는 한도)
+  const BK_ETC = '#9ca3af';
   function renderBreakdown(expenseTx) {
     const wrap = el('breakdown-list');
     if (expenseTx.length === 0) {
@@ -1951,19 +1969,25 @@
     expenseTx.forEach((t) => {
       totals[t.category] = (totals[t.category] || 0) + t.amount;
     });
-    const max = Math.max(...Object.values(totals));
-    const rows = Object.entries(totals)
-      .sort((a, b) => b[1] - a[1])
-      .map(([cat, amt]) => {
-        const pct = Math.max(4, Math.round((amt / max) * 100));
-        return `<div class="bar-row">
-          <div class="cat-name">${cat}</div>
-          <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
-          <div class="cat-amt">${formatWon(amt)}</div>
-        </div>`;
-      })
-      .join('');
-    wrap.innerHTML = rows;
+    const sorted = Object.entries(totals).sort((a, b) => b[1] - a[1]);
+    const sum = sorted.reduce((n, [, v]) => n + v, 0) || 1;
+    // 6개 이상이면 상위 4개 + 기타(나머지 합) — 조각이 많으면 구별이 어렵다
+    const top = sorted.length > 5 ? sorted.slice(0, 4) : sorted;
+    const rest = sorted.length > 5 ? sorted.slice(4) : [];
+    const restSum = rest.reduce((n, [, v]) => n + v, 0);
+    const pct = (v) => (v / sum) * 100;
+    const pctTxt = (v) => (pct(v) < 1 ? '<1' : Math.round(pct(v))) + '%';
+    const parts = top.map(([c, v], i) => ({ name: c, v, color: BK_COLORS[i] }));
+    if (rest.length) parts.push({ name: '기타 ' + rest.length + '개', v: restSum, color: BK_ETC, etc: true });
+    let acc = 0;
+    const stops = parts.map((x) => { const from = acc; acc += pct(x.v); return `${x.color} ${from.toFixed(2)}% ${acc.toFixed(2)}%`; }).join(',');
+    const row = (x, small) => `<div class="bk-row"${small ? ' style="padding-left:18px"' : ''}>${small ? '' : `<i style="background:${x.color}"></i>`}<span class="bk-name">${escapeHtml(x.name)}</span><span class="bk-pct">${pctTxt(x.v)}</span><span class="bk-amt">${formatWon(x.v)}</span></div>`;
+    wrap.innerHTML = `<div class="donut-wrap"><div class="donut" style="background:conic-gradient(${stops})"><div class="donut-center"><small>총 지출</small><b>${formatWon(sum)}</b></div></div></div>`
+      + parts.map((x) => row(x)).join('')
+      + (rest.length ? `<button type="button" class="bk-more" id="bk-more">${breakdownAll ? '기타 접기 ▲' : '기타 ' + rest.length + '개 자세히 ▼'}</button>` : '')
+      + (rest.length && breakdownAll ? rest.map(([c, v]) => row({ name: c, v }, true)).join('') : '');
+    const more = el('bk-more');
+    if (more) more.addEventListener('click', () => { breakdownAll = !breakdownAll; renderBreakdown(expenseTx); });
   }
 
   function renderList(monthTx) {
@@ -8247,7 +8271,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v96'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v97'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span style="display:block;margin-bottom:4px">다달이, 매일의 기록이 모여 더 나은 생활이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
