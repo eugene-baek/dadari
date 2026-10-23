@@ -1334,6 +1334,7 @@
 
 <main id="view-schedule" hidden>
   <section class="card">
+    <div style="text-align:right;margin:0 0 8px"><button type="button" class="mini-btn" id="sch-member-top">👥 구성원 관리</button></div>
     <div class="sch-modes" id="sch-modes">
       <button type="button" data-mode="day" class="active">요일별</button>
       <button type="button" data-mode="week">주간표</button>
@@ -2973,6 +2974,7 @@
   });
 
   el('add-member-btn').addEventListener('click', () => openMemberManager());
+  el('sch-member-top').addEventListener('click', () => openMemberManager());
 
   // 메뉴별로 이 사람의 기록: count(id)는 [지워지는 것, 남는 것] 설명(없으면 ''), purge(id)는 그 메뉴의 이 사람 기록을 지운다(가계부에 함께 기록한 내역은 남는다).
   const MENU_DATA = {
@@ -3078,7 +3080,8 @@
     if (!confirm(`“${whoName(id)}”을(를) “${menuName}”에서 삭제할까요?` + (del ? String.fromCharCode(10) + `${del}도 함께 지워져요.` : '') + (keep ? String.fromCharCode(10) + keep : '') + String.fromCharCode(10, 10) + '다른 메뉴의 기록은 그대로 남아요.')) return false;
     d.purge(id);
     setMemberUse(id, menu, false);
-    if (id !== 'me' && MEMBER_MENUS.every(([k]) => memberOff(id).includes(k))) {   // 어느 메뉴에서도 안 쓰면 구성원 자체를 지운다
+    setMemberGone(id, menu, true);
+    if (id !== 'me' && MEMBER_MENUS.every(([k]) => memberGone(id).includes(k))) {   // 어느 메뉴에서도 안 쓰면 구성원 자체를 지운다
       tomb(id);
       schedule.members = schedule.members.filter((x) => x.id !== id);
       saveSchedule();
@@ -3116,6 +3119,7 @@
     const useBtn = (id) => (menuName ? (memberOff(id).includes(menu)
       ? `<button type="button" class="tt-sw" data-muse="${id}" role="switch" aria-checked="false">안 씀</button>`
       : `<button type="button" class="tt-sw on" data-muse="${id}" role="switch" aria-checked="true">사용</button>`) : '');
+    const shownMembers = () => schedule.members.filter((m) => !memberGone(m.id).includes(menu));
     const dn = (id) => memberAlias(id, menu) || (id === 'me' ? meName() : (schedule.members.find((x) => x.id === id) || {}).name || '');   // 이 메뉴에서 쓰는 이름
     const delBtn = (id) => (menuName ? `<button type="button" class="icon-btn" data-mdel="${id}" aria-label="이 메뉴에서 삭제" title="이 메뉴에서 삭제(다른 메뉴는 그대로)">🗑</button>` : '');
     const bodyBtn = (id) => (menu === 'fit' ? `<button type="button" class="icon-btn" data-mbody="${id}" aria-label="신체 정보" title="신체 정보(키·목표 체중)">📏</button>` : '');
@@ -3124,18 +3128,19 @@
       sheetBody.innerHTML = `<form>
         <h3>구성원 관리${menuName ? ' · ' + escapeHtml(menuName) : ''}</h3>
         ${menuName ? `<p class="goal-hint" style="margin:0 0 6px">“${escapeHtml(menuName)}”에서 쓸 구성원을 이 화면에서 따로 관리해요. 스위치는 잠깐 감추기(기록은 그대로), ✎는 이 메뉴에서만 쓸 이름, 🗑는 이 메뉴의 기록만 지워요. 생년월일은 모든 메뉴가 같이 써요.${menu === 'fit' ? ' 📏로 키·목표 체중을 적어 둘 수 있어요(운동관리에서만 써요).' : ''}</p>` : ''}
-        ${menu === 'schedule' ? '' : `<div class="rec" data-me="1"><span class="grip" style="visibility:hidden" aria-hidden="true">☰</span><div><div class="rec-name">${escapeHtml(dn('me'))}</div><div class="rec-sub">${validDate(profile.birth) ? profile.birth.replace(/-/g, '.') + ' · ' + ageText(monthsBetween(profile.birth, todayStr())) : '생년월일 미입력'}${bodySub('me')} · 기본 구성원</div></div>
+        ${menu === 'schedule' || memberGone('me').includes(menu) ? '' : `<div class="rec" data-me="1"><span class="grip" style="visibility:hidden" aria-hidden="true">☰</span><div><div class="rec-name">${escapeHtml(dn('me'))}</div><div class="rec-sub">${validDate(profile.birth) ? profile.birth.replace(/-/g, '.') + ' · ' + ageText(monthsBetween(profile.birth, todayStr())) : '생년월일 미입력'}${bodySub('me')} · 기본 구성원</div></div>
           ${useBtn('me')}${bodyBtn('me')}<button type="button" class="icon-btn" data-mbirth="me" aria-label="생년월일">🎂</button>
           <button type="button" class="icon-btn" data-mren="me" aria-label="이 메뉴에서 쓸 이름 바꾸기">✎</button>${delBtn('me')}</div>`}
-        ${schedule.members.length ? schedule.members.map((m) => `<div class="rec" data-id="${m.id}"><span class="grip" aria-label="끌어서 순서 바꾸기">☰</span><div><div class="rec-name">${escapeHtml(dn(m.id))}</div>
+        ${shownMembers().length ? shownMembers().map((m) => `<div class="rec" data-id="${m.id}"><span class="grip" aria-label="끌어서 순서 바꾸기">☰</span><div><div class="rec-name">${escapeHtml(dn(m.id))}</div>
           <div class="rec-sub">${validDate(m.birth) ? m.birth.replace(/-/g, '.') + ' · ' + ageText(monthsBetween(m.birth, todayStr())) : '생년월일 미입력'}${bodySub(m.id)}</div></div>
           ${useBtn(m.id)}${bodyBtn(m.id)}<button type="button" class="icon-btn" data-mbirth="${m.id}" aria-label="생년월일">🎂</button>
           <button type="button" class="icon-btn" data-mren="${m.id}" aria-label="이 메뉴에서 쓸 이름 바꾸기">✎</button>
           ${delBtn(m.id) || `<button type="button" class="icon-btn" data-mdel="${m.id}" aria-label="완전히 삭제" title="완전히 삭제">🗑</button>`}</div>`).join('')
-          : '<div class="empty-msg" style="padding:10px 0">아직 다른 구성원이 없어요</div>'}
+          : '<div class="empty-msg" style="padding:10px 0">이 메뉴에 다른 구성원이 없어요</div>'}
+        ${(() => { const gone = allPeople(menu).filter((x) => memberGone(x.id).includes(menu) && !(menu === 'schedule' && x.id === 'me')); return gone.length ? `<div class="goal-hint" style="margin:10px 0 4px">이 메뉴에서 뺀 구성원 (누르면 다시 넣어요. 지운 기록은 돌아오지 않아요)</div><div class="biz-shops">${gone.map((x) => `<button type="button" data-mrestore="${attr(x.id)}">＋ ${escapeHtml(x.name)}</button>`).join('')}</div>` : ''; })()}
         <label>새 구성원${menuName ? ' (이 메뉴에서만 쓰는 상태로 만들어져요)' : ''}</label>
         <div class="goal-row"><input id="mem-new" maxlength="20" placeholder="이름 입력" autocomplete="off"><button type="button" data-madd>추가</button></div>
-        <p class="goal-hint">☰를 누른 채 끌어서 순서를 바꿀 수 있어요(순서는 모든 메뉴가 같아요). 🗑로 모든 메뉴에서 뺀 구성원은 목록에서도 사라져요.</p>
+        <p class="goal-hint">☰를 누른 채 끌어서 순서를 바꿀 수 있어요(순서는 모든 메뉴가 같아요). 🗑로 뺀 구성원은 이 메뉴 목록에서 사라지고(아래에서 다시 넣을 수 있어요), 모든 메뉴에서 뺀 구성원은 완전히 정리돼요.</p>
         <div class="sheet-actions"><button type="button" data-cancel>닫기</button></div>
       </form>`;
     };
@@ -3192,6 +3197,7 @@
         refreshNames();
         draw();
       }
+      else if (b.dataset.mrestore) { setMemberGone(b.dataset.mrestore, menu, false); setMemberUse(b.dataset.mrestore, menu, true); refreshNames(); draw(); showToast('다시 넣었어요'); }
       else if (b.dataset.mdel) { if (menuName ? removeMemberFromMenu(b.dataset.mdel, menu) : removeMember(b.dataset.mdel)) draw(); }
       else if (b.dataset.mren) rename(b.dataset.mren);
       else if (b.dataset.mbody) openBodySheet(b.dataset.mbody);
@@ -3319,6 +3325,17 @@
     const next = memberOff(id).filter((k) => k !== menu);
     if (!on) next.push(menu);
     if (id === 'me') { profile.off = next; saveProfile(); } else { const m = schedule.members.find((x) => x.id === id); if (m) { m.off = next; saveSchedule(); } }
+  }
+  // 이 메뉴에서 삭제한 구성원: `gone`({메뉴키 배열}; "나"는 프로필). 삭제하면 그 메뉴의 구성원 관리 목록에서도 사라지고, 아래 "뺀 구성원"에서 다시 넣을 수 있다.
+  function memberGone(id) {
+    if (id === 'me') { try { const o = JSON.parse(localStorage.getItem('dadari_profile_v1')).gone; return Array.isArray(o) ? o : []; } catch (e) { return []; } }
+    const m = schedule.members.find((x) => x.id === id);
+    return m && Array.isArray(m.gone) ? m.gone : [];
+  }
+  function setMemberGone(id, menu, gone) {
+    const next = memberGone(id).filter((k) => k !== menu);
+    if (gone) next.push(menu);
+    if (id === 'me') { profile.gone = next; saveProfile(); } else { const m = schedule.members.find((x) => x.id === id); if (m) { m.gone = next; saveSchedule(); } }
   }
   const othersOff = () => MEMBER_MENUS.map((x) => x[0]).filter((k) => k !== curMenu);   // 새 구성원은 지금 메뉴에서만 쓰는 상태로 시작한다
 
@@ -7744,7 +7761,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v70'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v71'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span style="display:block;margin-bottom:4px">다달이, 매일의 기록이 모여 더 나은 생활이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
