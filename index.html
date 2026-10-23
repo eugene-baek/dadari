@@ -702,6 +702,10 @@
   .fx-row:first-child { border-top: none; }
   .fx-row span { color: var(--text-muted); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .fx-row span em { font-style: normal; color: var(--text); }
+  /* 공통 입력 방식: 꼭 써야 하는 칸의 이름 뒤에 빨간 *, 삭제는 한 번 더 눌러야 지워진다 */
+  label.req::after { content: ' *'; color: var(--expense); font-weight: 700; }
+  .req-note { font-size: 12px; color: var(--text-muted); margin: 10px 0 0; }
+  .sheet-actions [data-delete].armed { background: var(--expense); color: #fff; }
   .set-group { font-size: 13px; font-weight: 800; color: var(--text-muted); margin: 6px 2px -8px; }
   .viewtabs-foot { max-width: 720px; margin: 0 auto 10px; padding: 0 20px; text-align: right; }
   #viewtabs button[hidden] { display: none; }
@@ -2148,7 +2152,7 @@
       <label>금액 (원)</label><input name="amount" type="number" min="1" inputmode="numeric" required value="${val(t.amount)}">
       <label>메모 (선택)</label><input name="memo" maxlength="80" value="${val(t.memo)}">
       <label class="check"><input type="checkbox" name="fixed"${isFixed(t) ? ' checked' : ''}> 고정비 (매달 나가는 돈)</label>
-      <div class="sheet-actions"><button type="button" data-cancel>취소</button><button type="button" data-delete>삭제</button><button type="submit">저장</button></div>
+      <div class="sheet-actions"><button type="button" data-cancel>취소</button><button type="button" data-delete data-own-cf>삭제</button><button type="submit">저장</button></div>
     </form>`, (fd) => {
       const amount = parseFloat(fd.get('amount')), date = String(fd.get('date'));
       if (!(amount > 0) || !validDate(date)) { showToast('날짜와 금액을 확인해 주세요'); return false; }
@@ -2183,7 +2187,9 @@
   }
 
   let toastTimer;
+  let toastSeq = 0;   // showToast가 불린 횟수(openSheet가 "저장했어요" 기본 안내를 띄울지 정하는 데 쓴다)
   function showToast(msg) {
+    toastSeq++;
     const t = el('toast');
     t.textContent = msg;
     t.classList.add('show');
@@ -2730,7 +2736,11 @@
     const f = sheetBody.querySelector('form');
     f.addEventListener('submit', (e) => {
       e.preventDefault();
-      if (onSubmit(new FormData(f)) !== false) closeSheet();
+      const seq = toastSeq;
+      if (onSubmit(new FormData(f)) !== false) {
+        if (toastSeq === seq) showToast('저장했어요');   // 저장 뒤에는 늘 안내가 나오게(각 화면이 따로 안내를 안 띄운 경우)
+        closeSheet();
+      }
     });
     sheetBody.querySelector('[data-cancel]').addEventListener('click', closeSheet);
   }
@@ -2830,7 +2840,7 @@
       <label>혜택 · 실적 (한 줄에 하나, 선택)</label>
       <textarea name="benefits" maxlength="2000" placeholder="통신비할인 / 40-4천원 / 70-7천원 / 100-13천원&#10;주유할인 / 리터당 40-100원 / 70-150원&#10;편의점 5%">${escapeHtml(c && c.benefits ? c.benefits : '')}</textarea>
       <p class="goal-hint">‘40-4천원’은 전월 실적 40만원 이상이면 4천원이라는 뜻이에요(‘-’ 대신 ‘_’ ‘:’ ‘=’도 돼요). 이렇게 쓰면 전월 사용액에 맞는 혜택을 골라 보여 줘요. ‘전월실적 30만원’처럼 한 줄로 쓰면 그 금액을 실적 기준으로 읽고, 다른 형식은 적은 그대로 보여 줘요. 카드번호는 입력하지 않아요.</p>
-      <div class="sheet-actions"><button type="button" data-cancel>취소</button><button type="submit">${c ? '저장' : '등록'}</button></div>
+      <div class="sheet-actions"><button type="button" data-cancel>취소</button><button type="submit">저장</button></div>
     </form>`, (fd) => {
       const name = String(fd.get('name')).trim();
       if (!name) return false;
@@ -2882,7 +2892,7 @@
       <input name="start" type="date" value="${todayStr()}">
       <label class="check"><input type="checkbox" name="auto" checked> 결제일이 되면 내역에 자동으로 기록</label>
       <p class="goal-hint">시작일 이후의 결제일부터 기록돼요. 이미 직접 기록한 달은 시작일을 다음 달로 잡으면 중복되지 않아요.</p>
-      <div class="sheet-actions"><button type="button" data-cancel>취소</button><button type="submit">등록</button></div>
+      <div class="sheet-actions"><button type="button" data-cancel>취소</button><button type="submit">저장</button></div>
     </form>`, (fd) => {
       const name = String(fd.get('name')).trim();
       const amount = parseInt(fd.get('amount'), 10);
@@ -3019,6 +3029,33 @@
     const b = e.target.closest('button[data-view]');
     if (b) setView(b.dataset.view);
   });
+
+  // 공통 입력 방식(모든 입력창이 같게): ① 꼭 써야 하는 칸(required)의 이름에 빨간 *를 붙이고 안내 한 줄을 더한다
+  // ② 입력창의 "삭제"는 처음 누르면 "한 번 더 누르면 삭제"로 바뀌고(4초 안에) 다시 누르면 지운다(자체 확인창이 있는 삭제(data-own-cf)는 그대로)
+  function markRequired(root) {
+    root.querySelectorAll('form').forEach((f) => {
+      const reqs = [...f.querySelectorAll('[required]')].filter((x) => x.type !== 'checkbox' && x.type !== 'radio');
+      reqs.forEach((x) => {
+        const l = x.closest('label') || (x.previousElementSibling && x.previousElementSibling.tagName === 'LABEL' ? x.previousElementSibling : null) || (x.id ? f.querySelector(`label[for="${x.id}"]`) : null);
+        if (l) l.classList.add('req');
+      });
+      const acts = f.querySelector('.sheet-actions');
+      if (reqs.length && acts && !f.querySelector('.req-note')) acts.insertAdjacentHTML('beforebegin', '<p class="req-note">* 표시는 꼭 입력해야 해요</p>');
+    });
+  }
+  new MutationObserver(() => markRequired(sheetBody)).observe(sheetBody, { childList: true });
+  markRequired(document);
+  sheetBody.addEventListener('click', (e) => {
+    const d = e.target.closest('[data-delete]');
+    if (!d || d.hasAttribute('data-own-cf')) return;
+    if (d.classList.contains('armed')) { clearTimeout(d._armT); return; }   // 두 번째 누름: 원래 삭제 동작이 이어서 실행된다
+    e.stopPropagation();
+    e.preventDefault();
+    const label = d.textContent;
+    d.classList.add('armed');
+    d.textContent = '한 번 더 누르면 삭제';
+    d._armT = setTimeout(() => { d.classList.remove('armed'); d.textContent = label; }, 4000);
+  }, true);
 
   // 설정 화면: 백업·동기화·잠금·프로필 같은 관리 기능을 한곳에 모은다. 구성원은 메뉴마다 따로라서 메뉴를 고르면 그 메뉴에서 구성원 창을 연다.
   function renderSettingsView() {
@@ -3472,7 +3509,7 @@
       <div class="sheet-actions">
         <button type="button" data-cancel>취소</button>
         ${item ? '<button type="button" data-delete>삭제</button>' : ''}
-        <button type="submit">${item ? '저장' : '추가'}</button>
+        <button type="submit">저장</button>
       </div>
     </form>`, (fd) => {
       const title = String(fd.get('title')).trim();
@@ -5261,7 +5298,7 @@
       <select name="store">${STORES.map(([k, n]) => `<option value="${k}">${n}</option>`).join('')}</select>
       <label>소비기한 (선택, 모두 같은 날이면)</label><input name="expiry" type="date">
       <p class="goal-hint">수량은 나중에 재료를 눌러 적을 수 있어요.</p>
-      <div class="sheet-actions"><button type="button" data-cancel>취소</button><button type="submit">추가</button></div>
+      <div class="sheet-actions"><button type="button" data-cancel>취소</button><button type="submit">저장</button></div>
     </form>`, (fd) => {
       const names = String(fd.get('names')).split(/[,\n]/).map((s) => s.trim()).filter(Boolean);
       if (!names.length) return false;
@@ -5371,7 +5408,7 @@
       <label>매월 저축일 (선택)</label>${dayInput('payDay', a && a.payDay)}
       ${a ? '' : '<label>지금까지 모은 금액 (선택)</label><input name="start" type="number" min="0" inputmode="numeric" placeholder="이미 모아 둔 돈이 있으면 입력">'}
       <label>메모 (선택)</label><input name="note" maxlength="60" value="${val(a && a.note)}" placeholder="예: 은행·만기일 (계좌번호는 적지 마세요)">
-      <div class="sheet-actions"><button type="button" data-cancel>취소</button>${a ? '<button type="button" data-delete>삭제</button>' : ''}<button type="submit">저장</button></div>
+      <div class="sheet-actions"><button type="button" data-cancel>취소</button>${a ? '<button type="button" data-delete data-own-cf>삭제</button>' : ''}<button type="submit">저장</button></div>
     </form>`, (fd) => {
       const name = String(fd.get('name')).trim();
       if (!name) { showToast('이름을 입력해 주세요'); return false; }
@@ -5931,7 +5968,7 @@
       <label>월 목표 순수익 (선택)</label><input name="goal" type="number" min="0" inputmode="numeric" value="${val(j && j.goal ? j.goal : '')}" placeholder="0이면 목표 없음">
       <label>시작일 (선택)</label><input name="start" type="date" value="${val(j && j.start)}">
       <label>메모 (선택)</label><input name="note" maxlength="60" value="${val(j && j.note)}" placeholder="예: 플랫폼, 정산일">
-      <div class="sheet-actions"><button type="button" data-cancel>취소</button>${j ? '<button type="button" data-delete>삭제</button>' : ''}<button type="submit">저장</button></div>
+      <div class="sheet-actions"><button type="button" data-cancel>취소</button>${j ? '<button type="button" data-delete data-own-cf>삭제</button>' : ''}<button type="submit">저장</button></div>
     </form>`, (fd) => {
       const name = String(fd.get('name')).trim();
       if (!name) { showToast('N잡 이름을 입력해 주세요'); return false; }
@@ -6147,7 +6184,7 @@
       <label>상태</label><select name="status">${SAL_STATUS.map(([k, n]) => `<option value="${k}"${(j ? j.status || 'on' : 'on') === k ? ' selected' : ''}>${n}</option>`).join('')}</select>
       <label>월급일 (매월 며칠, 선택)</label>${dayInput('payDay', j && j.payDay)}
       <label>메모 (선택)</label><input name="note" maxlength="60" value="${val(j && j.note)}" placeholder="예: 부서, 급여 계좌 별칭 (계좌번호는 적지 마세요)">
-      <div class="sheet-actions"><button type="button" data-cancel>취소</button>${j ? '<button type="button" data-delete>삭제</button>' : ''}<button type="submit">저장</button></div>
+      <div class="sheet-actions"><button type="button" data-cancel>취소</button>${j ? '<button type="button" data-delete data-own-cf>삭제</button>' : ''}<button type="submit">저장</button></div>
     </form>`, (fd) => {
       const name = String(fd.get('name')).trim();
       if (!name) { showToast('회사 이름을 입력해 주세요'); return false; }
@@ -7015,7 +7052,7 @@
       <label>알림</label><select name="alarm">${CAL_ALARMS.map(([k, n]) => `<option value="${k}"${(item && item.alarm || '') === k ? ' selected' : ''}>${n}</option>`).join('')}</select>
       <label>색</label><div class="cal-sw-row">${CAL_COLORS.map((c) => `<label class="cal-sw"><input type="radio" name="color" value="${c}"${c === curColor ? ' checked' : ''}><i style="background:${c}"></i></label>`).join('')}</div>
       <label>메모 (선택)</label><input name="memo" maxlength="120" value="${val(item && item.memo)}">
-      <div class="sheet-actions"><button type="button" data-cancel>취소</button>${item ? '<button type="button" data-delete>삭제</button>' : ''}<button type="submit">저장</button></div>
+      <div class="sheet-actions"><button type="button" data-cancel>취소</button>${item ? `<button type="button" data-delete${item.repeat && item.repeat !== 'none' ? ' data-own-cf' : ''}>삭제</button>` : ''}<button type="submit">저장</button></div>
     </form>`, (fd) => {
       const title = String(fd.get('title')).trim(), d0 = String(fd.get('date')), d1 = String(fd.get('endDate'));
       if (!title || !validDate(d0)) { showToast('제목과 시작일을 확인해 주세요'); return false; }
@@ -8448,7 +8485,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v109'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v110'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span class="slogan">다달이, 매일의 기록이 모여<br><b>더 나은 생활</b>이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
