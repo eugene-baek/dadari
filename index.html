@@ -765,6 +765,27 @@
   .pf-emojis input { position: absolute; opacity: 0; pointer-events: none; }
   .pf-emojis span { display: flex; width: 40px; height: 40px; align-items: center; justify-content: center; border-radius: 50%; font-size: 22px; border: 2px solid transparent; background: var(--bg); cursor: pointer; }
   .pf-emojis input:checked + span { border-color: var(--accent); background: var(--accent-soft); }
+  .fg-card { border: 1px solid var(--border); border-radius: 16px; padding: 14px; background: var(--card-bg); box-shadow: var(--shadow); }
+  .fg-card.cta { background: var(--accent-soft); border-color: transparent; }
+  .fg-head { display: flex; justify-content: space-between; align-items: center; font-size: 15px; font-weight: 800; margin-bottom: 10px; }
+  .fg-edit { border: 1px solid var(--border); background: var(--bg); color: var(--text-muted); border-radius: 99px; padding: 4px 10px; font-size: 12px; cursor: pointer; }
+  .fg-card p { margin: 0 0 6px; font-size: 13px; color: var(--text-muted); }
+  .fg-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 14px; }
+  .fg-lbl { font-size: 12px; font-weight: 700; color: var(--text-muted); }
+  .fg-big { margin: 2px 0 6px; }
+  .fg-big b { font-size: 28px; font-weight: 800; letter-spacing: -1px; }
+  .fg-big span { font-size: 14px; color: var(--text-muted); font-weight: 600; }
+  .fg-bar { height: 14px; border-radius: 99px; background: var(--bg); border: 1px solid var(--border); overflow: hidden; }
+  .fg-bar i { display: block; height: 100%; border-radius: 99px; background: var(--c1); min-width: 2px; }
+  .fg-item.done .fg-bar i { background: var(--income); }
+  .fg-item.done .fg-big b { color: var(--income); }
+  .fg-sub { margin-top: 5px; font-size: 12px; font-weight: 600; color: var(--text-muted); }
+  .fg-days { display: flex; justify-content: space-between; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
+  .fg-day { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11px; color: var(--text-muted); }
+  .fg-day i { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--border); font-style: normal; font-size: 14px; font-weight: 800; color: #fff; }
+  .fg-day.on i { background: var(--c1); border-color: var(--c1); }
+  .fg-day.today { color: var(--text); font-weight: 800; }
+  .fg-day.today i { border-color: var(--accent); }
   .subtabs { position: sticky; top: 0; z-index: 8; display: flex; gap: 4px; overflow-x: auto; padding: 8px 0; margin: 0 0 4px; background: var(--bg); scrollbar-width: none; }
   .subtabs::-webkit-scrollbar { display: none; }
   .subtabs button { flex: 1 0 auto; padding: 9px 8px; border: 1px solid var(--border); border-radius: 99px; background: var(--card-bg); color: var(--text-muted); font-size: 12.5px; font-weight: 600; white-space: nowrap; cursor: pointer; }
@@ -5817,13 +5838,19 @@
       <div class="summary-item income"><div class="lbl">운동 시간</div><div class="val">${sum.min ? fmtMin(sum.min) : '0분'}</div></div>
       <div class="summary-item expense"><div class="lbl">소모 칼로리</div><div class="val">${sum.kcal ? sum.kcal.toLocaleString('ko-KR') + 'kcal' : '-'}</div></div></div>
       <p class="goal-hint" style="margin:8px 0 0">${sum.kcal && sum.estN ? `칼로리: 입력 ${sum.n - sum.estN}건 + 예상 ${sum.estN}건 · ` : ''}${sum.km ? `거리 ${Math.round(sum.km * 10) / 10}km · ` : ''}🔥 연속 운동 ${fitStreak(scope)}일</p>`;
-    const g = single && fit.goals[single];
+    // 주간 목표 카드: 큰 숫자·굵은 진행 막대·요일별 운동 여부(점)로 한눈에 보이게 맨 위에 둔다
+    const g = single && fit.goals[single], isNow = fitWeek === weekStartOf(todayStr());
+    const dayDots = () => ['일', '월', '화', '수', '목', '금', '토'].map((nm, i) => { const d = addDays(fitWeek, i), c = wk.filter((l) => l.date === d).length; return `<span class="fg-day${c ? ' on' : ''}${d === todayStr() ? ' today' : ''}"><i>${c ? '✓' : ''}</i>${nm}</span>`; }).join('');
+    const cell = (label, cur, tgt, fmt, left) => { const p = Math.round((cur / tgt) * 100), done = cur >= tgt; return `<div class="fg-item${done ? ' done' : ''}"><div class="fg-lbl">${label}</div><div class="fg-big"><b>${fmt(cur)}</b><span> / ${fmt(tgt)}</span></div><div class="fg-bar"><i style="width:${Math.min(100, p)}%"></i></div><div class="fg-sub">${done ? '달성했어요 💪' : p + '% · ' + left(tgt - cur) + ' 남았어요'}</div></div>`; };
+    let goalHtml = '';
     if (g && (g.perWeek || g.minWeek)) {
-      html += '<div style="margin-top:12px">';
-      if (g.perWeek) { const p = Math.round((sum.n / g.perWeek) * 100); html += `<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-muted);margin-bottom:5px"><span>이번 주 목표 ${g.perWeek}회</span><span>${sum.n}/${g.perWeek}회${sum.n >= g.perWeek ? ' 달성 💪' : ''}</span></div><div class="bar"><i class="${p >= 100 ? '' : p < 40 ? 'near' : ''}" style="width:${Math.min(100, p)}%"></i></div>`; }
-      if (g.minWeek) { const p = Math.round((sum.min / g.minWeek) * 100); html += `<div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text-muted);margin:10px 0 5px"><span>주간 시간 목표 ${fmtMin(g.minWeek)}</span><span>${fmtMin(sum.min)}${sum.min >= g.minWeek ? ' 달성 💪' : ''}</span></div><div class="bar"><i class="${p >= 100 ? '' : p < 40 ? 'near' : ''}" style="width:${Math.min(100, p)}%"></i></div>`; }
-      html += '</div>';
-    } else if (!single) html += '<p class="goal-hint" style="margin:10px 0 0">위에서 구성원을 고르면 그 사람의 주간 목표 달성률이 보여요.</p>';
+      goalHtml = `<div class="fg-card"><div class="fg-head"><span>🎯 ${isNow ? '이번 주' : '선택한 주'} 목표</span><button type="button" class="fg-edit" data-fg="edit">목표 바꾸기</button></div>
+        <div class="fg-grid">${g.perWeek ? cell('운동 횟수', sum.n, g.perWeek, (v) => v + '회', (v) => v + '회') : ''}${g.minWeek ? cell('운동 시간', sum.min, g.minWeek, fmtMin, fmtMin) : ''}</div>
+        <div class="fg-days">${dayDots()}</div></div>`;
+    } else if (single) {
+      goalHtml = `<div class="fg-card cta"><div class="fg-head"><span>🎯 주간 목표</span></div><p>일주일에 몇 번, 몇 분 운동할지 정해 보세요. 달성률이 크게 보여요.</p><div class="fg-days">${dayDots()}</div><button type="button" class="mini-btn" data-fg="edit" style="width:100%;margin-top:10px">🎯 주간 목표 정하기</button></div>`;
+    } else goalHtml = `<div class="fg-card cta"><div class="fg-head"><span>🎯 주간 목표</span></div><p style="margin:0">위에서 구성원을 고르면 그 사람의 주간 목표 달성률이 크게 보여요.</p><div class="fg-days">${dayDots()}</div></div>`;
+    html = goalHtml + '<div style="height:12px"></div>' + html;
 
     // 최근 6주 운동 시간
     const weeks = [];
@@ -5960,6 +5987,7 @@
   el('fit-next').addEventListener('click', () => { fitWeek = addDays(fitWeek, 7); renderFit(); });
   el('fit-who').addEventListener('click', (e) => { const b = e.target.closest('button[data-cw]'); if (b) { conWho = b.dataset.cw; renderFit(); } });
   el('fit-body').addEventListener('click', (e) => {
+    if (e.target.closest('[data-fg=edit]')) { openFitGoalSheet(); return; }
     const fl = e.target.closest('[data-fl]');
     if (fl) { openFitLogSheet(fit.log.find((x) => x.id === fl.dataset.fl)); return; }
     const fw = e.target.closest('[data-fw]');
@@ -7474,7 +7502,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v62'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v63'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span style="display:block;margin-bottom:4px">다달이, 매일의 기록이 모여 더 나은 생활이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
