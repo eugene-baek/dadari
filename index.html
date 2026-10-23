@@ -836,6 +836,22 @@
   .period-hint { display: flex; flex-wrap: wrap; gap: 4px 16px; margin: 12px 0 0; font-size: 13px; line-height: 1.5; color: var(--text-muted); }
   .period-hint b { color: var(--text); font-weight: 700; }
   .period-hint .ph-label { flex-basis: 100%; font-size: 14px; font-weight: 800; color: var(--text); }
+  /* 기간 설정은 종류 칩(둥근 알약)과 모양이 달라야 헷갈리지 않는다: 회색 상자 + 이어 붙은 분할 버튼 */
+  [data-cap]:not(:empty)::before { content: attr(data-cap); flex-basis: 100%; font-size: 12px; font-weight: 700; color: var(--text-muted); margin-bottom: -2px; }
+  .period-box { background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px 2px; margin: 2px 0 14px; }
+  .period-box .pb-title { font-size: 12px; font-weight: 700; color: var(--text-muted); margin: 0 0 8px; }
+  .period-box .seg { display: flex; padding: 3px; border-radius: 9px; background: var(--border); margin-bottom: 10px; }
+  .period-box .seg button { flex: 1; border: none; border-radius: 7px; padding: 8px 4px; background: transparent; color: var(--text-muted); font-size: 13px; font-weight: 600; cursor: pointer; }
+  .period-box .seg button.active { background: var(--card-bg); color: var(--text); font-weight: 800; box-shadow: 0 1px 3px rgba(0,0,0,0.18); }
+  .period-box .presets { display: flex; flex-wrap: wrap; gap: 6px; width: 100%; margin: 2px 0 10px; }
+  .period-box .presets button { padding: 6px 10px; border: 1px solid var(--border); border-radius: 7px; background: var(--card-bg); color: var(--text-muted); font-size: 12.5px; font-weight: 600; cursor: pointer; }
+  .period-box .sq-presets { gap: 0; padding: 3px; border-radius: 9px; background: var(--border); }
+  .period-box .sq-presets button { border: none; border-radius: 7px; background: transparent; padding: 8px 2px; color: var(--text-muted); }
+  .period-box .sq-presets button.active { background: var(--card-bg); color: var(--text); font-weight: 800; box-shadow: 0 1px 3px rgba(0,0,0,0.18); }
+  .period-box .month-nav, .period-box .dc-head { margin-bottom: 10px; }
+  .period-box.slim { padding: 8px 10px 0; }
+  .period-box .sq-grid { margin-bottom: 10px; }
+  .period-box .period-range { margin-bottom: 0; }
   .period-range { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 12px; }
   .period-range[hidden] { display: none; }
   .period-range input { width: auto; flex: 1; min-width: 130px; }
@@ -1171,10 +1187,12 @@
 <main id="view-academy" hidden>
   <div class="ad-slot" id="ad-slot-academy-1" data-slot="academy-1" role="complementary" aria-label="광고 자리"><span class="ad-tag">AD</span>광고 배너 자리</div>
   <section class="card">
-    <div class="month-nav">
-      <button id="aca-prev" aria-label="이전 달">◀</button>
-      <div class="label" id="aca-label"></div>
-      <button id="aca-next" aria-label="다음 달">▶</button>
+    <div class="period-box slim">
+      <div class="month-nav">
+        <button id="aca-prev" aria-label="이전 달">◀</button>
+        <div class="label" id="aca-label"></div>
+        <button id="aca-next" aria-label="다음 달">▶</button>
+      </div>
     </div>
     <div class="member-chips" id="aca-who" hidden></div>
     <div id="aca-body"></div>
@@ -1189,8 +1207,9 @@
 <main id="view-biz" hidden>
   <div class="ad-slot" id="ad-slot-biz-1" data-slot="biz-1" role="complementary" aria-label="광고 자리"><span class="ad-tag">AD</span>광고 배너 자리</div>
   <section class="card">
-    <div class="biz-shops" id="biz-shops"></div>
-    <div class="biz-shops" id="biz-mode"></div>
+    <div class="biz-shops" id="biz-shops" data-cap="사업"></div>
+    <div class="period-box"><div class="pb-title">📅 기간</div>
+    <div class="seg" id="biz-mode" role="group" aria-label="기간 보기 방식"></div>
     <div class="month-nav">
       <button id="biz-prev" type="button" aria-label="이전 달">◀</button>
       <div class="label" id="biz-label"></div>
@@ -1198,7 +1217,8 @@
     </div>
     <div class="period-range" id="biz-range" hidden>
       <input type="date" id="biz-from" aria-label="시작일"><span>~</span><input type="date" id="biz-to" aria-label="종료일">
-      <div class="biz-shops" style="width:100%;margin:2px 0 0"><button type="button" data-sr="ytd">올해</button><button type="button" data-sr="lastyear">작년</button><button type="button" data-sr="3m">최근 3개월</button><button type="button" data-sr="6m">최근 6개월</button><button type="button" data-sr="12m">최근 12개월</button></div>
+      <div class="presets"><button type="button" data-sr="ytd">올해</button><button type="button" data-sr="lastyear">작년</button><button type="button" data-sr="3m">최근 3개월</button><button type="button" data-sr="6m">최근 6개월</button><button type="button" data-sr="12m">최근 12개월</button></div>
+    </div>
     </div>
     <div id="biz-body"></div>
     <div class="cards-actions" style="flex-wrap:wrap">
@@ -1229,9 +1249,10 @@
   <div class="ad-slot" id="ad-slot-side-1" data-slot="side-1" role="complementary" aria-label="광고 자리"><span class="ad-tag">AD</span>광고 배너 자리</div>
   <section class="card">
     <div class="member-chips" id="side-who" hidden></div>
-    <div class="biz-shops" id="side-jobs" hidden></div>
-    <div class="biz-shops" id="side-status" hidden></div>
-    <div class="biz-shops" id="side-mode"></div>
+    <div class="biz-shops" id="side-jobs" data-cap="부업" hidden></div>
+    <div class="biz-shops" id="side-status" data-cap="상태" hidden></div>
+    <div class="period-box"><div class="pb-title">📅 기간</div>
+    <div class="seg" id="side-mode" role="group" aria-label="기간 보기 방식"></div>
     <div class="month-nav">
       <button id="side-prev" type="button" aria-label="이전 달">◀</button>
       <div class="label" id="side-label"></div>
@@ -1239,7 +1260,8 @@
     </div>
     <div class="period-range" id="side-range" hidden>
       <input type="date" id="side-from" aria-label="시작일"><span>~</span><input type="date" id="side-to" aria-label="종료일">
-      <div class="biz-shops" style="width:100%;margin:2px 0 0"><button type="button" data-sr="ytd">올해</button><button type="button" data-sr="lastyear">작년</button><button type="button" data-sr="3m">최근 3개월</button><button type="button" data-sr="6m">최근 6개월</button><button type="button" data-sr="12m">최근 12개월</button></div>
+      <div class="presets"><button type="button" data-sr="ytd">올해</button><button type="button" data-sr="lastyear">작년</button><button type="button" data-sr="3m">최근 3개월</button><button type="button" data-sr="6m">최근 6개월</button><button type="button" data-sr="12m">최근 12개월</button></div>
+    </div>
     </div>
     <div id="side-body"></div>
     <div class="cards-actions" style="flex-wrap:wrap">
@@ -1255,8 +1277,9 @@
   <div class="ad-slot" id="ad-slot-salary-1" data-slot="salary-1" role="complementary" aria-label="광고 자리"><span class="ad-tag">AD</span>광고 배너 자리</div>
   <section class="card">
     <div class="member-chips" id="sal-who" hidden></div>
-    <div class="biz-shops" id="sal-status" hidden></div>
-    <div class="biz-shops" id="sal-mode"></div>
+    <div class="biz-shops" id="sal-status" data-cap="상태" hidden></div>
+    <div class="period-box"><div class="pb-title">📅 기간</div>
+    <div class="seg" id="sal-mode" role="group" aria-label="기간 보기 방식"></div>
     <div class="month-nav">
       <button id="sal-prev" type="button" aria-label="이전 달">◀</button>
       <div class="label" id="sal-label"></div>
@@ -1264,7 +1287,8 @@
     </div>
     <div class="period-range" id="sal-range" hidden>
       <input type="date" id="sal-from" aria-label="시작일"><span>~</span><input type="date" id="sal-to" aria-label="종료일">
-      <div class="biz-shops" style="width:100%;margin:2px 0 0"><button type="button" data-sr="ytd">올해</button><button type="button" data-sr="lastyear">작년</button><button type="button" data-sr="3m">최근 3개월</button><button type="button" data-sr="6m">최근 6개월</button><button type="button" data-sr="12m">최근 12개월</button></div>
+      <div class="presets"><button type="button" data-sr="ytd">올해</button><button type="button" data-sr="lastyear">작년</button><button type="button" data-sr="3m">최근 3개월</button><button type="button" data-sr="6m">최근 6개월</button><button type="button" data-sr="12m">최근 12개월</button></div>
+    </div>
     </div>
     <div id="sal-body"></div>
     <div class="cards-actions" style="flex-wrap:wrap">
@@ -1281,10 +1305,12 @@
   <div class="ad-slot" id="ad-slot-fit-1" data-slot="fit-1" role="complementary" aria-label="광고 자리"><span class="ad-tag">AD</span>광고 배너 자리</div>
   <section class="card">
     <div class="member-chips" id="fit-who" hidden></div>
-    <div class="month-nav">
-      <button id="fit-prev" type="button" aria-label="이전 주">◀</button>
-      <div class="label" id="fit-label"></div>
-      <button id="fit-next" type="button" aria-label="다음 주">▶</button>
+    <div class="period-box slim">
+      <div class="month-nav">
+        <button id="fit-prev" type="button" aria-label="이전 주">◀</button>
+        <div class="label" id="fit-label"></div>
+        <button id="fit-next" type="button" aria-label="다음 주">▶</button>
+      </div>
     </div>
     <div id="fit-body"></div>
     <div class="cards-actions" style="flex-wrap:wrap">
@@ -1300,16 +1326,19 @@
 <main id="view-calendar" hidden>
   <div class="ad-slot" id="ad-slot-calendar-1" data-slot="calendar-1" role="complementary" aria-label="광고 자리"><span class="ad-tag">AD</span>광고 배너 자리</div>
   <section class="card dc-card">
-    <div class="dc-head">
-      <button id="cal-prev" type="button" aria-label="이전">◀</button>
-      <div class="dc-title" id="cal-label"></div>
-      <button id="cal-next" type="button" aria-label="다음">▶</button>
-    </div>
-    <div class="dc-modes" id="cal-modes">
-      <button type="button" data-cm="month">월</button><button type="button" data-cm="week">주</button><button type="button" data-cm="list">목록</button><button type="button" id="cal-today">오늘</button>
+    <div class="period-box"><div class="pb-title">📅 기간</div>
+      <div class="dc-head">
+        <button id="cal-prev" type="button" aria-label="이전">◀</button>
+        <div class="dc-title" id="cal-label"></div>
+        <button id="cal-next" type="button" aria-label="다음">▶</button>
+      </div>
+      <div class="seg" id="cal-modes" role="group" aria-label="보기 방식">
+        <button type="button" data-cm="month">월</button><button type="button" data-cm="week">주</button><button type="button" data-cm="list">목록</button>
+      </div>
+      <div class="presets"><button type="button" id="cal-today">오늘로</button></div>
     </div>
     <div class="member-chips" id="cal-who" hidden></div>
-    <div class="dc-filters" id="cal-filters"></div>
+    <div class="dc-filters" id="cal-filters" data-cap="표시할 종류 (눌러서 켜고 끄기)"></div>
     <div id="cal-body"></div>
     <div class="cards-actions"><button type="button" class="mini-btn" id="cal-add">＋ 일정 추가</button><button type="button" class="mini-btn" id="cal-member-btn">👥 구성원 관리</button></div>
   </section>
@@ -1458,13 +1487,15 @@
   </section>
 
   <section class="card dc-card" id="fin-card" data-sub="fin">
-    <div class="dc-head">
-      <button id="fin-prev" type="button" aria-label="이전 달">◀</button>
-      <div class="dc-title" id="fin-label"></div>
-      <button id="fin-next" type="button" aria-label="다음 달">▶</button>
+    <div class="period-box"><div class="pb-title">📅 기간</div>
+      <div class="dc-head">
+        <button id="fin-prev" type="button" aria-label="이전 달">◀</button>
+        <div class="dc-title" id="fin-label"></div>
+        <button id="fin-next" type="button" aria-label="다음 달">▶</button>
+      </div>
+      <div class="presets"><button type="button" id="fin-today">이번 달로</button></div>
     </div>
-    <div class="dc-modes"><button type="button" id="fin-today">이번 달로</button></div>
-    <div class="dc-filters" id="fin-filters"></div>
+    <div class="dc-filters" id="fin-filters" data-cap="표시할 종류 (눌러서 켜고 끄기)"></div>
     <div id="fin-body"></div>
   </section>
 
@@ -1577,12 +1608,16 @@
 
   <section class="card" id="search-card" data-sub="list">
     <h2 class="section-title">🔍 내역 검색 · 기간 합계</h2>
-    <div class="sq-presets" id="sq-presets">
-      <button type="button" data-sqp="month">이번 달</button><button type="button" data-sqp="last">지난 달</button><button type="button" data-sqp="year">올해</button><button type="button" data-sqp="all">전체</button>
+    <div class="period-box"><div class="pb-title">📅 기간</div>
+      <div class="sq-presets" id="sq-presets">
+        <button type="button" data-sqp="month">이번 달</button><button type="button" data-sqp="last">지난 달</button><button type="button" data-sqp="year">올해</button><button type="button" data-sqp="all">전체</button>
+      </div>
+      <div class="sq-grid">
+        <div><label for="sq-from">시작일</label><input type="date" id="sq-from"></div>
+        <div><label for="sq-to">종료일</label><input type="date" id="sq-to"></div>
+      </div>
     </div>
     <div class="sq-grid">
-      <div><label for="sq-from">시작일</label><input type="date" id="sq-from"></div>
-      <div><label for="sq-to">종료일</label><input type="date" id="sq-to"></div>
       <div><label for="sq-type">구분</label><select id="sq-type"><option value="all">전체</option><option value="expense">지출</option><option value="income">수입</option></select></div>
       <div><label for="sq-cat">카테고리</label><select id="sq-cat"></select></div>
       <div class="full"><label for="sq-q">검색어 (메모·카테고리·결제수단)</label><input type="text" id="sq-q" placeholder="예: 점심, 수강료, 하나카드" autocomplete="off"></div>
@@ -8271,7 +8306,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v98'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v99'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span style="display:block;margin-bottom:4px">다달이, 매일의 기록이 모여 더 나은 생활이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
