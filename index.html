@@ -7236,7 +7236,7 @@
   const adOk = (u) => { try { const x = new URL(u, location.href); return x.protocol === 'https:' || (x.protocol === 'http:' && /^(localhost|127\.0\.0\.1)$/.test(x.hostname)); } catch (e) { return false; } };
   // 앱에 들어 있는 기본 광고: 광고 목록에 그 칸의 광고가 없으면 이것을 보여 준다(광고 서버 연결 전에도 보인다). 형식은 목록의 칸 항목과 같다.
   const DEFAULT_ADS = {
-    'fit-2': { id: 'kns-k300', img: 'ads/fit-2-k300-b.jpg', url: 'https://kellynstephan.com/product/%EC%BC%88%EB%A6%AC%EC%95%A4%EC%8A%A4%ED%85%8C%ED%8C%90-%EC%BC%88%EB%A6%AC%EC%95%A4%EC%8A%A4%ED%85%8C%ED%8C%90-%EC%B2%9C%EA%B5%AD%EC%9D%98%EA%B3%84%EB%8B%A8-%EC%99%80%EC%9D%B4%EB%93%9C%EB%B0%9C%ED%8C%90-%EC%9A%B4%EB%8F%99%EA%B8%B0%EA%B5%AC-%EA%B0%80%EC%A0%95%EC%9A%A9-%EC%8A%A4%ED%85%9D%ED%8D%BC-%EA%B3%84%EB%8B%A8%EC%98%A4%EB%A5%B4%EA%B8%B0-k300/555/category/309/display/1/', alt: '켈리앤스테판 천국의계단 K300 — 집에서 땀 폭발, 와이드 발판 가정용 스텝퍼', adv: '켈리앤스테판' }
+    'fit-2': { id: 'kns-k300', img: 'ads/fit-2-k300-c.jpg', url: 'https://kellynstephan.com/product/%EC%BC%88%EB%A6%AC%EC%95%A4%EC%8A%A4%ED%85%8C%ED%8C%90-%EC%BC%88%EB%A6%AC%EC%95%A4%EC%8A%A4%ED%85%8C%ED%8C%90-%EC%B2%9C%EA%B5%AD%EC%9D%98%EA%B3%84%EB%8B%A8-%EC%99%80%EC%9D%B4%EB%93%9C%EB%B0%9C%ED%8C%90-%EC%9A%B4%EB%8F%99%EA%B8%B0%EA%B5%AC-%EA%B0%80%EC%A0%95%EC%9A%A9-%EC%8A%A4%ED%85%9D%ED%8D%BC-%EA%B3%84%EB%8B%A8%EC%98%A4%EB%A5%B4%EA%B8%B0-k300/555/category/309/display/1/', alt: '켈리앤스테판 천국의계단 K300 — 집에서 땀 폭발, 와이드 발판 가정용 스텝퍼', adv: '켈리앤스테판' }
   };
   function paintAds(feed) {
     const slots = (feed && feed.slots) || {};
@@ -7246,9 +7246,9 @@
         box.classList.add('has-ad');
         box.innerHTML = `<a href="${attr(new URL(a.url, location.href).href)}" target="_blank" rel="sponsored noopener noreferrer" aria-label="${attr(a.alt || '광고')}"><img src="${attr(new URL(a.img, location.href).href)}" alt="${attr(a.alt || '광고')}" loading="lazy"></a><span class="ad-tag">AD</span>`;
       } else if (box.dataset.slot.endsWith('-1')) {
-        // 광고가 없는 위쪽 칸에는 다달이 소개 배너(`ads/house-top-2.png`, 1280×400)를 보여 준다(광고가 아니라서 "AD" 표시는 없다)
+        // 광고가 없는 위쪽 칸에는 다달이 소개 배너(`ads/house-top-3.png`, 1280×400)를 보여 준다(광고가 아니라서 "AD" 표시는 없다)
         box.classList.add('has-ad', 'house');
-        box.innerHTML = '<img src="ads/house-top-2.png" width="1280" height="400" alt="다달이, 매일의 기록이 모여 더 나은 생활이 됩니다" decoding="async">';
+        box.innerHTML = '<img src="ads/house-top-3.png" width="1280" height="400" alt="다달이, 매일의 기록이 모여 더 나은 생활이 됩니다" decoding="async">';
       } else {
         box.classList.remove('has-ad', 'house');
         box.innerHTML = '<span class="ad-tag">AD</span>광고 배너 자리';
@@ -8306,7 +8306,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v100'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v101'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span style="display:block;margin-bottom:4px">다달이, 매일의 기록이 모여 더 나은 생활이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
