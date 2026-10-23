@@ -1376,6 +1376,10 @@
   }
 
   // toISOString은 UTC 기준이라 한국 시간 새벽(0~9시)에 전날 날짜가 나오므로 로컬 날짜로 만든다.
+  // 매월 날짜: 1~30일과 "말일". 말일은 31로 저장한다(달에 없는 날은 그 달 마지막 날로 맞추므로 31이 곧 매월 말일이다).
+  const dayLabel = (d) => (+d >= 31 ? '말일' : d + '일');
+  const dayInput = (name, cur, required) => `<select name="${name}"${required ? ' required' : ''}>${required ? '' : '<option value="">선택 안 함</option>'}<option value="31"${+cur >= 31 ? ' selected' : ''}>말일 (매월 마지막 날)</option>${Array.from({ length: 30 }, (_, i) => `<option value="${i + 1}"${+cur === i + 1 ? ' selected' : ''}>${i + 1}일</option>`).join('')}</select>`;
+
   function todayStr() {
     const d = new Date();
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
@@ -2033,7 +2037,7 @@
   function recRows(list) {
     const rows = list.map((r) => `<div class="rec">
         <div><div class="rec-name">${escapeHtml(r.name)}</div>
-        <div class="rec-sub">매월 ${r.day}일 · ${escapeHtml(r.category)}${r.auto ? ' · 자동 기록' : ' · 기록 안 함'}</div></div>
+        <div class="rec-sub">매월 ${dayLabel(r.day)} · ${escapeHtml(r.category)}${r.auto ? ' · 자동 기록' : ' · 기록 안 함'}</div></div>
         <div class="rec-amt${r.type === 'income' ? ' inc' : ''}">${r.type === 'income' ? '+' : ''}${formatWon(r.amount)}</div>
         <button type="button" class="icon-btn" data-del-recur="${r.id}" aria-label="자동이체 삭제">✕</button>
       </div>`).join('');
@@ -2135,7 +2139,7 @@
   function cardBoxHtml(c, plain) {
     const mine = recurs.filter((r) => r.cardId === c.id);
     const parts = [];
-    if (c.kind === 'credit' && c.payDay) parts.push(`매월 ${c.payDay}일 결제`);
+    if (c.kind === 'credit' && c.payDay) parts.push(`매월 ${dayLabel(c.payDay)} 결제`);
     parts.push(`이번 달 사용 ${formatWon(cardUse(c.id, monthKey(viewDate)))}`);
     if (mine.length) parts.push(`자동이체 월 ${formatWon(sumAmount(mine))}`);
     const info = [c.brand, c.fee ? '연회비 ' + formatWon(c.fee) : ''].filter(Boolean).map(escapeHtml).join(' · ');
@@ -2378,7 +2382,7 @@
       <label>종류</label>
       <select name="kind"><option value="credit"${c && c.kind === 'debit' ? '' : ' selected'}>신용카드</option><option value="debit"${c && c.kind === 'debit' ? ' selected' : ''}>체크카드</option></select>
       <label>결제일 (신용카드만, 선택)</label>
-      <input name="payDay" type="number" min="1" max="31" inputmode="numeric" placeholder="매월 며칠" value="${val(c && c.payDay ? c.payDay : '')}">
+      ${dayInput('payDay', c && c.payDay)}
       <label>연회비 (원, 선택)</label>
       <input name="fee" type="number" min="0" inputmode="numeric" placeholder="예: 7000" value="${val(c && c.fee ? c.fee : '')}">
       <label>브랜드 (선택)</label>
@@ -2434,7 +2438,7 @@
       <label>금액 (원)</label>
       <input name="amount" type="number" min="1" inputmode="numeric" required>
       <label>매월 결제일</label>
-      <input name="day" type="number" min="1" max="31" inputmode="numeric" required placeholder="1~31 (없는 날은 그 달 말일)">
+      ${dayInput('day', 0, true)}
       <label>카테고리</label>
       <select name="category">${catOpts}</select>
       <label>기록 시작일</label>
@@ -3784,7 +3788,7 @@
       const n = dueCount(p.start, p.payDay, today, end, p.freq, p.payMonth);
       const total = +p.payYears > 0 ? Math.round(p.payYears * (p.freq === 'year' ? 1 : 12)) : 0;
       const nd = st === 'active' ? nextDue(p.start, p.payDay, today, end, p.freq, p.payMonth) : '';
-      const when = p.freq === 'year' ? `매년 ${p.payMonth ? p.payMonth + '월 ' : ''}${p.payDay ? p.payDay + '일' : ''}` : `매월 ${p.payDay ? p.payDay + '일' : '-'}`;
+      const when = p.freq === 'year' ? `매년 ${p.payMonth ? p.payMonth + '월 ' : ''}${p.payDay ? dayLabel(p.payDay) : ''}` : `매월 ${p.payDay ? dayLabel(p.payDay) : '-'}`;
       const parts = [when, payInfo(p.cardId),
         n ? `납입 ${n}${total ? '/' + total : ''}회${total ? ` (${Math.min(100, Math.round((n / total) * 100))}%)` : ''} · 누적 ${formatWon(n * p.premium)}` : '',
         nd ? `다음 ${mdOf(nd)} (${ddText(diffDays(nd, today))})` : '', p.note];
@@ -3821,7 +3825,7 @@
       const st = rentState(r, today), end = rentEnd(r);
       const n = dueCount(r.start, r.payDay, today, '', 'month');
       const total = +r.termMonths > 0 ? +r.termMonths : 0;
-      const parts = [r.payDay ? `매월 ${r.payDay}일` : '', payInfo(r.cardId),
+      const parts = [r.payDay ? `매월 ${dayLabel(r.payDay)}` : '', payInfo(r.cardId),
         n ? `납입 ${Math.min(n, total || n)}${total ? '/' + total : ''}회` : '',
         end ? `약정 ${end.slice(2).replace(/-/g, '.')}까지${st === 'active' ? ' (' + ddText(diffDays(end, today)) + ')' : ''}` : '',
         validDate(r.nextVisit) ? `다음 방문 ${mdOf(r.nextVisit)} (${ddText(diffDays(r.nextVisit, today))})` : '', r.note];
@@ -3850,7 +3854,7 @@
       <label>불입금 (원)</label><input name="premium" type="number" min="1" inputmode="numeric" required value="${val(p && p.premium)}">
       <label>납입 주기</label>
       <select name="freq"><option value="month"${p && p.freq === 'year' ? '' : ' selected'}>매월</option><option value="year"${p && p.freq === 'year' ? ' selected' : ''}>매년 (연납)</option></select>
-      <label>납입일 (매월 며칠 · 연납이면 그 달의 며칠)</label><input name="payDay" type="number" min="1" max="31" inputmode="numeric" value="${val(p && p.payDay ? p.payDay : '')}">
+      <label>납입일 (매월 며칠 · 연납이면 그 달의 며칠)</label>${dayInput('payDay', p && p.payDay)}
       <label>연납이면 납입 월 (선택)</label><input name="payMonth" type="number" min="1" max="12" inputmode="numeric" value="${val(p && p.payMonth ? p.payMonth : '')}">
       <label>결제수단</label><select name="card">${cardSelectOptions(p && p.cardId)}</select>
       <label>계약일 (선택)</label><input name="start" type="date" value="${val(p && p.start)}">
@@ -3910,7 +3914,7 @@
       <label>업체·서비스 (선택)</label><input name="company" maxlength="20" placeholder="예: OO렌탈, 넷플릭스" value="${val(r && r.company)}">
       <label>품목</label><input name="name" required maxlength="40" placeholder="예: 정수기, 안마의자, 넷플릭스 구독" value="${val(r && r.name)}">
       <label>월 이용료 (원)</label><input name="fee" type="number" min="1" inputmode="numeric" required value="${val(r && r.fee)}">
-      <label>결제일 (매월 며칠)</label><input name="payDay" type="number" min="1" max="31" inputmode="numeric" value="${val(r && r.payDay ? r.payDay : '')}">
+      <label>결제일 (매월 며칠)</label>${dayInput('payDay', r && r.payDay)}
       <label>결제수단</label><select name="card">${cardSelectOptions(r && r.cardId)}</select>
       <label>계약 시작일 (선택)</label><input name="start" type="date" value="${val(r && r.start)}">
       <label>약정 기간 (개월, 선택)</label><input name="termMonths" type="number" min="0" inputmode="numeric" placeholder="예: 36, 60" value="${val(r && r.termMonths ? r.termMonths : '')}">
@@ -4047,7 +4051,7 @@
     const row = (a, canPay) => {
       const paid = acaPaid(a, ym), auto = acaAuto(a, ym);
       const dd = due(a) && thisMonth ? diffDays(due(a), today) : null;
-      const parts = [a.subject, a.payDay ? `매월 ${a.payDay}일${dd !== null && !paid ? ' (' + ddText(dd) + ')' : ''}` : '', payInfo(a.cardId),
+      const parts = [a.subject, a.payDay ? `매월 ${dayLabel(a.payDay)}${dd !== null && !paid ? ' (' + ddText(dd) + ')' : ''}` : '', payInfo(a.cardId),
         validDate(a.end) ? `~${a.end.slice(2).replace(/-/g, '.')}` : '', a.note];
       const btn = canPay ? `<button type="button" class="vcheck${paid ? ' on' : ''}" data-acapay="${a.id}" aria-label="납부 확인">${paid ? (auto ? '✓ 자동' : '✓ 납부') : '납부 확인'}</button>` : '';
       return `<div class="vrow"><button type="button" class="visit" data-aca="${a.id}"><div class="v1"><span>${esc(a.name)}${tag(a)}</span><span>월 ${formatWon(+a.fee || 0)}</span></div>
@@ -4070,7 +4074,7 @@
       <label>학원 이름</label><input name="name" required maxlength="30" placeholder="예: OO영어, OO수학학원" value="${val(a && a.name)}">
       <label>과목 · 내용 (선택)</label><input name="subject" maxlength="30" placeholder="예: 영어, 수영, 미술" value="${val(a && a.subject)}">
       <label>월 수강료 (원)</label><input name="fee" type="number" min="1" inputmode="numeric" required value="${val(a && a.fee)}">
-      <label>납부일 (매월 며칠)</label><input name="payDay" type="number" min="1" max="31" inputmode="numeric" value="${val(a && a.payDay ? a.payDay : '')}">
+      <label>납부일 (매월 며칠)</label>${dayInput('payDay', a && a.payDay)}
       <label>결제수단</label><select name="card">${cardSelectOptions(a && a.cardId)}</select>
       <label>수강 시작일 (선택)</label><input name="start" type="date" value="${val(a && a.start)}">
       <label>수강 종료일 (선택)</label><input name="end" type="date" value="${val(a && a.end)}">
@@ -4746,7 +4750,7 @@
       <label>목표 금액 (선택)</label><input name="goal" type="number" min="0" inputmode="numeric" value="${val(a && a.goal ? a.goal : '')}" placeholder="0이면 목표 없음">
       <label>목표일 (선택)</label><input name="goalDate" type="date" value="${val(a && a.goalDate)}">
       <label>월 저축 계획 (선택)</label><input name="monthly" type="number" min="0" inputmode="numeric" value="${val(a && a.monthly ? a.monthly : '')}" placeholder="매달 모으려는 금액">
-      <label>매월 저축일 (선택)</label><input name="payDay" type="number" min="1" max="31" inputmode="numeric" value="${val(a && a.payDay ? a.payDay : '')}" placeholder="1~31">
+      <label>매월 저축일 (선택)</label>${dayInput('payDay', a && a.payDay)}
       ${a ? '' : '<label>지금까지 모은 금액 (선택)</label><input name="start" type="number" min="0" inputmode="numeric" placeholder="이미 모아 둔 돈이 있으면 입력">'}
       <label>메모 (선택)</label><input name="note" maxlength="60" value="${val(a && a.note)}" placeholder="예: 은행·만기일 (계좌번호는 적지 마세요)">
       <div class="sheet-actions"><button type="button" data-cancel>취소</button>${a ? '<button type="button" data-delete>삭제</button>' : ''}<button type="submit">저장</button></div>
@@ -5387,7 +5391,7 @@
       const st = SAL_STATUS.find((x) => x[0] === (j.status || 'on')) || SAL_STATUS[0];
       const who = conWho === 'all' && ppl.length > 1 ? `<span class="who-tag">${esc(whoName(salWho(j)))}</span>` : '';
       return `<button type="button" class="visit" data-sj="${attr(j.id)}"><div class="v1"><span>${who}${esc(j.name)} <span class="rt" style="font-size:10px;background:var(--accent-soft);color:var(--accent);border-radius:99px;padding:1px 7px">${esc(j.kind || '')}</span>${st[0] !== 'on' ? ` <span class="rt" style="font-size:10px;background:var(--bg);color:var(--text-muted);border:1px solid var(--border);border-radius:99px;padding:1px 7px">${st[1]}</span>` : ''}</span><b>${formatWon(cur.net)}</b></div>`
-        + `<div class="v2">${j.payDay ? `매월 ${j.payDay}일 지급 · ` : ''}올해 실수령 ${formatWon(all.net)}${all.gross ? ` · 공제율 ${rate(all.gross, all.deduct)}%` : ''}</div>${j.note ? `<div class="v2">${esc(j.note)}</div>` : ''}</button>`;
+        + `<div class="v2">${j.payDay ? `매월 ${dayLabel(j.payDay)} 지급 · ` : ''}올해 실수령 ${formatWon(all.net)}${all.gross ? ` · 공제율 ${rate(all.gross, all.deduct)}%` : ''}</div>${j.note ? `<div class="v2">${esc(j.note)}</div>` : ''}</button>`;
     }).join('');
 
     const list = logs.filter((l) => l.date.startsWith(ym)).sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
@@ -5418,7 +5422,7 @@
       <label>회사·직장 이름</label><input name="name" required maxlength="30" placeholder="예: OO회사" value="${val(j && j.name)}" autocomplete="off">
       <label>고용 형태</label><select name="kind">${kinds.map((k) => `<option${k === (j ? j.kind : '정규직') ? ' selected' : ''}>${esc(k)}</option>`).join('')}</select>
       <label>상태</label><select name="status">${SAL_STATUS.map(([k, n]) => `<option value="${k}"${(j ? j.status || 'on' : 'on') === k ? ' selected' : ''}>${n}</option>`).join('')}</select>
-      <label>월급일 (매월 며칠, 선택)</label><input name="payDay" type="number" min="1" max="31" inputmode="numeric" value="${val(j && j.payDay ? j.payDay : '')}" placeholder="예: 25">
+      <label>월급일 (매월 며칠, 선택)</label>${dayInput('payDay', j && j.payDay)}
       <label>메모 (선택)</label><input name="note" maxlength="60" value="${val(j && j.note)}" placeholder="예: 부서, 급여 계좌 별칭 (계좌번호는 적지 마세요)">
       <div class="sheet-actions"><button type="button" data-cancel>취소</button>${j ? '<button type="button" data-delete>삭제</button>' : ''}<button type="submit">저장</button></div>
     </form>`, (fd) => {
@@ -7026,7 +7030,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v54'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v55'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span style="display:block;margin-bottom:4px">다달이, 매일의 기록이 모여 더 나은 생활이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
