@@ -2773,16 +2773,16 @@
   // 생년월일을 넣으면 접종 화면에 그 나이의 국가 표준 접종이 나온다. back이면 저장·취소 뒤 구성원 관리로 돌아간다.
   function openBirthSheet(m, back) {
     if (!m) return;
+    const isMe = m === 'me';   // "나"는 구성원 목록에 없는 기본 구성원이라 생년월일을 프로필(`profile.birth`)에 둔다
     openSheet(`<form>
-      <h3>${escapeHtml(m.name)} 생년월일</h3>
-      <label>생년월일</label><input name="birth" type="date" max="${todayStr()}" value="${attr(m.birth || '')}">
+      <h3>${escapeHtml(isMe ? meName() : m.name)} 생년월일</h3>
+      <label>생년월일</label><input name="birth" type="date" max="${todayStr()}" value="${attr((isMe ? profile.birth : m.birth) || '')}">
       <p class="goal-hint">입력하면 나이에 맞는 국가 표준 접종을 접종 화면에 보여 드려요. 비워 두고 저장하면 지워져요.</p>
       <div class="sheet-actions"><button type="button" data-cancel>취소</button><button type="submit">저장</button></div>
     </form>`, (fd) => {
       const b = String(fd.get('birth'));
       if (validDate(b) && b > todayStr()) { showToast('오늘보다 늦은 날짜예요'); return false; }
-      m.birth = validDate(b) ? b : '';
-      saveSchedule();
+      if (isMe) { profile.birth = validDate(b) ? b : ''; saveProfile(); renderProfile(); } else { m.birth = validDate(b) ? b : ''; saveSchedule(); }
       renderSchedule();
       renderHealth();
       showToast('저장했어요');
@@ -2795,7 +2795,8 @@
     const draw = () => {
       sheetBody.innerHTML = `<form>
         <h3>구성원 관리</h3>
-        <div class="rec" data-me="1"><span class="grip" style="visibility:hidden" aria-hidden="true">☰</span><div><div class="rec-name">${escapeHtml(meName())}</div><div class="rec-sub">기본 구성원 · 항상 맨 앞 · 삭제할 수 없어요</div></div>
+        <div class="rec" data-me="1"><span class="grip" style="visibility:hidden" aria-hidden="true">☰</span><div><div class="rec-name">${escapeHtml(meName())}</div><div class="rec-sub">${validDate(profile.birth) ? profile.birth.replace(/-/g, '.') + ' · ' + ageText(monthsBetween(profile.birth, todayStr())) : '생년월일 미입력'} · 기본 구성원(삭제 불가)</div></div>
+          <button type="button" class="icon-btn" data-mbirth="me" aria-label="생년월일">🎂</button>
           <button type="button" class="icon-btn" data-mren="me" aria-label="이름 바꾸기">✎</button></div>
         ${schedule.members.length ? schedule.members.map((m) => `<div class="rec" data-id="${m.id}"><span class="grip" aria-label="끌어서 순서 바꾸기">☰</span><div><div class="rec-name">${escapeHtml(m.name)}</div>
           <div class="rec-sub">${validDate(m.birth) ? m.birth.replace(/-/g, '.') + ' · ' + ageText(monthsBetween(m.birth, todayStr())) : '생년월일 미입력'}</div></div>
@@ -2871,7 +2872,7 @@
       else if (b.dataset.cancel !== undefined) closeSheet();
       else if (b.dataset.mdel) { if (removeMember(b.dataset.mdel)) draw(); }
       else if (b.dataset.mren) rename(b.dataset.mren);
-      else if (b.dataset.mbirth) openBirthSheet(schedule.members.find((m) => m.id === b.dataset.mbirth), true);
+      else if (b.dataset.mbirth) openBirthSheet(b.dataset.mbirth === 'me' ? 'me' : schedule.members.find((m) => m.id === b.dataset.mbirth), true);
     };
     draw();
     sheet.hidden = false;
@@ -5637,7 +5638,7 @@
   const PF_KEY = 'dadari_profile_v1';
   const PF_FOLD_KEY = 'dadari_pf_fold';   // 목표 목록을 접었는지(이 기기의 설정)
   let profile = loadJson(PF_KEY, null);   // {show, emoji, name, intro, goals:[{id,text,done}], updatedAt}
-  if (!profile || typeof profile !== 'object') profile = { show: true, emoji: '🙂', name: '', intro: '', goals: [], updatedAt: '' };
+  if (!profile || typeof profile !== 'object') profile = { show: true, emoji: '🙂', name: '', intro: '', birth: '', goals: [], updatedAt: '' };
   if (!Array.isArray(profile.goals)) profile.goals = [];
   const PF_EMOJI = ['🙂', '😎', '🧑‍💻', '👩‍🍳', '👨‍👩‍👧', '💪', '🌱', '🚀', '🎯', '💰', '📚', '🏡'];
   const PF_NL = String.fromCharCode(10), PF_CR = String.fromCharCode(13);
@@ -5652,7 +5653,7 @@
     try { fold = localStorage.getItem(PF_FOLD_KEY) === '1'; } catch (e) { /* 펼친 채로 */ }
     const empty = !profile.name && !profile.intro && !goals.length;
     box.innerHTML = `<div class="pf"><div class="pf-top">
-      <button type="button" class="pf-main" data-pf="edit" aria-label="프로필 고치기"><span class="pf-av">${esc(profile.emoji || '🙂')}</span><span class="pf-txt">${empty ? '<b>프로필·목표를 적어 보세요</b><small>눌러서 이름, 한 줄 소개, 올해 목표를 정해요</small>' : `<b>${esc(profile.name || '나')}</b>${profile.intro ? `<small>${esc(profile.intro)}</small>` : ''}`}</span></button>
+      <button type="button" class="pf-main" data-pf="edit" aria-label="프로필 고치기"><span class="pf-av">${esc(profile.emoji || '🙂')}</span><span class="pf-txt">${empty ? '<b>프로필·목표를 적어 보세요</b><small>눌러서 이름, 한 줄 소개, 올해 목표를 정해요</small>' : `<b>${esc(profile.name || '나')}${validDate(profile.birth) ? ` <small style="font-weight:400">· ${ageText(monthsBetween(profile.birth, todayStr()))}</small>` : ''}</b>${profile.intro ? `<small>${esc(profile.intro)}</small>` : ''}`}</span></button>
       ${goals.length ? `<button type="button" class="pf-fold" data-pf="fold" aria-expanded="${!fold}">🎯 ${done}/${goals.length} ${fold ? '▼' : '▲'}</button>` : ''}</div>
       ${goals.length && !fold ? `<div class="pf-goals">${goals.map((g) => `<label class="pf-goal${g.done ? ' done' : ''}"><input type="checkbox" data-pg="${attr(g.id)}"${g.done ? ' checked' : ''}><span>${esc(g.text)}</span></label>`).join('')}<div class="bar" style="margin-top:8px"><i style="width:${Math.round((done / goals.length) * 100)}%"></i></div></div>` : ''}</div>`;
   }
@@ -6712,7 +6713,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v51'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v52'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span style="display:block;margin-bottom:4px">다달이, 매일의 기록이 모여 더 나은 생활이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
