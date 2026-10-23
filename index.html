@@ -37,17 +37,21 @@
     var off = function (n) { return ds(Y, M, T + n); };
     var put = function (key, v) { s.call(localStorage, P + key, JSON.stringify(v)); };
     var id = 0, nid = function () { return 'demo' + (++id); };
+    var MO = [0, -1, -2, -3, -4, -5];   // 최근 6개월
 
-    // 가계부: 이번 달과 지난 두 달
+    // ① 가계부: 최근 6개월(월급·고정비·카드·현금·상품권·부수입)
     var tx = [], plan = [
       [25, 'income', '급여', 3200000, '월급', 0, 0], [1, 'expense', '주거/공과금', 550000, '월세', 'transfer', 1], [5, 'expense', '통신', 65000, '통신비', 'card', 1],
-      [7, 'expense', '식비', 48000, '마트 장보기', 'card', 0], [9, 'expense', '교통', 55000, '교통카드 충전', 'card', 0], [12, 'expense', '식비', 32000, '가족 외식', 'card', 0],
-      [14, 'expense', '쇼핑', 89000, '의류', 'card', 0], [16, 'expense', '의료/건강', 23000, '병원·약국', 'cash', 0], [19, 'expense', '여가/문화', 45000, '영화·카페', 'card', 0], [21, 'expense', '식비', 27000, '배달 음식', 'card', 0]
+      [3, 'expense', '식비', 62000, '정육점·과일', 'card', 0], [7, 'expense', '식비', 48000, '마트 장보기', 'card', 0], [9, 'expense', '교통', 55000, '교통카드 충전', 'card', 0],
+      [10, 'expense', '식비', 45000, '백화점 상품권 사용', 'gift', 0], [11, 'expense', '쇼핑', 120000, '생활용품', 'card', 0], [12, 'expense', '식비', 32000, '가족 외식', 'card', 0],
+      [14, 'expense', '쇼핑', 89000, '의류', 'card', 0], [16, 'expense', '의료/건강', 23000, '병원·약국', 'cash', 0], [17, 'expense', '교통', 38000, '택시·주유', 'card', 0],
+      [19, 'expense', '여가/문화', 45000, '영화·카페', 'card', 0], [21, 'expense', '식비', 27000, '배달 음식', 'card', 0], [23, 'expense', '경조사', 50000, '축의금', 'cash', 0],
+      [27, 'income', '부수입', 180000, '배달 수입', 0, 0]
     ];
-    [0, -1, -2].forEach(function (mo) {
+    MO.forEach(function (mo) {
       plan.forEach(function (x) {
         if (mo === 0 && x[0] > T) return;
-        var t = { id: nid(), type: x[1], date: ds(Y, M + mo, x[0]), category: x[2], amount: x[3] + (mo === -1 ? 3000 : mo === -2 ? -2000 : 0), memo: x[4] };
+        var t = { id: nid(), type: x[1], date: ds(Y, M + mo, x[0]), category: x[2], amount: x[3] + (mo % 3 === 1 ? 3000 : mo % 3 === 2 ? -2000 : 0), memo: x[4] };
         if (x[1] === 'expense') { t.pay = x[5]; if (x[5] === 'card') t.cardId = 'democ1'; }
         if (x[6]) t.fixed = true;
         tx.push(t);
@@ -60,10 +64,11 @@
       { id: 'demor1', type: 'expense', cardId: null, name: '월세 자동이체', amount: 550000, day: 1, category: '주거/공과금', auto: false, start: off(-90) },
       { id: 'demor2', type: 'expense', cardId: 'democ1', name: '영상 구독', amount: 17000, day: 5, category: '여가/문화', auto: false, start: off(-90) },
       { id: 'demor3', type: 'expense', cardId: null, name: '전기·수도 공과금', amount: 80000, day: 31, category: '주거/공과금', auto: false, start: off(-90) },
-      { id: 'demor4', type: 'income', cardId: null, name: '월급', amount: 3200000, day: 25, category: '급여', auto: false, start: off(-90) }
+      { id: 'demor4', type: 'income', cardId: null, name: '월급', amount: 3200000, day: 25, category: '급여', auto: false, start: off(-90) },
+      { id: 'demor5', type: 'expense', cardId: null, name: '적금 자동이체', amount: 300000, day: 28, category: '기타', auto: false, start: off(-90) }
     ]);
 
-    // 시간표 / 건강
+    // ② 시간표
     var items = [];
     [1, 2, 3, 4, 5].forEach(function (day) {
       [['demom1', '08:30', '09:00', '등교'], ['demom1', '09:00', '13:00', '수업'], ['demom1', '15:00', '16:00', '영어(어학원)'], ['demom1', '16:30', '17:30', '수학(학원)'], ['demom1', '18:00', '', '집'],
@@ -72,56 +77,104 @@
         items.push({ id: nid(), memberId: x[0], day: day, time: x[1], end: x[2], title: x[3], note: '' });
       });
     });
+    items.push({ id: nid(), memberId: 'demom1', day: 6, time: '10:00', end: '12:00', title: '태권도(체육관)', note: '' });
     put('dadari_schedule_v1', { members: [{ id: 'demom1', name: '민지', birth: (Y - 9) + '-03-12' }, { id: 'demom2', name: '준호', birth: (Y - 6) + '-08-21' }], items: items });
+
+    // ③ 건강: 진료·접종·복약·생리주기
     put('dadari_health_v1', {
-      visits: [{ id: nid(), who: 'demom1', date: off(-20), hospital: 'OO소아과', dept: '소아과', reason: '감기', cost: 12000, next: off(4), note: '', claim: 'todo' }, { id: nid(), who: 'me', date: off(-45), hospital: 'OO내과', dept: '내과', reason: '건강검진', cost: 35000, next: '', note: '', claim: 'done', claimDate: off(-40), claimAmt: 30000 }],
-      periods: [],
-      vaccines: [{ id: nid(), who: 'demom2', name: '인플루엔자(독감)', dose: '', date: off(10), done: false, place: '', note: '' }, { id: nid(), who: 'demom2', name: '일본뇌염', dose: '1차', date: off(-200), done: true, place: '', note: '' }],
-      meds: [{ id: nid(), who: 'me', name: '비타민', dose: '1정', times: ['morning'], start: off(-30), end: '', place: '', note: '', taken: {} }]
+      visits: [
+        { id: nid(), who: 'demom1', date: off(-20), hospital: 'OO소아과', dept: '소아과', reason: '감기', cost: 12000, next: off(4), note: '', claim: 'todo' },
+        { id: nid(), who: 'me', date: off(-45), hospital: 'OO내과', dept: '내과', reason: '건강검진', cost: 35000, next: '', note: '', claim: 'done', claimDate: off(-40), claimAmt: 30000 },
+        { id: nid(), who: 'demom2', date: off(-75), hospital: 'OO치과', dept: '치과', reason: '충치 치료', cost: 68000, next: off(25), note: '정기 검진', claim: 'todo' }
+      ],
+      periods: [{ id: nid(), start: off(-84), end: off(-79), note: '' }, { id: nid(), start: off(-56), end: off(-51), note: '' }, { id: nid(), start: off(-28), end: off(-23), note: '' }],
+      vaccines: [
+        { id: nid(), who: 'demom2', name: '인플루엔자(독감)', dose: '', date: off(10), done: false, place: '', note: '' },
+        { id: nid(), who: 'demom2', name: '일본뇌염', dose: '1차', date: off(-200), done: true, place: '', note: '' },
+        { id: nid(), who: 'demom1', name: 'Tdap/Td', dose: '', date: off(-400), done: true, place: '', note: '' },
+        { id: nid(), who: 'me', name: '인플루엔자(독감)', dose: '', date: off(-150), done: true, place: '', note: '' }
+      ],
+      meds: [
+        { id: nid(), who: 'me', name: '비타민', dose: '1정', times: ['morning'], start: off(-30), end: '', place: '', note: '', taken: {} },
+        { id: nid(), who: 'demom1', name: '감기약(시럽)', dose: '5ml', times: ['morning', 'evening'], start: off(-3), end: off(3), place: 'OO약국', note: '식후', taken: {} }
+      ]
     });
 
-    // 보험 · 렌탈·구독 · 학원비
+    // ④ 보험 · 렌탈·구독 · 학원비
     put('dadari_insurance_v1', [
       { id: nid(), who: 'me', insurer: 'OO생명', name: '실손의료보험', kind: '실손의료', premium: 42000, freq: 'month', payDay: 10, payMonth: 0, cardId: null, start: ds(Y - 3, 0, 10), payYears: 0, expiry: '', renewal: off(40), status: 'active', auto: false, recurId: '', note: '' },
-      { id: nid(), who: 'demom1', insurer: 'OO화재', name: '어린이보험', kind: '어린이', premium: 31000, freq: 'month', payDay: 15, payMonth: 0, cardId: null, start: ds(Y - 2, 2, 15), payYears: 20, expiry: '', renewal: '', status: 'active', auto: false, recurId: '', note: '' }
+      { id: nid(), who: 'me', insurer: 'OO생명', name: '암보험', kind: '암', premium: 38000, freq: 'month', payDay: 25, payMonth: 0, cardId: null, start: ds(Y - 4, 5, 25), payYears: 20, expiry: ds(Y + 16, 5, 25), renewal: '', status: 'active', auto: false, recurId: '', note: '' },
+      { id: nid(), who: 'demom1', insurer: 'OO화재', name: '어린이보험', kind: '어린이', premium: 31000, freq: 'month', payDay: 15, payMonth: 0, cardId: null, start: ds(Y - 2, 2, 15), payYears: 20, expiry: '', renewal: '', status: 'active', auto: false, recurId: '', note: '' },
+      { id: nid(), who: 'me', insurer: 'OO손해보험', name: '자동차보험', kind: '자동차', premium: 680000, freq: 'year', payDay: 20, payMonth: 3, cardId: null, start: ds(Y - 1, 2, 20), payYears: 0, expiry: '', renewal: ds(Y + 1, 2, 20), status: 'active', auto: false, recurId: '', note: '연납' }
     ]);
     put('dadari_rentals_v1', [
       { id: nid(), who: 'me', company: 'OO렌탈', name: '정수기', fee: 29900, payDay: 20, cardId: null, start: ds(Y - 1, 5, 20), termMonths: 36, visitEvery: 4, nextVisit: off(12), status: 'active', auto: false, recurId: '', note: '' },
-      { id: nid(), who: 'me', company: '', name: '영상 구독', fee: 17000, payDay: 5, cardId: 'democ1', start: '', termMonths: 0, visitEvery: 0, nextVisit: '', status: 'active', auto: false, recurId: '', note: '' }
+      { id: nid(), who: 'me', company: 'OO가전', name: '안마의자', fee: 59000, payDay: 15, cardId: null, start: ds(Y - 3, M, 15), termMonths: 36, visitEvery: 0, nextVisit: '', status: 'active', auto: false, recurId: '', note: '약정 만료 임박' },
+      { id: nid(), who: 'me', company: '', name: '영상 구독', fee: 17000, payDay: 5, cardId: 'democ1', start: '', termMonths: 0, visitEvery: 0, nextVisit: '', status: 'active', auto: false, recurId: '', note: '' },
+      { id: nid(), who: 'me', company: '', name: '음악 구독', fee: 10900, payDay: 12, cardId: 'democ1', start: '', termMonths: 0, visitEvery: 0, nextVisit: '', status: 'active', auto: false, recurId: '', note: '' }
     ]);
-    put('dadari_academies_v1', [{ id: nid(), who: 'demom1', name: '영어 학원', subject: '영어', fee: 280000, payDay: 25, cardId: null, status: 'active', auto: false, recurId: '', paid: {}, start: ds(Y, M - 6, 1) }]);
+    var paidMap = {}; [-1, -2, -3, -4].forEach(function (mo) { paidMap[ds(Y, M + mo, 1).slice(0, 7)] = true; });
+    put('dadari_academies_v1', [
+      { id: nid(), who: 'demom1', name: '영어 학원', subject: '영어', fee: 280000, payDay: 25, cardId: null, status: 'active', auto: false, recurId: '', paid: paidMap, start: ds(Y, M - 6, 1) },
+      { id: nid(), who: 'demom1', name: '수학 학원', subject: '수학', fee: 240000, payDay: 31, cardId: null, status: 'active', auto: false, recurId: '', paid: paidMap, start: ds(Y, M - 4, 1) },
+      { id: nid(), who: 'demom2', name: '미술 문화센터', subject: '미술', fee: 120000, payDay: 5, cardId: null, status: 'active', auto: false, recurId: '', paid: {}, start: ds(Y, M - 2, 1) }
+    ]);
 
-    // 저축 · N잡러 · 샐러리 · CEO
-    var sv = [{ id: 'demos1', who: 'me', name: '비상금', kind: '비상금', goal: 3000000, goalDate: '', monthly: 200000, payDay: 25, note: '' }, { id: 'demos2', who: 'me', name: '여행 적금', kind: '적금', goal: 1200000, goalDate: off(180), monthly: 100000, payDay: 31, note: '' }], svl = [];
-    [-2, -1, 0].forEach(function (mo) { svl.push({ id: nid(), sid: 'demos1', date: ds(Y, M + mo, 25), amount: 200000, memo: '' }, { id: nid(), sid: 'demos2', date: ds(Y, M + mo, 28), amount: 100000, memo: '' }); });
-    svl.push({ id: nid(), sid: 'demos1', date: ds(Y, M - 3, 1), amount: 400000, memo: '시작 잔액', start: true });
+    // ⑤ 저축 · 나는 N잡러 · 나는 샐러리 · 나는CEO
+    var sv = [
+      { id: 'demos1', who: 'me', name: '비상금', kind: '비상금', goal: 3000000, goalDate: '', monthly: 200000, payDay: 25, note: '' },
+      { id: 'demos2', who: 'me', name: '여행 적금', kind: '적금', goal: 1200000, goalDate: off(180), monthly: 100000, payDay: 31, note: '' },
+      { id: 'demos3', who: 'demom1', name: '민지 청약', kind: '청약', goal: 5000000, goalDate: '', monthly: 100000, payDay: 10, note: '' }
+    ], svl = [];
+    MO.slice(0, 4).forEach(function (mo) { svl.push({ id: nid(), sid: 'demos1', date: ds(Y, M + mo, 25), amount: 200000, memo: '' }, { id: nid(), sid: 'demos2', date: ds(Y, M + mo, 28), amount: 100000, memo: '' }, { id: nid(), sid: 'demos3', date: ds(Y, M + mo, 10), amount: 100000, memo: '' }); });
+    svl.push({ id: nid(), sid: 'demos1', date: ds(Y, M - 4, 1), amount: 400000, memo: '시작 잔액', start: true });
+    svl.push({ id: nid(), sid: 'demos1', date: ds(Y, M - 1, 3), amount: -150000, memo: '자동차 수리 출금' });
     put('dadari_savings_v1', { accounts: sv, log: svl });
     var jl = [];
-    [-2, -1, 0].forEach(function (mo) { jl.push({ id: nid(), jid: 'demoj1', date: ds(Y, M + mo, 5), income: 180000 + mo * 10000, expense: 20000, hours: 8, memo: '1주차' }, { id: nid(), jid: 'demoj1', date: ds(Y, M + mo, 12), income: 150000, expense: 10000, hours: 6, memo: '2주차' }, { id: nid(), jid: 'demoj2', date: ds(Y, M + mo, 15), income: 90000, expense: 40000, hours: 5, memo: '정산' }); });
-    put('dadari_side_v1', { jobs: [{ id: 'demoj1', who: 'me', name: '주말 배달', kind: '배달·운전', status: 'on', goal: 500000, start: '', note: '' }, { id: 'demoj2', who: 'me', name: '스마트스토어', kind: '온라인 판매', status: 'on', goal: 300000, start: '', note: '' }], log: jl });
+    MO.slice(0, 4).forEach(function (mo) { jl.push({ id: nid(), jid: 'demoj1', date: ds(Y, M + mo, 5), income: 180000 + mo * 10000, expense: 20000, hours: 8, memo: '1주차' }, { id: nid(), jid: 'demoj1', date: ds(Y, M + mo, 12), income: 150000, expense: 10000, hours: 6, memo: '2주차' }, { id: nid(), jid: 'demoj2', date: ds(Y, M + mo, 15), income: 90000 + (mo % 2) * 30000, expense: 40000, hours: 5, memo: '정산' }); });
+    jl.push({ id: nid(), jid: 'demoj3', date: ds(Y, M - 2, 20), income: 60000, expense: 0, hours: 3, memo: '광고 수익' });
+    put('dadari_side_v1', { jobs: [{ id: 'demoj1', who: 'me', name: '주말 배달', kind: '배달·운전', status: 'on', goal: 500000, start: '', note: '' }, { id: 'demoj2', who: 'me', name: '스마트스토어', kind: '온라인 판매', status: 'on', goal: 300000, start: '', note: '' }, { id: 'demoj3', who: 'me', name: '블로그 광고', kind: '콘텐츠', status: 'pause', goal: 0, start: '', note: '쉬는 중' }], log: jl });
     var ll = [];
-    [-2, -1, 0].forEach(function (mo) { ll.push({ id: nid(), jid: 'demol1', date: ds(Y, M + mo, 25), type: '월급', gross: 3800000, deduct: 420000, net: 3380000, memo: '' }); });
+    MO.forEach(function (mo) { ll.push({ id: nid(), jid: 'demol1', date: ds(Y, M + mo, 25), type: '월급', gross: 3800000, deduct: 420000, net: 3380000, memo: '' }); });
+    ll.push({ id: nid(), jid: 'demol1', date: ds(Y, M - 3, 20), type: '성과급', gross: 1500000, deduct: 190000, net: 1310000, memo: '분기 성과급' });
     put('dadari_salary_v1', { jobs: [{ id: 'demol1', who: 'me', name: 'OO회사', kind: '정규직', status: 'on', payDay: 25, note: '' }], log: ll });
     var be = [];
-    [-2, -1, 0].forEach(function (mo) { be.push({ id: nid(), bid: 'bz_main', date: ds(Y, M + mo, 8), kind: 'sale', name: '자사몰', amount: 1400000 + mo * 100000, memo: '' }, { id: nid(), bid: 'bz_main', date: ds(Y, M + mo, 10), kind: 'cost', name: '매입·원가', amount: 700000, memo: '' }, { id: nid(), bid: 'bz_main', date: ds(Y, M + mo, 18), kind: 'cost', name: '광고비', amount: 150000, memo: '' }); });
-    put('dadari_biz_v1', { entries: be, shops: [{ id: 'bz_main', name: '내 사업', target: 2000000 }], target: 0 });
+    MO.slice(0, 4).forEach(function (mo) {
+      be.push({ id: nid(), bid: 'bz_main', date: ds(Y, M + mo, 8), kind: 'sale', name: '자사몰', amount: 1400000 + mo * 100000, memo: '' }, { id: nid(), bid: 'bz_main', date: ds(Y, M + mo, 10), kind: 'cost', name: '매입·원가', amount: 700000, memo: '' }, { id: nid(), bid: 'bz_main', date: ds(Y, M + mo, 18), kind: 'cost', name: '광고비', amount: 150000, memo: '' },
+        { id: nid(), bid: 'demobz2', date: ds(Y, M + mo, 14), kind: 'sale', name: '강의 수강료', amount: 600000 + (mo % 2) * 200000, memo: '' }, { id: nid(), bid: 'demobz2', date: ds(Y, M + mo, 20), kind: 'cost', name: '플랫폼 수수료', amount: 90000, memo: '' });
+    });
+    put('dadari_biz_v1', { entries: be, shops: [{ id: 'bz_main', name: '내 사업', target: 2000000 }, { id: 'demobz2', name: '온라인 클래스', target: 800000 }], target: 0 });
 
-    // 캘린더 · 냉장고 · 프로필
+    // ⑥ 캘린더 · 냉장고(오늘뭐먹지) · 프로필
     put('dadari_calendar_v1', [
       { id: nid(), title: '학부모 상담', date: off(2), time: '14:30', endTime: '15:30', repeat: 'none', alarm: '30m', color: '#2a78d6', memo: '' },
       { id: nid(), title: '가족 여행', date: off(10), endDate: off(13), repeat: 'none', alarm: '1d', color: '#eb6834', memo: '' },
       { id: nid(), title: '엄마 생신', date: ds(Y, M, 28), repeat: 'year', alarm: '1d', color: '#e87ba4', memo: '' },
-      { id: nid(), title: '주간 회의', date: off(-10), time: '09:00', endTime: '10:00', repeat: 'week', alarm: '10m', color: '#6250d6', memo: '' }
+      { id: nid(), title: '주간 회의', date: off(-10), time: '09:00', endTime: '10:00', repeat: 'week', alarm: '10m', color: '#6250d6', memo: '' },
+      { id: nid(), title: '치과 검진', date: off(5), time: '10:30', endTime: '11:00', repeat: 'none', alarm: '1h', color: '#1baf7a', memo: '' },
+      { id: nid(), title: '아파트 관리비 확인', date: ds(Y, M, 20), repeat: 'month', alarm: '', color: '#eda100', memo: '' },
+      { id: nid(), title: '팀 회식', date: off(7), time: '18:30', endTime: '21:00', repeat: 'none', alarm: '30m', color: '#2a78d6', memo: '' }
     ]);
-    put('dadari_fridge_v1', [['우유', '1L', 'fridge', 2], ['두부', '1모', 'fridge', 1], ['달걀', '10구', 'fridge', 9], ['김치', '1통', 'fridge', 30], ['양파', '3개', 'room', 14], ['밥', '2공기', 'freezer', 20]].map(function (x) { return { id: nid(), name: x[0], qty: x[1], store: x[2], bought: off(-3), expiry: off(x[3]), note: '' }; }));
-    put('dadari_profile_v1', { show: true, emoji: '🚀', name: '체험', intro: '샘플 데이터로 둘러보는 중이에요', birth: '', goals: [{ id: nid(), text: '월 100만원 저축', done: true }, { id: nid(), text: '부업 수입 월 50만원', done: false }, { id: nid(), text: '책 12권 읽기', done: false }], updatedAt: new Date().toISOString() });
+    put('dadari_fridge_v1', [['우유', '1L', 'fridge', 2], ['두부', '1모', 'fridge', 1], ['달걀', '10구', 'fridge', 9], ['김치', '1통', 'fridge', 30], ['양파', '3개', 'room', 14], ['밥', '2공기', 'freezer', 20], ['돼지고기', '300g', 'freezer', 25], ['애호박', '1개', 'fridge', 3], ['대파', '1단', 'fridge', 5], ['어묵', '1봉', 'fridge', -1]].map(function (x) { return { id: nid(), name: x[0], qty: x[1], store: x[2], bought: off(-3), expiry: off(x[3]), note: '' }; }));
+    put('dadari_profile_v1', { show: true, emoji: '🚀', name: '체험', intro: '샘플 데이터로 둘러보는 중이에요', birth: (Y - 34) + '-05-20', goals: [{ id: nid(), text: '월 100만원 저축', done: true }, { id: nid(), text: '부업 수입 월 50만원', done: false }, { id: nid(), text: '책 12권 읽기', done: false }, { id: nid(), text: '운동 주 3회', done: false }], updatedAt: new Date().toISOString() });
+
+    // ⑦ 운동관리
     var fl = [], types = ['run', 'gym', 'walk', 'yoga', 'swim'];
-    for (var fi = 0; fi < 30; fi++) { if (fi % 3 === 2) continue; fl.push({ id: nid(), who: 'me', date: off(-fi), type: types[fi % 5], min: 25 + (fi * 7) % 40, km: types[fi % 5] === 'run' || types[fi % 5] === 'walk' ? Math.round((3 + (fi % 4) * 1.3) * 10) / 10 : 0, kcal: 150 + (fi * 23) % 250, memo: '' }); }
-    put('dadari_fit_v1', { log: fl, weights: [{ id: nid(), who: 'me', date: off(-40), kg: 64.8 }, { id: nid(), who: 'me', date: off(-20), kg: 64.1 }, { id: nid(), who: 'me', date: off(-2), kg: 63.5 }], goals: { me: { perWeek: 3, minWeek: 150 } } });
+    for (var fi = 0; fi < 45; fi++) { if (fi % 3 === 2) continue; fl.push({ id: nid(), who: 'me', date: off(-fi), type: types[fi % 5], level: fi % 4 === 0 ? 'high' : 'mid', min: 25 + (fi * 7) % 40, km: types[fi % 5] === 'run' || types[fi % 5] === 'walk' ? Math.round((3 + (fi % 4) * 1.3) * 10) / 10 : 0, kcal: fi % 2 ? 150 + (fi * 23) % 250 : 0, memo: '' }); }
+    put('dadari_fit_v1', { log: fl, weights: [{ id: nid(), who: 'me', date: off(-60), kg: 65.4 }, { id: nid(), who: 'me', date: off(-40), kg: 64.8 }, { id: nid(), who: 'me', date: off(-20), kg: 64.1 }, { id: nid(), who: 'me', date: off(-2), kg: 63.5 }], goals: { me: { perWeek: 3, minWeek: 150 } } });
     put('dadari_view_v1', 'status');
-    s.call(localStorage, P + 'demo_seeded', '1');
+    s.call(localStorage, P + 'demo_seeded', SEED_V);
   }
-  try { if (g.call(localStorage, P + 'demo_seeded') !== '1') seed(); } catch (e) { /* 저장소를 못 쓰면 빈 화면으로 열린다 */ }
+  // 샘플 내용을 고치면 SEED_V를 올린다: 이미 체험판을 열어 본 기기도 새 샘플로 다시 채운다(체험 중 입력은 사라진다).
+  var SEED_V = '2';
+  try {
+    if (g.call(localStorage, P + 'demo_seeded') !== SEED_V) {
+      var olds = [], oi;
+      for (oi = 0; oi < localStorage.length; oi++) { var ok = k.call(localStorage, oi); if (ok.indexOf(P) === 0) olds.push(ok); }
+      for (oi = 0; oi < olds.length; oi++) r.call(localStorage, olds[oi]);
+      seed();
+    }
+  } catch (e) { /* 저장소를 못 쓰면 빈 화면으로 열린다 */ }
 
   // 위쪽 안내 줄: 체험 중임을 알리고 처음 상태로 되돌리거나 나갈 수 있게 한다.
   document.addEventListener('DOMContentLoaded', function () {
@@ -7421,7 +7474,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v61'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v62'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span style="display:block;margin-bottom:4px">다달이, 매일의 기록이 모여 더 나은 생활이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
