@@ -131,9 +131,9 @@
     svl.push({ id: nid(), sid: 'demos1', date: ds(Y, M - 1, 3), amount: -150000, memo: '자동차 수리 출금' });
     put('dadari_savings_v1', { accounts: sv, log: svl });
     var jl = [];
-    MO.slice(0, 4).forEach(function (mo) { jl.push({ id: nid(), jid: 'demoj1', date: ds(Y, M + mo, 5), income: 180000 + mo * 10000, expense: 20000, hours: 8, memo: '1주차' }, { id: nid(), jid: 'demoj1', date: ds(Y, M + mo, 12), income: 150000, expense: 10000, hours: 6, memo: '2주차' }, { id: nid(), jid: 'demoj2', date: ds(Y, M + mo, 15), income: 90000 + (mo % 2) * 30000, expense: 40000, hours: 5, memo: '정산' }); });
+    MO.slice(0, 4).forEach(function (mo) { jl.push({ id: nid(), jid: 'demoj1', date: ds(Y, M + mo, 5), income: 180000 + mo * 10000, expense: 20000, hours: 8, qty: Math.round((180000 + mo * 10000) / 4000), memo: '1주차' }, { id: nid(), jid: 'demoj1', date: ds(Y, M + mo, 12), income: 150000, expense: 10000, hours: 6, qty: 38, memo: '2주차' }, { id: nid(), jid: 'demoj2', date: ds(Y, M + mo, 15), income: 90000 + (mo % 2) * 30000, expense: 40000, hours: 5, memo: '정산' }); });
     jl.push({ id: nid(), jid: 'demoj3', date: ds(Y, M - 2, 20), income: 60000, expense: 0, hours: 3, memo: '광고 수익' });
-    put('dadari_side_v1', { jobs: [{ id: 'demoj1', who: 'me', name: '주말 배달', kind: '배달·운전', status: 'on', goal: 500000, start: '', note: '' }, { id: 'demoj2', who: 'me', name: '스마트스토어', kind: '온라인 판매', status: 'on', goal: 300000, start: '', note: '' }, { id: 'demoj3', who: 'me', name: '블로그 광고', kind: '콘텐츠', status: 'pause', goal: 0, start: '', note: '쉬는 중' }], log: jl });
+    put('dadari_side_v1', { jobs: [{ id: 'demoj1', who: 'me', name: '주말 배달', kind: '배달·운전', status: 'on', goal: 500000, start: '', note: '', pay: 'count', rate: 4000 }, { id: 'demoj2', who: 'me', name: '스마트스토어', kind: '온라인 판매', status: 'on', goal: 300000, start: '', note: '' }, { id: 'demoj3', who: 'me', name: '블로그 광고', kind: '콘텐츠', status: 'pause', goal: 0, start: '', note: '쉬는 중', pay: 'hour', rate: 20000 }], log: jl });
     var ll = [];
     MO.forEach(function (mo) { ll.push({ id: nid(), jid: 'demol1', date: ds(Y, M + mo, 25), type: '월급', gross: 3800000, deduct: 420000, net: 3380000, memo: '' }); });
     ll.push({ id: nid(), jid: 'demol1', date: ds(Y, M - 3, 20), type: '성과급', gross: 1500000, deduct: 190000, net: 1310000, memo: '분기 성과급' });
@@ -167,7 +167,7 @@
     s.call(localStorage, P + 'demo_seeded', SEED_V);
   }
   // 샘플 내용을 고치면 SEED_V를 올린다: 이미 체험판을 열어 본 기기도 새 샘플로 다시 채운다(체험 중 입력은 사라진다).
-  var SEED_V = '5';
+  var SEED_V = '6';
   try {
     if (g.call(localStorage, P + 'demo_seeded') !== SEED_V) {
       var olds = [], oi;
@@ -2872,7 +2872,7 @@
   }
   const schColor = (i) => schFixedColor(i) || schOtherMap()[schKey(i.title)] || '#eb6834';
 
-  const schMembers = () => schedule.members.filter((m) => !memberOff(m.id).includes('schedule'));
+  const schMembers = () => schedule.members.filter((m) => !memberOff(m.id).includes('schedule')).map((m) => ({ ...m, name: memberAlias(m.id, 'schedule') || m.name }));
 
   function itemButton(i, now) {
     return `<button type="button" class="sch-item${now ? ' now' : ''}" data-item="${i.id}">
@@ -2974,92 +2974,116 @@
 
   el('add-member-btn').addEventListener('click', () => openMemberManager());
 
-  // 구성원을 지우면 그 사람의 시간표 일정과 병원·접종 기록도 함께 지운다. 지우기 전에 몇 건인지 알려 주고 확인받는다.
+  // 메뉴별로 이 사람의 기록: count(id)는 [지워지는 것, 남는 것] 설명(없으면 ''), purge(id)는 그 메뉴의 이 사람 기록을 지운다(가계부에 함께 기록한 내역은 남는다).
+  const MENU_DATA = {
+    schedule: {
+      count: (id) => { const n = schedule.items.filter((i) => i.memberId === id).length; return [n ? `시간표 일정 ${n}개` : '', '']; },
+      purge: (id) => { tomb(...schedule.items.filter((i) => i.memberId === id).map((i) => i.id)); schedule.items = schedule.items.filter((i) => i.memberId !== id); saveSchedule(); }
+    },
+    health: {
+      count: (id) => [[['진료 기록', health.visits], ['접종 기록', health.vaccines], ['복약', health.meds]].map(([n, l]) => [n, l.filter((v) => v.who === id).length]).filter((x) => x[1]).map(([n, c]) => `${n} ${c}건`).join(', '), ''],
+      purge: (id) => {
+        tomb(...health.visits.filter((v) => v.who === id).map((v) => v.id), ...health.vaccines.filter((v) => v.who === id).map((v) => v.id), ...health.meds.filter((v) => v.who === id).map((v) => v.id));
+        health.visits = health.visits.filter((v) => v.who !== id);
+        health.vaccines = health.vaccines.filter((v) => v.who !== id);
+        health.meds = health.meds.filter((v) => v.who !== id);
+        saveHealth();
+      }
+    },
+    insurance: {
+      count: (id) => { const n = insurance.filter((p) => p.who === id).length; return [n ? `보험 ${n}건` : '', '']; },
+      purge: (id) => { const l = insurance.filter((p) => p.who === id); l.forEach((p) => syncRecur(p, false, null)); tomb(...l.map((p) => p.id)); insurance = insurance.filter((p) => p.who !== id); saveInsurance(); }
+    },
+    rental: {
+      count: (id) => { const n = rentals.filter((r) => r.who === id).length; return [n ? `렌탈·구독 ${n}건` : '', '']; },
+      purge: (id) => { const l = rentals.filter((r) => r.who === id); l.forEach((r) => syncRecur(r, false, null)); tomb(...l.map((r) => r.id)); rentals = rentals.filter((r) => r.who !== id); saveRentals(); }
+    },
+    academy: {
+      count: (id) => { const n = academies.filter((a) => a.who === id).length; return [n ? `학원 ${n}건` : '', '']; },
+      purge: (id) => { const l = academies.filter((a) => a.who === id); l.forEach((a) => syncRecur(a, false, null)); tomb(...l.map((a) => a.id)); academies = academies.filter((a) => a.who !== id); saveAcademies(); }
+    },
+    savings: {
+      count: (id) => { const n = savings.accounts.filter((a) => savWho(a) === id).length; return [n ? `저축 통장·목표 ${n}개와 입출금 기록` : '', '']; },
+      purge: (id) => {
+        const l = savings.accounts.filter((a) => savWho(a) === id);
+        tomb(...l.map((a) => a.id), ...savings.log.filter((x) => l.some((a) => a.id === x.sid)).map((x) => x.id));
+        savings.log = savings.log.filter((x) => !l.some((a) => a.id === x.sid));
+        savings.accounts = savings.accounts.filter((a) => savWho(a) !== id);
+        saveSav();
+      }
+    },
+    side: {
+      count: (id) => { const n = side.jobs.filter((j) => sideWho(j) === id).length; return [n ? `부업 ${n}개와 기록` : '', '']; },
+      purge: (id) => {
+        const l = side.jobs.filter((j) => sideWho(j) === id);
+        tomb(...l.map((j) => j.id), ...side.log.filter((x) => l.some((j) => j.id === x.jid)).map((x) => x.id));
+        side.log = side.log.filter((x) => !l.some((j) => j.id === x.jid));
+        side.jobs = side.jobs.filter((j) => sideWho(j) !== id);
+        saveSide();
+      }
+    },
+    salary: {
+      count: (id) => { const n = salary.jobs.filter((j) => salWho(j) === id).length; return [n ? `직장 ${n}개와 급여 기록` : '', '']; },
+      purge: (id) => {
+        const l = salary.jobs.filter((j) => salWho(j) === id);
+        tomb(...l.map((j) => j.id), ...salary.log.filter((x) => l.some((j) => j.id === x.jid)).map((x) => x.id));
+        salary.log = salary.log.filter((x) => !l.some((j) => j.id === x.jid));
+        salary.jobs = salary.jobs.filter((j) => salWho(j) !== id);
+        saveSal();
+      }
+    },
+    fit: {
+      count: (id) => { const n = fit.log.filter((l) => fitWho(l) === id).length + fit.weights.filter((w) => fitWho(w) === id).length; return [n ? `운동·체중 기록 ${n}건과 목표·신체 정보` : '', '']; },
+      purge: (id) => {
+        tomb(...fit.log.filter((l) => fitWho(l) === id).map((l) => l.id), ...fit.weights.filter((w) => fitWho(w) === id).map((w) => w.id));
+        fit.log = fit.log.filter((l) => fitWho(l) !== id);
+        fit.weights = fit.weights.filter((w) => fitWho(w) !== id);
+        delete fit.goals[id];
+        delete fit.body[id];
+        saveFit();
+      }
+    },
+    calendar: {
+      count: (id) => { const n = calItems.filter((c) => c.who === id).length; return ['', n ? `캘린더 일정 ${n}건은 지워지지 않고 “함께”로 바뀌어요.` : '']; },
+      purge: (id) => { calItems.forEach((c) => { if (c.who === id) c.who = ''; }); saveCal(); }
+    }
+  };
+  const afterMemberChange = (id) => {
+    if (healthWho === id) healthWho = 'all';
+    if (conWho === id) conWho = 'all';
+    refreshNames();
+    renderAll();
+  };
+  // 구성원 완전 삭제: 모든 메뉴의 이 사람 기록과 구성원 자체를 지운다.
   function removeMember(id) {
     const m = schedule.members.find((x) => x.id === id);
     if (!m) return false;
-    const items = schedule.items.filter((i) => i.memberId === id);
-    const visits = health.visits.filter((v) => v.who === id);
-    const vaccines = health.vaccines.filter((v) => v.who === id);
-    const parts = [];
-    if (items.length) parts.push(`시간표 일정 ${items.length}개`);
-    if (visits.length) parts.push(`진료 기록 ${visits.length}건`);
-    if (vaccines.length) parts.push(`접종 기록 ${vaccines.length}건`);
-    const meds = health.meds.filter((v) => v.who === id);
-    const policies = insurance.filter((p) => p.who === id);
-    const rents = rentals.filter((r) => r.who === id);
-    if (meds.length) parts.push(`복약 ${meds.length}개`);
-    if (policies.length) parts.push(`보험 ${policies.length}건`);
-    if (rents.length) parts.push(`렌탈·구독 ${rents.length}건`);
-    const acas = academies.filter((a) => a.who === id);
-    if (acas.length) parts.push(`학원 ${acas.length}건`);
-    const savs = savings.accounts.filter((a) => savWho(a) === id);
-    if (savs.length) parts.push(`저축 ${savs.length}개`);
-    const sides = side.jobs.filter((j) => sideWho(j) === id);
-    if (sides.length) parts.push(`부업 ${sides.length}개`);
-    const sals = salary.jobs.filter((j) => salWho(j) === id);
-    if (sals.length) parts.push(`직장 ${sals.length}개`);
-    const fitN = fit.log.filter((l) => fitWho(l) === id).length + fit.weights.filter((w) => fitWho(w) === id).length;
-    if (fitN) parts.push(`운동·체중 기록 ${fitN}건`);
-    const calN = calItems.filter((c) => c.who === id).length;
-    if (!confirm(`“${m.name}”을(를) 삭제할까요?` + (parts.length ? `\n${parts.join(', ')}도 함께 지워져요.` : '') + (calN ? `
-캘린더 일정 ${calN}건은 지워지지 않고 “함께”로 바뀌어요.` : '') + String.fromCharCode(10, 10) + '※ 모든 메뉴에서 완전히 지워지고 되돌릴 수 없어요. 이 메뉴에서만 안 보이게 하려면 취소하고 “사용” 스위치를 끄세요.')) return false;
-    // 보험·렌탈·학원에 연결된 가계부 자동 기록 항목도 함께 지운다(이미 기록된 내역은 남는다).
-    policies.forEach((p) => syncRecur(p, false, null));
-    rents.forEach((r) => syncRecur(r, false, null));
-    acas.forEach((a) => syncRecur(a, false, null));
-    tomb(id, ...items.map((i) => i.id), ...visits.map((v) => v.id), ...vaccines.map((v) => v.id), ...meds.map((v) => v.id),
-      ...policies.map((p) => p.id), ...rents.map((r) => r.id), ...acas.map((a) => a.id));
-    academies = academies.filter((a) => a.who !== id);
-    saveAcademies();
-    // 이 사람의 저축 통장과 입출금 기록도 지운다(가계부에 함께 기록한 지출은 남는다)
-    tomb(...savs.map((a) => a.id), ...savings.log.filter((l) => savs.some((a) => a.id === l.sid)).map((l) => l.id));
-    savings.log = savings.log.filter((l) => !savs.some((a) => a.id === l.sid));
-    savings.accounts = savings.accounts.filter((a) => savWho(a) !== id);
-    saveSav();
-    renderSavings();
-    // 이 사람의 부업과 기록도 지운다(가계부에 함께 기록한 수입은 남는다)
-    tomb(...sides.map((j) => j.id), ...side.log.filter((l) => sides.some((j) => j.id === l.jid)).map((l) => l.id));
-    side.log = side.log.filter((l) => !sides.some((j) => j.id === l.jid));
-    side.jobs = side.jobs.filter((j) => sideWho(j) !== id);
-    saveSide();
-    renderSide();
-    // 이 사람의 직장과 급여 기록도 지운다(가계부에 함께 기록한 수입은 남는다)
-    tomb(...sals.map((j) => j.id), ...salary.log.filter((l) => sals.some((j) => j.id === l.jid)).map((l) => l.id));
-    salary.log = salary.log.filter((l) => !sals.some((j) => j.id === l.jid));
-    salary.jobs = salary.jobs.filter((j) => salWho(j) !== id);
-    saveSal();
-    renderSalary();
-    // 이 사람의 운동·체중 기록과 목표도 지운다
-    tomb(...fit.log.filter((l) => fitWho(l) === id).map((l) => l.id), ...fit.weights.filter((w) => fitWho(w) === id).map((w) => w.id));
-    fit.log = fit.log.filter((l) => fitWho(l) !== id);
-    fit.weights = fit.weights.filter((w) => fitWho(w) !== id);
-    delete fit.goals[id];
-    delete fit.body[id];
-    saveFit();
-    renderFit();
-    // 이 사람의 캘린더 일정은 지우지 않고 "함께"로 바꾼다
-    calItems.forEach((c) => { if (c.who === id) c.who = ''; });
-    saveCal();
+    const parts = [], keeps = [];
+    Object.values(MENU_DATA).forEach((d) => { const [del, keep] = d.count(id); if (del) parts.push(del); if (keep) keeps.push(keep); });
+    if (!confirm(`“${m.name}”을(를) 모든 메뉴에서 완전히 삭제할까요?` + (parts.length ? String.fromCharCode(10) + `${parts.join(', ')}도 함께 지워져요.` : '') + (keeps.length ? String.fromCharCode(10) + keeps.join(' ') : '') + String.fromCharCode(10, 10) + '되돌릴 수 없어요.')) return false;
+    Object.values(MENU_DATA).forEach((d) => d.purge(id));
+    tomb(id);
     schedule.members = schedule.members.filter((x) => x.id !== id);
-    schedule.items = schedule.items.filter((i) => i.memberId !== id);
-    health.visits = health.visits.filter((v) => v.who !== id);
-    health.vaccines = health.vaccines.filter((v) => v.who !== id);
-    health.meds = health.meds.filter((v) => v.who !== id);
-    insurance = insurance.filter((p) => p.who !== id);
-    rentals = rentals.filter((r) => r.who !== id);
-    if (healthWho === id) healthWho = 'all';
-    if (conWho === id) conWho = 'all';
     saveSchedule();
-    saveHealth();
-    saveInsurance();
-    saveRentals();
-    renderSchedule();
-    renderHealth();
-    renderInsurance();
-    renderRental();
-    renderAcademy();
-    renderAll();
+    afterMemberChange(id);
+    showToast('삭제했어요');
+    return true;
+  }
+  // 이 메뉴에서만 삭제: 이 메뉴의 이 사람 기록을 지우고 이 메뉴에서 뺀다. 다른 메뉴의 기록·구성원은 그대로이고, 어느 메뉴에서도 안 쓰게 되면 구성원 자체를 정리한다.
+  function removeMemberFromMenu(id, menu) {
+    const d = MENU_DATA[menu], menuName = (MEMBER_MENUS.find((x) => x[0] === menu) || [])[1] || '';
+    if (!d) return false;
+    if (people(menu).filter((x) => menu !== 'schedule' || x.id !== 'me').length <= 1 && !memberOff(id).includes(menu)) { showToast('이 메뉴에는 구성원이 한 명은 있어야 해요'); return false; }
+    const [del, keep] = d.count(id);
+    if (!confirm(`“${whoName(id)}”을(를) “${menuName}”에서 삭제할까요?` + (del ? String.fromCharCode(10) + `${del}도 함께 지워져요.` : '') + (keep ? String.fromCharCode(10) + keep : '') + String.fromCharCode(10, 10) + '다른 메뉴의 기록은 그대로 남아요.')) return false;
+    d.purge(id);
+    setMemberUse(id, menu, false);
+    if (id !== 'me' && MEMBER_MENUS.every(([k]) => memberOff(id).includes(k))) {   // 어느 메뉴에서도 안 쓰면 구성원 자체를 지운다
+      tomb(id);
+      schedule.members = schedule.members.filter((x) => x.id !== id);
+      saveSchedule();
+    }
+    afterMemberChange(id);
     showToast('삭제했어요');
     return true;
   }
@@ -3092,28 +3116,30 @@
     const useBtn = (id) => (menuName ? (memberOff(id).includes(menu)
       ? `<button type="button" class="tt-sw" data-muse="${id}" role="switch" aria-checked="false">안 씀</button>`
       : `<button type="button" class="tt-sw on" data-muse="${id}" role="switch" aria-checked="true">사용</button>`) : '');
+    const dn = (id) => memberAlias(id, menu) || (id === 'me' ? meName() : (schedule.members.find((x) => x.id === id) || {}).name || '');   // 이 메뉴에서 쓰는 이름
+    const delBtn = (id) => (menuName ? `<button type="button" class="icon-btn" data-mdel="${id}" aria-label="이 메뉴에서 삭제" title="이 메뉴에서 삭제(다른 메뉴는 그대로)">🗑</button>` : '');
     const bodyBtn = (id) => (menu === 'fit' ? `<button type="button" class="icon-btn" data-mbody="${id}" aria-label="신체 정보" title="신체 정보(키·목표 체중)">📏</button>` : '');
     const bodySub = (id) => (menu === 'fit' && fitBodyText(id) ? ' · ' + escapeHtml(fitBodyText(id)) : '');
     const draw = () => {
       sheetBody.innerHTML = `<form>
         <h3>구성원 관리${menuName ? ' · ' + escapeHtml(menuName) : ''}</h3>
-        ${menuName ? `<p class="goal-hint" style="margin:0 0 6px">“${escapeHtml(menuName)}”에서 쓸 구성원을 스위치로 골라요. 꺼도 기록은 지워지지 않고 이 메뉴에서만 안 보여요. 이름·생년월일은 모든 메뉴가 같이 써요.${menu === 'fit' ? ' 📏로 키·목표 체중을 적어 둘 수 있어요(운동관리에서만 써요).' : ''}</p>` : ''}
-        ${menu === 'schedule' ? '' : `<div class="rec" data-me="1"><span class="grip" style="visibility:hidden" aria-hidden="true">☰</span><div><div class="rec-name">${escapeHtml(meName())}</div><div class="rec-sub">${validDate(profile.birth) ? profile.birth.replace(/-/g, '.') + ' · ' + ageText(monthsBetween(profile.birth, todayStr())) : '생년월일 미입력'}${bodySub('me')} · 기본 구성원</div></div>
+        ${menuName ? `<p class="goal-hint" style="margin:0 0 6px">“${escapeHtml(menuName)}”에서 쓸 구성원을 이 화면에서 따로 관리해요. 스위치는 잠깐 감추기(기록은 그대로), ✎는 이 메뉴에서만 쓸 이름, 🗑는 이 메뉴의 기록만 지워요. 생년월일은 모든 메뉴가 같이 써요.${menu === 'fit' ? ' 📏로 키·목표 체중을 적어 둘 수 있어요(운동관리에서만 써요).' : ''}</p>` : ''}
+        ${menu === 'schedule' ? '' : `<div class="rec" data-me="1"><span class="grip" style="visibility:hidden" aria-hidden="true">☰</span><div><div class="rec-name">${escapeHtml(dn('me'))}</div><div class="rec-sub">${validDate(profile.birth) ? profile.birth.replace(/-/g, '.') + ' · ' + ageText(monthsBetween(profile.birth, todayStr())) : '생년월일 미입력'}${bodySub('me')} · 기본 구성원</div></div>
           ${useBtn('me')}${bodyBtn('me')}<button type="button" class="icon-btn" data-mbirth="me" aria-label="생년월일">🎂</button>
-          <button type="button" class="icon-btn" data-mren="me" aria-label="이름 바꾸기">✎</button></div>`}
-        ${schedule.members.length ? schedule.members.map((m) => `<div class="rec" data-id="${m.id}"><span class="grip" aria-label="끌어서 순서 바꾸기">☰</span><div><div class="rec-name">${escapeHtml(m.name)}</div>
+          <button type="button" class="icon-btn" data-mren="me" aria-label="이 메뉴에서 쓸 이름 바꾸기">✎</button>${delBtn('me')}</div>`}
+        ${schedule.members.length ? schedule.members.map((m) => `<div class="rec" data-id="${m.id}"><span class="grip" aria-label="끌어서 순서 바꾸기">☰</span><div><div class="rec-name">${escapeHtml(dn(m.id))}</div>
           <div class="rec-sub">${validDate(m.birth) ? m.birth.replace(/-/g, '.') + ' · ' + ageText(monthsBetween(m.birth, todayStr())) : '생년월일 미입력'}${bodySub(m.id)}</div></div>
           ${useBtn(m.id)}${bodyBtn(m.id)}<button type="button" class="icon-btn" data-mbirth="${m.id}" aria-label="생년월일">🎂</button>
-          <button type="button" class="icon-btn" data-mren="${m.id}" aria-label="이름 바꾸기">✎</button>
-          <button type="button" class="icon-btn" data-mdel="${m.id}" aria-label="모든 메뉴에서 완전히 삭제" title="모든 메뉴에서 완전히 삭제">🗑</button></div>`).join('')
+          <button type="button" class="icon-btn" data-mren="${m.id}" aria-label="이 메뉴에서 쓸 이름 바꾸기">✎</button>
+          ${delBtn(m.id) || `<button type="button" class="icon-btn" data-mdel="${m.id}" aria-label="완전히 삭제" title="완전히 삭제">🗑</button>`}</div>`).join('')
           : '<div class="empty-msg" style="padding:10px 0">아직 다른 구성원이 없어요</div>'}
         <label>새 구성원${menuName ? ' (이 메뉴에서만 쓰는 상태로 만들어져요)' : ''}</label>
         <div class="goal-row"><input id="mem-new" maxlength="20" placeholder="이름 입력" autocomplete="off"><button type="button" data-madd>추가</button></div>
-        <p class="goal-hint">☰를 누른 채 끌어서 순서를 바꿀 수 있어요. 🗑는 이 구성원과 <b>모든 메뉴의 기록</b>을 완전히 지워요. 이 메뉴에서만 빼려면 스위치를 끄세요.</p>
+        <p class="goal-hint">☰를 누른 채 끌어서 순서를 바꿀 수 있어요(순서는 모든 메뉴가 같아요). 🗑로 모든 메뉴에서 뺀 구성원은 목록에서도 사라져요.</p>
         <div class="sheet-actions"><button type="button" data-cancel>닫기</button></div>
       </form>`;
     };
-    const taken = (name, exceptId) => name === meName() || schedule.members.some((m) => m.name === name && m.id !== exceptId);
+    const taken = (name, exceptId) => allPeople(menu).some((p) => p.name === name && p.id !== exceptId) || schedule.members.some((m) => m.name === name && m.id !== exceptId);
     const add = () => {
       const name = sheetBody.querySelector('#mem-new').value.trim();
       if (!name) return;
@@ -3124,30 +3150,24 @@
       draw();
       showToast('추가했어요');
     };
-    // "나"의 이름 바꾸기: 프로필의 이름과 같은 값이다. 비우면 "나"로 돌아간다.
-    const renameMe = () => {
-      const cur = meName();
-      const v = prompt('나의 표시 이름을 입력하세요 (비우면 “나”로 돌아가요)', cur === '나' ? '' : cur);
-      if (v === null) return;
-      const name = v.trim().slice(0, 12);
-      if (name && schedule.members.some((m) => m.name === name)) { showToast('이미 있는 이름이에요'); return; }
-      profile.name = name;
-      saveProfile();
-      refreshNames();
-      draw();
-      showToast(name ? '이름을 바꿨어요' : '“나”로 되돌렸어요');
-    };
+    // 이름 바꾸기(이 메뉴에서만): 다른 메뉴에서 쓰는 구성원이면 이 메뉴 전용 이름(`names`)으로 저장하고, 이 메뉴에서만 쓰는 구성원이면 기본 이름을 바꾼다.
+    // "나"는 프로필의 이름이 따로 있으므로 늘 이 메뉴 전용 이름으로 저장한다(비우면 기본 이름).
     const rename = (id) => {
-      if (id === 'me') { renameMe(); return; }
-      const m = schedule.members.find((x) => x.id === id);
-      const name = (prompt('새 이름을 입력하세요', m.name) || '').trim();
-      if (!name || name === m.name) return;
-      if (taken(name, id)) { showToast('이미 있는 이름이에요'); return; }
-      m.name = name;
-      saveSchedule();
+      const m = id === 'me' ? null : schedule.members.find((x) => x.id === id), base = id === 'me' ? meName() : m.name, cur = dn(id);
+      const onlyHere = !!m && MEMBER_MENUS.every(([k]) => k === menu || memberOff(id).includes(k));
+      const v = prompt(onlyHere ? '새 이름을 입력하세요' : `이 메뉴에서 쓸 이름을 입력하세요 (다른 메뉴 이름은 그대로예요. 비우면 기본 이름 “${base}”)`, cur);
+      if (v === null) return;
+      const name = v.trim().slice(0, 20);
+      if (!name && onlyHere) return;
+      if (name && name !== cur && taken(name, id)) { showToast('이미 있는 이름이에요'); return; }
+      if (onlyHere) { m.name = name; if (m.names) delete m.names[menu]; saveSchedule(); }
+      else {
+        const put = (o) => { const n = { ...(o || {}) }; if (name && name !== base) n[menu] = name; else delete n[menu]; return n; };
+        if (id === 'me') { profile.names = put(profile.names); saveProfile(); } else { m.names = put(m.names); saveSchedule(); }
+      }
       refreshNames();
       draw();
-      showToast('이름을 바꿨어요');
+      showToast(name ? '이름을 바꿨어요' : '기본 이름으로 되돌렸어요');
     };
     // 끌어서 놓은 순서대로 구성원을 다시 늘어놓는다. 시간표의 구성원 칸, 사람 선택이 이 순서를 따른다("나"는 늘 맨 앞).
     makeSortable(sheetBody, '.rec[data-id]', '.grip', (ids) => {
@@ -3172,7 +3192,7 @@
         refreshNames();
         draw();
       }
-      else if (b.dataset.mdel) { if (removeMember(b.dataset.mdel)) { refreshNames(); draw(); } }
+      else if (b.dataset.mdel) { if (menuName ? removeMemberFromMenu(b.dataset.mdel, menu) : removeMember(b.dataset.mdel)) draw(); }
       else if (b.dataset.mren) rename(b.dataset.mren);
       else if (b.dataset.mbody) openBodySheet(b.dataset.mbody);
       else if (b.dataset.mbirth) openBirthSheet(b.dataset.mbirth === 'me' ? 'me' : schedule.members.find((m) => m.id === b.dataset.mbirth), true);
@@ -3284,8 +3304,14 @@
     const m = schedule.members.find((x) => x.id === id);
     return m && Array.isArray(m.off) ? m.off : [];
   }
-  const allPeople = () => [{ id: 'me', name: meName() }, ...schedule.members];
-  const people = (menu) => allPeople().filter((p) => !memberOff(p.id).includes(menu || curMenu));
+  // 메뉴별 이름: 구성원의 `names`({메뉴키: 이름}, "나"는 프로필)에 적어 두면 그 메뉴에서만 그 이름으로 보인다. 없으면 기본 이름이다.
+  function memberAlias(id, menu) {
+    if (id === 'me') { try { const o = JSON.parse(localStorage.getItem('dadari_profile_v1')).names; return (o && typeof o[menu] === 'string' && o[menu]) || ''; } catch (e) { return ''; } }
+    const m = schedule.members.find((x) => x.id === id);
+    return (m && m.names && typeof m.names[menu] === 'string' && m.names[menu]) || '';
+  }
+  const allPeople = (menu) => [{ id: 'me', name: memberAlias('me', menu || curMenu) || meName() }, ...schedule.members.map((m) => ({ ...m, name: memberAlias(m.id, menu || curMenu) || m.name }))];
+  const people = (menu) => allPeople(menu).filter((p) => !memberOff(p.id).includes(menu || curMenu));
   const whoName = (id) => (allPeople().find((p) => p.id === id) || { name: '(삭제된 구성원)' }).name;
   // 목록 걸러내기: 전체 보기면 이 메뉴에서 쓰는 구성원의 기록만, 한 사람을 골랐으면 그 사람 것만
   const whoPick = (sel, id) => (sel === 'all' ? people().some((p) => p.id === id) : id === sel);
@@ -3490,7 +3516,7 @@
   }
 
   function standardHtml(today) {
-    const members = schedule.members.filter((m) => whoPick(healthWho, m.id));
+    const members = schedule.members.filter((m) => whoPick(healthWho, m.id)).map((m) => ({ ...m, name: whoName(m.id) }));
     let html = '';
     if (healthWho === 'me') return '<div class="cyc-note" style="margin:0 0 6px">국가 표준 접종일정은 어린이·청소년 기준이라서, 생년월일을 입력한 구성원에게 표시돼요.</div>';
     if (!members.length) return '';
@@ -5429,10 +5455,14 @@
   // 부업(배달·프리랜서·온라인 판매·콘텐츠 등)마다 달별 수입·비용·투자 시간을 기록해 순수익·시급·월 목표 달성을 본다. 정식 사업 관리("나는CEO")와는 따로다.
   // 수입을 기록할 때 "가계부에도 수입(부수입)으로 기록"을 고르면 가계부 수입에도 넣고(`txId`), 기본은 가계부와 따로 둔다.
   const SIDE_KEY = 'dadari_side_v1';
-  let side = loadJson(SIDE_KEY, { jobs: [], log: [] });   // jobs: {id,name,kind,status,goal(월 목표 순수익),who,start,note}, log: {id,jid,date,income,expense,hours,memo,txId}
+  let side = loadJson(SIDE_KEY, { jobs: [], log: [] });   // jobs: {id,name,kind,status,goal(월 목표 순수익),who,start,note,pay('free'|'count'|'hour'|'day'),rate(단가 원)}, log: {id,jid,date,income,expense,hours,qty(건수·일수),memo,txId}
   if (!side || !Array.isArray(side.jobs) || !Array.isArray(side.log)) side = { jobs: [], log: [] };
   const saveSide = () => saveJson(SIDE_KEY, side);
   const SIDE_KINDS = ['배달·운전', '알바·단기', '프리랜서', '온라인 판매', '콘텐츠', '재능·강의', '투자·재테크', '기타'];
+  // 수익 방식: 직접 입력 | 건당(단가×건수) | 시간당(시급×일한 시간) | 일당(일당×일수). 기록할 때 단가×수량이 수입 칸에 자동으로 들어가고 직접 고칠 수도 있다.
+  const SIDE_PAY = [['free', '직접 입력'], ['count', '건당'], ['hour', '시간당'], ['day', '일당']];
+  const SIDE_UNIT = { count: '건', day: '일' };
+  const SIDE_RATE = { count: '건당 단가', hour: '시급', day: '일당' };
   const SIDE_STATUS = [['on', '진행 중'], ['pause', '쉬는 중'], ['end', '종료']];
   const sideWho = (j) => j.who || 'me';   // 구성원이 없던 항목은 "나"의 것으로 본다
   let sideSel = 'all';   // 부업 선택('all' 또는 부업 id): 나는CEO의 사업 칩처럼 한 부업만 따로 본다
@@ -5444,8 +5474,8 @@
   const wageTxt = (net, h) => (h > 0 ? formatWon(Math.round(net / h)) + '/시간' : '');
 
   function sideStats(logs) {
-    const income = logs.reduce((a, l) => a + (+l.income || 0), 0), expense = logs.reduce((a, l) => a + (+l.expense || 0), 0), hours = logs.reduce((a, l) => a + (+l.hours || 0), 0);
-    return { income, expense, hours, net: income - expense };
+    const income = logs.reduce((a, l) => a + (+l.income || 0), 0), expense = logs.reduce((a, l) => a + (+l.expense || 0), 0), hours = logs.reduce((a, l) => a + (+l.hours || 0), 0), qty = logs.reduce((a, l) => a + (+l.qty || 0), 0);
+    return { income, expense, hours, qty, net: income - expense };
   }
 
   function sideHtml() {
@@ -5484,9 +5514,9 @@
     const rows = jobs.map((j) => ({ j, mo: sideStats(logs.filter((l) => l.jid === j.id && l.date.startsWith(ym))), all: sideStats(logs.filter((l) => l.jid === j.id)) })).sort((a, b) => b.mo.net - a.mo.net);
     html += '<h2 class="section-title" style="margin:18px 0 4px">부업별 · ' + (sideView.m + 1) + '월</h2>' + rows.map(({ j, mo }, i) => {
       const gp = j.goal > 0 ? Math.round((mo.net / j.goal) * 100) : 0, st = SIDE_STATUS.find((x) => x[0] === (j.status || 'on')) || SIDE_STATUS[0];
-      const sub = [`수입 ${formatWon(mo.income)}`, `비용 ${formatWon(mo.expense)}`, mo.hours > 0 ? hoursTxt(mo.hours) : '', mo.hours > 0 ? wageTxt(mo.net, mo.hours) : ''].filter(Boolean).join(' · ');
+      const sub = [`수입 ${formatWon(mo.income)}`, `비용 ${formatWon(mo.expense)}`, SIDE_UNIT[j.pay] && mo.qty > 0 ? mo.qty + SIDE_UNIT[j.pay] : '', mo.hours > 0 ? hoursTxt(mo.hours) : '', mo.hours > 0 ? wageTxt(mo.net, mo.hours) : '', j.pay && j.pay !== 'free' && j.rate > 0 ? SIDE_RATE[j.pay] + ' ' + formatWon(j.rate) : ''].filter(Boolean).join(' · ');
       const who = conWho === 'all' && ppl.length > 1 ? `<span class="who-tag">${esc(whoName(sideWho(j)))}</span>` : '';
-      return `<button type="button" class="visit" data-sj="${attr(j.id)}"><div class="v1"><span>${rows.length > 1 && i === 0 && mo.net > 0 ? '👑 ' : ''}${who}${esc(j.name)} <span class="rt" style="font-size:10px;background:var(--accent-soft);color:var(--accent);border-radius:99px;padding:1px 7px">${esc(j.kind || '')}</span>${st[0] !== 'on' ? ` <span class="rt" style="font-size:10px;background:var(--bg);color:var(--text-muted);border:1px solid var(--border);border-radius:99px;padding:1px 7px">${st[1]}</span>` : ''}</span><b style="${mo.net < 0 ? 'color:var(--expense)' : ''}">${net(mo.net)}</b></div>`
+      return `<button type="button" class="visit" data-sj="${attr(j.id)}"><div class="v1"><span>${rows.length > 1 && i === 0 && mo.net > 0 ? '👑 ' : ''}${who}${esc(j.name)}${j.kind ? ` <span class="rt" style="font-size:10px;background:var(--accent-soft);color:var(--accent);border-radius:99px;padding:1px 7px">${esc(j.kind)}</span>` : ''}${st[0] !== 'on' ? ` <span class="rt" style="font-size:10px;background:var(--bg);color:var(--text-muted);border:1px solid var(--border);border-radius:99px;padding:1px 7px">${st[1]}</span>` : ''}</span><b style="${mo.net < 0 ? 'color:var(--expense)' : ''}">${net(mo.net)}</b></div>`
         + (j.goal > 0 ? `<div class="bar" style="margin:6px 0 4px"><i class="${gp >= 100 ? '' : gp < 50 ? 'near' : ''}" style="width:${Math.max(0, Math.min(100, gp))}%"></i></div><div class="v2">월 목표 ${formatWon(j.goal)} · ${gp}%</div>` : '')
         + `<div class="v2">${sub}</div></button>`;
     }).join('');
@@ -5494,7 +5524,7 @@
     // 이번 달 기록
     const list = logs.filter((l) => l.date.startsWith(ym)).sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
     html += `<h2 class="section-title" style="margin:18px 0 4px">${sideView.m + 1}월 기록${list.length ? ' · ' + list.length + '건' : ''}</h2>`
-      + (list.length ? list.map((l) => { const j = side.jobs.find((x) => x.id === l.jid); return `<button type="button" class="visit" data-sl="${attr(l.id)}"><div class="v1"><span>${l.date.slice(5).replace('-', '/')} · ${esc(j ? j.name : '')}</span><b style="color:var(--${sideNet(l) < 0 ? 'expense' : 'income'})">${sideNet(l) < 0 ? '-' : '+'}${formatWon(Math.abs(sideNet(l)))}</b></div><div class="v2">${[l.income ? '수입 ' + formatWon(l.income) : '', l.expense ? '비용 ' + formatWon(l.expense) : '', l.hours ? hoursTxt(l.hours) : '', l.memo || ''].filter(Boolean).map(esc).join(' · ')}</div></button>`; }).join('')
+      + (list.length ? list.map((l) => { const j = side.jobs.find((x) => x.id === l.jid); return `<button type="button" class="visit" data-sl="${attr(l.id)}"><div class="v1"><span>${l.date.slice(5).replace('-', '/')} · ${esc(j ? j.name : '')}</span><b style="color:var(--${sideNet(l) < 0 ? 'expense' : 'income'})">${sideNet(l) < 0 ? '-' : '+'}${formatWon(Math.abs(sideNet(l)))}</b></div><div class="v2">${[l.income ? '수입 ' + formatWon(l.income) : '', l.expense ? '비용 ' + formatWon(l.expense) : '', l.qty ? l.qty + (SIDE_UNIT[j && j.pay] || '') : '', l.hours ? hoursTxt(l.hours) : '', l.memo || ''].filter(Boolean).map(esc).join(' · ')}</div></button>`; }).join('')
         : '<div class="empty-msg" style="padding:12px 0">이 달 기록이 없어요<br>아래 “＋ 수입·비용 기록”으로 적어 보세요</div>');
     return html;
   }
@@ -5510,7 +5540,8 @@
     const pickable = inWho.filter((j) => sideSt === 'all' || (j.status || 'on') === sideSt);
     if (sideSel !== 'all' && !pickable.some((j) => j.id === sideSel)) sideSel = 'all';
     el('side-jobs').hidden = pickable.length < 2;
-    el('side-jobs').innerHTML = [['all', '전체 부업'], ...pickable.map((j) => [j.id, j.name])].map(([k, n]) => `<button type="button" data-sjsel="${attr(k)}" class="${k === sideSel ? 'active' : ''}">${esc(n)}</button>`).join('');
+    el('side-jobs').innerHTML = [['all', '전체 부업'], ...pickable.map((j) => [j.id, j.name])].map(([k, n]) => `<button type="button" data-sjsel="${attr(k)}" class="${k === sideSel ? 'active' : ''}">${esc(n)}</button>`).join('')
+      + (sideSel !== 'all' ? '<button type="button" data-sjedit style="border-style:dashed">✏️ 이름·수정</button>' : '');
     el('side-label').textContent = sideView.y + '년 ' + (sideView.m + 1) + '월';
     el('side-body').innerHTML = sideHtml();
   }
@@ -5523,7 +5554,9 @@
       <h3>${j ? '부업 수정' : '부업 추가'}</h3>
       <label>누구의 부업인가요</label><select name="who">${people().map((x) => `<option value="${attr(x.id)}"${x.id === who ? ' selected' : ''}>${esc(x.name)}</option>`).join('')}</select>
       <label>부업 이름</label><input name="name" required maxlength="30" placeholder="예: 주말 배달, 스마트스토어, 블로그 광고" value="${val(j && j.name)}" autocomplete="off">
-      <label>종류</label><select name="kind">${kinds.map((k) => `<option${k === (j ? j.kind : '프리랜서') ? ' selected' : ''}>${esc(k)}</option>`).join('')}</select>
+      <label>종류 (직접 적거나 목록에서 골라요)</label><input name="kind" list="side-kinds" maxlength="14" placeholder="예: 배달·운전" value="${val(j ? j.kind : '')}" autocomplete="off"><datalist id="side-kinds">${kinds.map((k) => `<option value="${attr(k)}"></option>`).join('')}</datalist>
+      <label>수익 방식</label><select name="pay">${SIDE_PAY.map(([k, n]) => `<option value="${k}"${(j && j.pay || 'free') === k ? ' selected' : ''}>${n}</option>`).join('')}</select>
+      <div id="side-rate-wrap"><label id="side-rate-lbl">단가 (원)</label><input name="rate" type="number" min="0" inputmode="numeric" value="${val(j && j.rate ? j.rate : '')}" placeholder="예: 3000"></div>
       <label>상태</label><select name="status">${SIDE_STATUS.map(([k, n]) => `<option value="${k}"${(j ? j.status || 'on' : 'on') === k ? ' selected' : ''}>${n}</option>`).join('')}</select>
       <label>월 목표 순수익 (선택)</label><input name="goal" type="number" min="0" inputmode="numeric" value="${val(j && j.goal ? j.goal : '')}" placeholder="0이면 목표 없음">
       <label>시작일 (선택)</label><input name="start" type="date" value="${val(j && j.start)}">
@@ -5532,12 +5565,16 @@
     </form>`, (fd) => {
       const name = String(fd.get('name')).trim();
       if (!name) { showToast('부업 이름을 입력해 주세요'); return false; }
-      const rec = { who: String(fd.get('who')), name, kind: String(fd.get('kind')), status: String(fd.get('status')), goal: Math.max(0, parseInt(fd.get('goal'), 10) || 0), start: validDate(String(fd.get('start'))) ? String(fd.get('start')) : '', note: String(fd.get('note')).trim() };
+      const rec = { who: String(fd.get('who')), name, kind: String(fd.get('kind')).trim(), status: String(fd.get('status')), pay: String(fd.get('pay')) || 'free', rate: String(fd.get('pay')) === 'free' ? 0 : Math.max(0, parseInt(fd.get('rate'), 10) || 0), goal: Math.max(0, parseInt(fd.get('goal'), 10) || 0), start: validDate(String(fd.get('start'))) ? String(fd.get('start')) : '', note: String(fd.get('note')).trim() };
       if (j) Object.assign(j, rec); else side.jobs.push({ id: newId(), ...rec });
       saveSide();
       renderSide();
       showToast(j ? '수정했어요' : '부업을 추가했어요');
     });
+    const paySel = sheetBody.querySelector('select[name=pay]'), rateWrap = sheetBody.querySelector('#side-rate-wrap');
+    const payChange = () => { rateWrap.hidden = paySel.value === 'free'; sheetBody.querySelector('#side-rate-lbl').textContent = (SIDE_RATE[paySel.value] || '단가') + ' (원)'; };
+    paySel.addEventListener('change', payChange);
+    payChange();
     const del = sheetBody.querySelector('[data-delete]');
     if (del) del.addEventListener('click', () => {
       const logs = side.log.filter((l) => l.jid === j.id);
@@ -5561,8 +5598,10 @@
       <h3>${l ? '기록 수정' : '수입·비용 기록'}</h3>
       <label>부업</label><select name="jid">${side.jobs.map((j) => `<option value="${attr(j.id)}"${j.id === sel ? ' selected' : ''}>${esc(j.name)}${people().length > 1 ? ' · ' + esc(whoName(sideWho(j))) : ''}</option>`).join('')}</select>
       <label>날짜</label><input name="date" type="date" required value="${val(defDate)}">
+      <div id="side-qty-wrap" hidden><label id="side-qty-lbl">건수</label><input name="qty" type="number" min="0" step="0.5" inputmode="decimal" value="${val(l && l.qty ? l.qty : '')}" placeholder="0"></div>
       <label>수입 (원)</label><input name="income" type="number" min="0" inputmode="numeric" value="${val(l && l.income ? l.income : '')}" placeholder="0">
       <label>비용 (원)</label><input name="expense" type="number" min="0" inputmode="numeric" value="${val(l && l.expense ? l.expense : '')}" placeholder="재료비·수수료·기름값 등">
+      <p class="goal-hint" id="side-calc" hidden style="margin:2px 0 0"></p>
       <label>일한 시간 (선택)</label><input name="hours" type="number" min="0" step="0.5" inputmode="decimal" value="${val(l && l.hours ? l.hours : '')}" placeholder="예: 3.5 (시급 계산에 써요)">
       <label>메모 (선택)</label><input name="memo" maxlength="60" value="${val(l && l.memo)}" placeholder="예: 10월 1주차 정산">
       ${l ? '' : '<label class="check"><input type="checkbox" name="ledger"> 수입이면 가계부에도 수입(부수입)으로 기록</label>'}
@@ -5570,8 +5609,9 @@
     </form>`, (fd) => {
       const income = Math.max(0, parseInt(fd.get('income'), 10) || 0), expense = Math.max(0, parseInt(fd.get('expense'), 10) || 0), hours = Math.max(0, parseFloat(fd.get('hours')) || 0), date = String(fd.get('date'));
       const job = side.jobs.find((j) => j.id === fd.get('jid'));
-      if (!job || !validDate(date) || (!income && !expense && !hours)) { showToast('날짜와 수입·비용·시간 중 하나는 입력해 주세요'); return false; }
-      const rec = { jid: job.id, date, income, expense, hours, memo: String(fd.get('memo')).trim() };
+      if (!job || !validDate(date) || (!income && !expense && !hours && !qty)) { showToast('날짜와 수입·비용·시간·건수 중 하나는 입력해 주세요'); return false; }
+      const qty = Math.max(0, parseFloat(fd.get('qty')) || 0);
+      const rec = { jid: job.id, date, income, expense, hours, qty, memo: String(fd.get('memo')).trim() };
       if (l) {
         Object.assign(l, rec);
         const t = l.txId && transactions.find((x) => x.id === l.txId);
@@ -5592,6 +5632,23 @@
       renderSide();
       showToast(l ? '수정했어요' : '기록했어요');
     });
+    // 건당·시간당·일당 부업이면 단가 × 수량을 수입 칸에 자동으로 넣는다(수입을 직접 고치면 그 값을 따른다)
+    const jobSel = sheetBody.querySelector('select[name=jid]'), qtyEl = sheetBody.querySelector('input[name=qty]'), hrsEl = sheetBody.querySelector('input[name=hours]'), incEl = sheetBody.querySelector('input[name=income]');
+    let incTouched = !!(l && l.income);
+    incEl.addEventListener('input', () => { incTouched = true; });
+    const calc = () => {
+      const jb = side.jobs.find((x) => x.id === jobSel.value), pay = (jb && jb.pay) || 'free', info = sheetBody.querySelector('#side-calc');
+      sheetBody.querySelector('#side-qty-wrap').hidden = !SIDE_UNIT[pay];
+      if (SIDE_UNIT[pay]) sheetBody.querySelector('#side-qty-lbl').textContent = pay === 'day' ? '일한 일수' : '건수';
+      if (pay === 'free' || !(jb.rate > 0)) { info.hidden = true; return; }
+      const q = pay === 'hour' ? parseFloat(hrsEl.value) || 0 : parseFloat(qtyEl.value) || 0, v = Math.round(jb.rate * q);
+      info.hidden = false;
+      info.textContent = `${SIDE_RATE[pay]} ${formatWon(jb.rate)} × ${q}${pay === 'hour' ? '시간' : SIDE_UNIT[pay]} = ${formatWon(v)} (수입 칸에 자동으로 들어가요. 직접 고쳐도 돼요)`;
+      if (!incTouched) incEl.value = v > 0 ? v : '';
+    };
+    [jobSel, qtyEl, hrsEl].forEach((x) => x.addEventListener('input', calc));
+    jobSel.addEventListener('change', calc);
+    calc();
     const del = sheetBody.querySelector('[data-delete]');
     if (del) del.addEventListener('click', () => {
       tomb(l.id);
@@ -5624,7 +5681,11 @@
   el('side-prev').addEventListener('click', () => { const d = new Date(sideView.y, sideView.m - 1, 1); sideView = { y: d.getFullYear(), m: d.getMonth() }; renderSide(); });
   el('side-next').addEventListener('click', () => { const d = new Date(sideView.y, sideView.m + 1, 1); sideView = { y: d.getFullYear(), m: d.getMonth() }; renderSide(); });
   el('side-who').addEventListener('click', (e) => { const b = e.target.closest('button[data-cw]'); if (b) { conWho = b.dataset.cw; renderSide(); } });
-  el('side-jobs').addEventListener('click', (e) => { const b = e.target.closest('button[data-sjsel]'); if (b) { sideSel = b.dataset.sjsel; renderSide(); } });
+  el('side-jobs').addEventListener('click', (e) => {
+    if (e.target.closest('[data-sjedit]')) { const j = side.jobs.find((x) => x.id === sideSel); if (j) openSideJobSheet(j); return; }
+    const b = e.target.closest('button[data-sjsel]');
+    if (b) { sideSel = b.dataset.sjsel; renderSide(); }
+  });
   el('side-status').addEventListener('click', (e) => { const b = e.target.closest('button[data-ss]'); if (b) { sideSt = b.dataset.ss; renderSide(); } });
   el('side-body').addEventListener('click', (e) => {
     const sj = e.target.closest('[data-sj]');
@@ -6626,6 +6687,8 @@
     renderAcademy();
     renderSavings();
     renderSide();
+    renderSalary();
+    renderFit();
     renderCal();
     renderFin();
     renderTodo();
@@ -7681,7 +7744,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v68'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v69'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span style="display:block;margin-bottom:4px">다달이, 매일의 기록이 모여 더 나은 생활이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
