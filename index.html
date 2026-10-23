@@ -213,9 +213,9 @@
     --text: #1c1e21;
     --text-muted: #566070;   /* 흰 바탕 6.4:1, 연한 칸 위에서도 5.7:1 이상 */
     --border: #e5e7eb;
-    --accent: #c2255c;   /* 강조색 하나: 로고 민트(#02c9b9, 색상 175°)의 보색(반대 색상)인 장미빛 라즈베리 — 흰 글씨 5.7:1, 원색 빨강처럼 튀지 않는다 */
-    --accent-fill: #c2255c;   /* 흰 글씨를 얹는 채움색(라이트·다크 모두 6.3:1). 다크의 --accent는 글씨용으로 밝아서 채움에는 이걸 쓴다 */
-    --accent-soft: #fbe9ef;
+    --accent: #047857;   /* 강조색 하나: 건강 메뉴의 초록(에메랄드) — 사용자가 여러 색을 보고 이 색을 골랐다. 흰 글씨 5.5:1 */
+    --accent-fill: #047857;   /* 흰 글씨를 얹는 채움색(라이트·다크 모두 6.3:1). 다크의 --accent는 글씨용으로 밝아서 채움에는 이걸 쓴다 */
+    --accent-soft: #ecfdf5;
     --income: #136f34;   /* 연한 초록 칸 위 5.5:1 이상 */
     --income-soft: #ecfdf3;
     --expense: #b91c1c;   /* 연한 빨강 칸 위 5.9:1 */
@@ -233,8 +233,8 @@
       --text: #eef0f3;
       --text-muted: #9aa0ab;
       --border: #2c2f38;
-      --accent: #f06595;
-      --accent-soft: #2f1823;
+      --accent: #34d399;
+      --accent-soft: #12261f;
       --income: #4ade80;
       --income-soft: #1b2b20;
       --expense: #f87171;
@@ -2100,7 +2100,7 @@
   });
 
   let breakdownAll = false;   // "기타" 펼침(화면 한정, 저장 안 함)
-  const BK_COLORS = ['#c2255c', '#f59e0b', '#3b82f6', '#14b8a6', '#8b5cf6'];   // 상위 5개(색 구분이 되는 한도)
+  const BK_COLORS = ['#047857', '#f59e0b', '#3b82f6', '#ec4899', '#8b5cf6'];   // 상위 5개(색 구분이 되는 한도)
   const BK_ETC = '#9ca3af';
   function renderBreakdown(expenseTx) {
     const wrap = el('breakdown-list');
@@ -8646,7 +8646,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v127'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v128'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span class="slogan">다달이, 매일의 기록이 모여<br><b>더 나은 생활</b>이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
