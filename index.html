@@ -1399,7 +1399,7 @@
     if (currentType === 'expense') {
       const pay = el('f-card').value;
       if (cardById(pay)) entry.cardId = pay;
-      entry.pay = cardById(pay) || pay === 'card' ? 'card' : pay === 'transfer' ? 'transfer' : 'cash';
+      entry.pay = cardById(pay) || pay === 'card' ? 'card' : pay === 'transfer' ? 'transfer' : pay === 'gift' ? 'gift' : 'cash';
       // 고정비 기본 카드가 자동으로 골라진 경우에는 "마지막에 쓴 결제수단"으로 기억하지 않는다.
       try { localStorage.setItem('dadari_lastpay', payBeforeFixed !== null ? payBeforeFixed : pay); } catch (e) { /* 기억하지 못해도 기록은 계속 */ }
     }
@@ -1692,7 +1692,7 @@
       return list.map((c) => `<option value="${attr(c)}"${c === cur ? ' selected' : ''}>${escapeHtml(c)}</option>`).join('');
     };
     const payNow = t.cardId && cardById(t.cardId) ? t.cardId : (t.pay || 'card');
-    const payOpts = '<option value="cash">현금</option><option value="transfer">계좌이체</option><option value="card">카드 (카드 선택 안 함)</option>'
+    const payOpts = '<option value="cash">현금</option><option value="transfer">계좌이체</option><option value="gift">상품권</option><option value="card">카드 (카드 선택 안 함)</option>'
       + cards.map((c) => `<option value="${attr(c.id)}">${escapeHtml(c.name)} (${c.kind === 'credit' ? '신용' : '체크'})</option>`).join('');
     openSheet(`<form>
       <h3>내역 수정${t.recurId ? ' <small style="font-weight:400;color:var(--text-muted)">자동 기록</small>' : ''}</h3>
@@ -1717,7 +1717,7 @@
       if (type === 'expense') {
         const pay = String(fd.get('pay'));
         if (cardById(pay)) t.cardId = pay; else delete t.cardId;
-        t.pay = cardById(pay) || pay === 'card' ? 'card' : pay === 'transfer' ? 'transfer' : 'cash';
+        t.pay = cardById(pay) || pay === 'card' ? 'card' : pay === 'transfer' ? 'transfer' : pay === 'gift' ? 'gift' : 'cash';
       } else { delete t.pay; delete t.cardId; }
       save();
       renderAll();
@@ -1922,7 +1922,7 @@
   function renderCardOptions() {
     const sel = el('f-card');
     const prev = sel.value;
-    sel.innerHTML = '<option value="cash">현금</option><option value="transfer">계좌이체</option><option value="card">카드 (카드 선택 안 함)</option>'
+    sel.innerHTML = '<option value="cash">현금</option><option value="transfer">계좌이체</option><option value="gift">상품권</option><option value="card">카드 (카드 선택 안 함)</option>'
       + cards.map((c) => `<option value="${c.id}">${escapeHtml(c.name)} (${c.kind === 'credit' ? '신용' : '체크'})</option>`).join('')
       + '<option value="__new">＋ 카드 등록…</option>';
     let last = null;
@@ -1933,7 +1933,7 @@
 
   // 결제수단 이름. pay가 없는 예전 내역은 표시하지 않는다.
   function payLabel(t) {
-    return cardName(t) || (t.pay === 'card' ? '카드' : t.pay === 'transfer' ? '계좌이체' : t.pay === 'cash' ? '현금' : '');
+    return cardName(t) || (t.pay === 'card' ? '카드' : t.pay === 'transfer' ? '계좌이체' : t.pay === 'gift' ? '상품권' : t.pay === 'cash' ? '현금' : '');
   }
 
   // 고정비 기본 카드: "고정비"에 체크하면 결제수단을 그 카드로 바꾸고, 체크를 풀거나 기록을 마치면 원래 선택으로 되돌린다.
@@ -6712,7 +6712,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v50'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v51'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span style="display:block;margin-bottom:4px">다달이, 매일의 기록이 모여 더 나은 생활이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
