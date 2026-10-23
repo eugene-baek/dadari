@@ -211,13 +211,14 @@
     --bg: #f5f6f8;
     --card-bg: #ffffff;
     --text: #1c1e21;
-    --text-muted: #6b7280;
+    --text-muted: #566070;   /* 흰 바탕 6.4:1, 연한 칸 위에서도 5.7:1 이상 */
     --border: #e5e7eb;
     --accent: #4f46e5;
+    --accent-fill: #4f46e5;   /* 흰 글씨를 얹는 채움색(라이트·다크 모두 6.3:1). 다크의 --accent는 글씨용으로 밝아서 채움에는 이걸 쓴다 */
     --accent-soft: #eef2ff;
-    --income: #16a34a;
+    --income: #136f34;   /* 연한 초록 칸 위 5.5:1 이상 */
     --income-soft: #ecfdf3;
-    --expense: #dc2626;
+    --expense: #b91c1c;   /* 연한 빨강 칸 위 5.9:1 */
     --expense-soft: #fef2f2;
     --shadow: 0 1px 2px rgba(0,0,0,0.04), 0 1px 8px rgba(0,0,0,0.04);
     --c1: #2a78d6;   /* 그래프 1번 색: 수입·값(파랑) */
@@ -435,7 +436,7 @@
     padding: 12px;
     border: none;
     border-radius: 10px;
-    background: var(--accent);
+    background: var(--accent-fill);
     color: white;
     font-size: 14px;
     font-weight: 600;
@@ -491,14 +492,16 @@
   .bk-more { width: 100%; margin-top: 6px; border: none; background: none; color: var(--text-muted); font-size: 13px; padding: 8px; cursor: pointer; }
 
   /* 긴 화면에서 맨 위로 올라가지 않고 다른 메뉴로 가는 떠 있는 "메뉴" 버튼 */
-  .fab { position: fixed; right: 14px; bottom: calc(16px + env(safe-area-inset-bottom)); z-index: 12; width: 54px; height: 54px; border-radius: 50%; border: none; background: var(--accent); color: #fff; font-size: 20px; line-height: 1; box-shadow: 0 4px 14px rgba(0,0,0,0.3); cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
+  .fab { position: fixed; right: 14px; bottom: calc(16px + env(safe-area-inset-bottom)); z-index: 12; width: 54px; height: 54px; border-radius: 50%; border: none; background: var(--accent-fill); color: #fff; font-size: 20px; line-height: 1; box-shadow: 0 4px 14px rgba(0,0,0,0.3); cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
   .fab small { font-size: 10px; font-weight: 700; }
   .fab[hidden], .quick-nav[hidden] { display: none; }
   .quick-nav { position: fixed; right: 14px; bottom: calc(80px + env(safe-area-inset-bottom)); z-index: 12; width: min(340px, calc(100vw - 28px)); max-height: 72vh; overflow-y: auto; background: var(--card-bg); border: 1px solid var(--border); border-radius: 16px; padding: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
   .qn-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
   .quick-nav button { min-height: 52px; padding: 8px 4px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); color: var(--text); font-size: 12.5px; line-height: 1.25; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; word-break: keep-all; }
   .quick-nav button .ic { font-size: 18px; }
-  .quick-nav button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .quick-nav button { border-top: 3px solid var(--mc); }
+  .quick-nav button.qn-top { border-top: 1px solid var(--border); }
+  .quick-nav button.active { background: var(--mc); border-color: var(--mc); color: #fff; }
   .quick-nav .qn-top { grid-column: 1 / -1; min-height: 44px; flex-direction: row; justify-content: center; font-weight: 700; }
   @media (max-width: 600px) { input, select, textarea { font-size: 16px; } }
   @media (max-width: 360px) { .month-nav .label { font-size: 14px; } .month-nav button { padding: 8px 10px; } }
@@ -574,7 +577,7 @@
     padding: 0 16px;
     border: none;
     border-radius: 10px;
-    background: var(--accent);
+    background: var(--accent-fill);
     color: white;
     font-size: 14px;
     font-weight: 600;
@@ -588,7 +591,7 @@
   .week .name em {
     font-style: normal;
     font-size: 10px;
-    background: var(--accent);
+    background: var(--accent-fill);
     color: white;
     border-radius: 99px;
     padding: 1px 7px;
@@ -690,7 +693,7 @@
   .sheet-actions { display: flex; gap: 10px; margin-top: 18px; position: sticky; bottom: 0; z-index: 2; background: var(--card-bg); padding: 10px 0 calc(6px + env(safe-area-inset-bottom)); box-shadow: 0 -10px 10px -10px rgba(0,0,0,0.25); }
   .sheet-actions button { flex: 1; padding: 12px; border-radius: 10px; border: none; font-size: 14px; font-weight: 600; cursor: pointer; }
   .sheet-actions [data-cancel] { background: var(--bg); color: var(--text); }
-  .sheet-actions [type="submit"] { background: var(--accent); color: white; flex: 2; }
+  .sheet-actions [type="submit"] { background: var(--accent-fill); color: white; flex: 2; }
   main[hidden], .day-tabs[hidden], .member-chips[hidden] { display: none; }
   label.chk { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 13px; color: var(--text); cursor: pointer; }
   label.chk input { width: auto; margin: 0; }
@@ -724,6 +727,8 @@
   .dash-row .am.inc { color: var(--income); }
   .dash-empty { padding: 10px 2px; font-size: 13px; color: var(--text-muted); }
   .dash-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .dash-tile, .dash-quick button { border-top: 3px solid var(--mc); }
+  button.dash-row .dd { border-left: 3px solid var(--mc); padding-left: 6px; }
   .dash-tile { text-align: left; padding: 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg); color: var(--text); font: inherit; cursor: pointer; }
   .dash-tile small { display: block; font-size: 12px; color: var(--text-muted); }
   .dash-tile b { display: block; font-size: 15px; margin: 3px 0 2px; line-height: 1.3; }
@@ -737,12 +742,37 @@
   .dash-welcome .foot button { border: none; background: none; color: var(--text-muted); font: inherit; cursor: pointer; padding: 4px; }
   @keyframes flashrow { 0%, 60% { background: var(--accent-soft); box-shadow: 0 0 0 3px var(--accent-soft); } 100% { background: transparent; box-shadow: none; } }
   .flash { animation: flashrow 2.2s ease-out; border-radius: 8px; }
+  /* 메뉴별 포인트 색: 흰 글씨를 얹어도 4.9:1 이상인 같은 밝기대의 색 15개. --mc는 채움(메뉴 칸 선택·소메뉴 선택), --mc-text는 글씨·선, --mc-soft는 연한 바탕이다.
+     메뉴 화면(#view-*)·메뉴 칸·바로가기(data-view / data-qv / data-sv)가 같은 색을 쓴다. 새 메뉴를 만들면 여기에 색을 더한다. */
+  :root { --mc: var(--accent-fill); }
+  main, .viewtabs button, .quick-nav button, [data-sv] { --mc-text: var(--accent); --mc-soft: var(--accent-soft); }
+  @supports (color: color-mix(in srgb, red, blue)) {
+    main, .viewtabs button, .quick-nav button, [data-sv] { --mc-text: var(--mc); --mc-soft: color-mix(in srgb, var(--mc) 10%, var(--card-bg)); }
+    @media (prefers-color-scheme: dark) {
+      main, .viewtabs button, .quick-nav button, [data-sv] { --mc-text: color-mix(in srgb, var(--mc) 40%, #fff); --mc-soft: color-mix(in srgb, var(--mc) 24%, var(--card-bg)); }
+    }
+  }
+  #view-status, #viewtabs [data-view="status"], .quick-nav [data-qv="status"], [data-sv="status"] { --mc: #4f46e5; }
+  #view-calendar, #viewtabs [data-view="calendar"], .quick-nav [data-qv="calendar"], [data-sv="calendar"] { --mc: #2563eb; }
+  #view-salary, #viewtabs [data-view="salary"], .quick-nav [data-qv="salary"], [data-sv="salary"] { --mc: #0f766e; }
+  #view-side, #viewtabs [data-view="side"], .quick-nav [data-qv="side"], [data-sv="side"] { --mc: #7c3aed; }
+  #view-biz, #viewtabs [data-view="biz"], .quick-nav [data-qv="biz"], [data-sv="biz"] { --mc: #334155; }
+  #view-ledger, #viewtabs [data-view="ledger"], .quick-nav [data-qv="ledger"], [data-sv="ledger"] { --mc: #c2410c; }
+  #view-savings, #viewtabs [data-view="savings"], .quick-nav [data-qv="savings"], [data-sv="savings"] { --mc: #be185d; }
+  #view-rental, #viewtabs [data-view="rental"], .quick-nav [data-qv="rental"], [data-sv="rental"] { --mc: #0e7490; }
+  #view-health, #viewtabs [data-view="health"], .quick-nav [data-qv="health"], [data-sv="health"] { --mc: #047857; }
+  #view-insurance, #viewtabs [data-view="insurance"], .quick-nav [data-qv="insurance"], [data-sv="insurance"] { --mc: #0369a1; }
+  #view-schedule, #viewtabs [data-view="schedule"], .quick-nav [data-qv="schedule"], [data-sv="schedule"] { --mc: #4d7c0f; }
+  #view-academy, #viewtabs [data-view="academy"], .quick-nav [data-qv="academy"], [data-sv="academy"] { --mc: #a16207; }
+  #view-food, #viewtabs [data-view="food"], .quick-nav [data-qv="food"], [data-sv="food"] { --mc: #a21caf; }
+  #view-fit, #viewtabs [data-view="fit"], .quick-nav [data-qv="fit"], [data-sv="fit"] { --mc: #b91c1c; }
+  #view-settings, #viewtabs [data-view="settings"], .quick-nav [data-qv="settings"], [data-sv="settings"] { --mc: #475569; }
   .set-group { font-size: 13px; font-weight: 800; color: var(--text-muted); margin: 4px 2px -6px; }
   .viewtabs-foot { max-width: 720px; margin: 0 auto 10px; padding: 0 20px; text-align: right; }
   #viewtabs button[hidden] { display: none; }
   .rec.tab-off .rec-name { color: var(--text-muted); text-decoration: line-through; }
   .tt-sw { flex: none; padding: 6px 12px; border: 1px solid var(--border); border-radius: 99px; background: var(--card-bg); color: var(--text-muted); font-size: 12px; font-weight: 600; cursor: pointer; }
-  .tt-sw.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .tt-sw.on { background: var(--accent-fill); border-color: var(--accent); color: #fff; }
   .tt-fixed { flex: none; font-size: 11px; color: var(--text-muted); }
   .tab-order-btn { background: none; border: 0; color: var(--text-muted); font-size: 12px; cursor: pointer; padding: 4px 0; }
   .rcp { padding: 12px 0; border-top: 1px solid var(--border); font-size: 13px; line-height: 1.6; display: flex; gap: 12px; align-items: flex-start; }
@@ -762,14 +792,14 @@
   .pick .rcp { padding: 0; border: 0; }
   .dd-chip { font-size: 10px; border-radius: 99px; padding: 1px 6px; margin-left: 5px; border: 1px solid var(--border); color: var(--text-muted); }
   .dd-chip.soon { color: var(--expense); border-color: var(--expense); font-weight: 700; }
-  .vcheck.on { background: var(--accent); color: #fff; }
+  .vcheck.on { background: var(--accent-fill); color: #fff; }
   .cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; }
   .cal-dow { text-align: center; font-size: 11px; color: var(--text-muted); padding: 4px 0; }
   .cal-dow.sun { color: var(--expense); }
   .cal-dow.sat { color: var(--accent); }
   .cal-day { min-height: 62px; border: 1px solid transparent; border-radius: 10px; padding: 3px 1px; background: none; color: var(--text); font-size: 12px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 1px; overflow: hidden; }
   .cal-day .n { min-width: 22px; height: 22px; line-height: 22px; border-radius: 99px; font-weight: 600; }
-  .cal-day.today .n { background: var(--accent); color: #fff; }
+  .cal-day.today .n { background: var(--accent-fill); color: #fff; }
   .cal-day.sel { border-color: var(--accent); background: var(--accent-soft); }
   .cal-day .ic { font-size: 11px; line-height: 1.2; letter-spacing: -1px; white-space: nowrap; }
   .cal-day .sp { font-size: 9px; line-height: 1.2; color: var(--expense); white-space: nowrap; }
@@ -786,7 +816,7 @@
   .dc-filters button { padding: 6px 12px; min-height: 32px; border: 1px solid var(--border); border-radius: 99px; background: none; color: var(--text-muted); font-size: 12px; cursor: pointer; text-decoration: line-through; opacity: .7; }
   .dc-filters button.cf-edit { text-decoration: none; opacity: 1; border-style: dashed; }
   .dc-filters .cf-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; vertical-align: 0; }
-  .dc-filters button.on { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); text-decoration: none; opacity: 1; }
+  .dc-filters button.on { background: var(--mc-soft); color: var(--mc-text); border-color: var(--mc-text); text-decoration: none; opacity: 1; }
   .dc-grid { border-top: 1px solid var(--border); }
   .dc-dowrow, .dc-week7 { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); border-left: 1px solid var(--border); }
   .dc-dow { text-align: center; font-size: 11px; font-weight: 600; color: var(--text-muted); padding: 5px 0; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); background: var(--bg); }
@@ -796,7 +826,7 @@
   .dc-cell.out { background: var(--bg); }
   .dc-cell.sel { box-shadow: inset 0 0 0 2px var(--accent); }
   .dc-n { pointer-events: none; justify-self: start; align-self: start; min-width: 20px; height: 20px; line-height: 20px; margin: 2px 0 0 2px; padding: 0 4px; border-radius: 99px; font-size: 12px; font-weight: 700; text-align: center; }
-  .dc-n.today { background: var(--accent); color: #fff; }
+  .dc-n.today { background: var(--accent-fill); color: #fff; }
   .dc-chip { display: block; pointer-events: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 10px; line-height: 1.4; padding: 1px 3px; border-radius: 0; margin: 0; color: #1c1e21; }
   .dc-chip b.tm { font-size: 9px; font-weight: 700; color: #4b5563; }
   .dc-more { font-size: 10px; color: var(--text-muted); padding-left: 3px; }
@@ -880,7 +910,7 @@
   .subtabs { position: sticky; top: 0; z-index: 8; display: flex; gap: 4px; overflow-x: auto; padding: 6px 0; margin: -6px 0; background: var(--bg); scrollbar-width: none; }
   .subtabs::-webkit-scrollbar { display: none; }
   .subtabs button { flex: 1 0 auto; padding: 9px 8px; border: 1px solid var(--border); border-radius: 99px; background: var(--card-bg); color: var(--text-muted); font-size: 12.5px; font-weight: 600; white-space: nowrap; cursor: pointer; }
-  .subtabs button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .subtabs button.active { background: var(--mc); border-color: var(--mc); color: #fff; }
   .sub-off { display: none !important; }
   .biz-shops { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
   .biz-shops[hidden] { display: none; }
@@ -893,7 +923,7 @@
   .period-box { background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px 2px; margin: 2px 0 14px; }
   .period-box .pb-title { font-size: 12px; font-weight: 700; color: var(--text-muted); margin: 0 0 8px; }
   .period-box .seg { display: flex; padding: 3px; border-radius: 9px; background: var(--border); margin-bottom: 10px; }
-  .period-box .seg button { flex: 1; border: none; border-radius: 7px; padding: 8px 4px; background: transparent; color: var(--text-muted); font-size: 13px; font-weight: 600; cursor: pointer; }
+  .period-box .seg button { flex: 1; border: none; border-radius: 7px; padding: 8px 4px; background: transparent; color: var(--text); font-size: 13px; font-weight: 600; cursor: pointer; }
   .period-box .seg button.active { background: var(--card-bg); color: var(--text); font-weight: 800; box-shadow: 0 1px 3px rgba(0,0,0,0.18); }
   .period-box .presets { display: flex; flex-wrap: wrap; gap: 6px; width: 100%; margin: 2px 0 10px; }
   .period-box .presets button { padding: 6px 10px; border: 1px solid var(--border); border-radius: 7px; background: var(--card-bg); color: var(--text-muted); font-size: 12.5px; font-weight: 600; cursor: pointer; }
@@ -908,7 +938,7 @@
   .period-range[hidden] { display: none; }
   .period-range input { width: auto; flex: 1; min-width: 130px; }
   .biz-shops button { padding: 7px 13px; border: 1px solid var(--border); border-radius: 999px; background: var(--card-bg); color: var(--text-muted); font-size: 13px; font-weight: 600; cursor: pointer; }
-  .biz-shops button.active { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+  .biz-shops button.active { background: var(--mc-soft); color: var(--mc-text); border-color: var(--mc-text); }
   .shop-row { display: flex; gap: 6px; margin-bottom: 6px; align-items: center; }
   .shop-row input { min-width: 0; margin: 0; }
   .shop-row input[data-f=name] { flex: 3; }
@@ -928,7 +958,7 @@
   .ins-badge { font-size: 10px; border-radius: 99px; padding: 1px 7px; margin-left: 6px; vertical-align: 1px; background: var(--chip, var(--bg)); color: var(--text-muted); border: 1px solid var(--border); }
   .ins-badge.warn { color: var(--expense); border-color: var(--expense); }
   /* 목록 공통 모양(통일): 강조는 "분류명(섹션 제목)" 한 곳에만 둔다 — 굵은 글씨 + 아래 굵은 선, 건수는 작은 글씨. 줄은 모두 차분하게(얇은 구분선, 보통 굵기), 색은 꼭 필요한 곳(지남 등)에만. */
-  .h-sec, #side-body h2.section-title, #sal-body h2.section-title, #fit-body h2.section-title { display: flex; align-items: baseline; gap: 8px; margin: 22px 0 2px; padding: 0 2px 6px; border-bottom: 2px solid var(--text); color: var(--text); font-size: 15px; font-weight: 800; }
+  .h-sec, #side-body h2.section-title, #sal-body h2.section-title, #fit-body h2.section-title { display: flex; align-items: baseline; gap: 8px; margin: 22px 0 2px; padding: 0 2px 6px; border-bottom: 2px solid var(--mc-text); color: var(--text); font-size: 15px; font-weight: 800; }
   .h-sec:first-child { margin-top: 0; }
   .h-sec .cnt, .section-title .cnt { color: var(--text-muted); font-size: 12px; font-weight: 600; }
   .h-sec.todo .cnt { color: var(--expense); }
@@ -947,7 +977,7 @@
   .med-name { font-size: 14px; margin-bottom: 6px; }
   .med-slots { display: flex; gap: 6px; flex-wrap: wrap; }
   .slot { padding: 7px 12px; border-radius: 99px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 13px; cursor: pointer; }
-  .slot.on { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .slot.on { background: var(--accent-fill); border-color: var(--accent); color: #fff; font-weight: 600; }
   .cards-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
   .ctile { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; text-align: left; padding: 10px; min-height: 108px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg); color: var(--text); font: inherit; cursor: pointer; overflow: hidden; }
   .ctile .ct-name { font-size: 13px; font-weight: 700; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -980,7 +1010,7 @@
   .vdate.soon { color: var(--accent); font-weight: 700; }
   .vx-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; width: 100%; padding: 8px 2px; margin: 14px 0 4px; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; background: none; text-align: left; cursor: pointer; }
   .vx-head .vx-arrow { flex: none; color: var(--accent); font-size: 13px; }
-  .vx-head .vx-due { margin-left: 6px; padding: 1px 7px; border-radius: 99px; background: var(--expense); color: #fff; font-size: 11px; font-weight: 700; }
+  .vx-head .vx-due { margin-left: 6px; padding: 1px 7px; border-radius: 99px; background: var(--expense-soft); color: var(--expense); border: 1px solid var(--expense); font-size: 11px; font-weight: 700; }
   .vx-name { font-size: 13px; font-weight: 600; margin-bottom: 5px; }
   .vx-doses { display: flex; gap: 5px; flex-wrap: wrap; }
   .vx-note { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
@@ -1064,7 +1094,8 @@
     gap: 1px;
     white-space: nowrap;
   }
-  .viewtabs button.active { background: var(--accent); border-color: var(--accent); color: white; }
+  .viewtabs button { border-top: 3px solid var(--mc); }
+  .viewtabs button.active { background: var(--mc); border-color: var(--mc); color: #fff; }
   .day-tabs { display: flex; gap: 6px; margin-bottom: 12px; }
   .day-tabs button {
     flex: 1;
@@ -1077,10 +1108,10 @@
     cursor: pointer;
   }
   .day-tabs button.today { border-color: var(--accent); color: var(--accent); font-weight: 700; }
-  .day-tabs button.active { background: var(--accent); border-color: var(--accent); color: white; }
+  .day-tabs button.active { background: var(--mc); border-color: var(--mc); color: #fff; }
   .sch-modes { display: flex; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin-bottom: 12px; }
   .sch-modes button { flex: 1; padding: 9px; border: none; background: var(--card-bg); color: var(--text-muted); font-size: 13px; font-weight: 600; cursor: pointer; }
-  .sch-modes button.active { background: var(--accent-soft); color: var(--accent); }
+  .sch-modes button.active { background: var(--mc-soft); color: var(--mc-text); }
   .sch-member { margin-top: 14px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; }
   .sch-member:first-of-type { margin-top: 0; }
   .sch-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
@@ -1104,10 +1135,10 @@
   .sch-note { display: block; font-size: 11px; color: var(--text-muted); margin-top: 2px; }
   .sch-item.now { background: var(--accent-soft); border-radius: 8px; }
   .sch-item.now .sch-time { color: var(--accent); font-weight: 700; }
-  .sch-tag { font-size: 10px; background: var(--accent); color: white; border-radius: 99px; padding: 1px 7px; margin-left: 6px; vertical-align: 1px; }
+  .sch-tag { font-size: 10px; background: var(--accent-fill); color: white; border-radius: 99px; padding: 1px 7px; margin-left: 6px; vertical-align: 1px; }
   .member-chips { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
   .member-chips button { padding: 7px 14px; border-radius: 99px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 13px; cursor: pointer; }
-  .member-chips button.active { background: var(--accent); border-color: var(--accent); color: white; }
+  .member-chips button.active { background: var(--mc-soft); border-color: var(--mc-text); color: var(--mc-text); font-weight: 700; }
   .week-wrap { overflow-x: auto; }
   table.week { border-collapse: separate; border-spacing: 0; border-top: 1px solid var(--border); border-left: 1px solid var(--border); width: 100%; font-size: 11px; min-width: 520px; table-layout: fixed; }   /* 요일 칸 너비를 모두 같게 */
   table.week th:first-child { width: 58px; }
@@ -4040,7 +4071,7 @@
       <h3>${escapeHtml(title)}</h3>
       <p class="goal-hint" style="margin:0 0 14px">이 접종을 어떻게 기록할까요?</p>
       <div style="display:flex;flex-direction:column;gap:10px">
-        <button type="button" data-pick="planned" class="mini-btn" style="background:var(--accent);color:#fff;border-color:var(--accent);padding:14px;font-weight:700">맞아야 해요 (해야 할 접종에 등록)</button>
+        <button type="button" data-pick="planned" class="mini-btn" style="background:var(--accent-fill);color:#fff;border-color:var(--accent-fill);padding:14px;font-weight:700">맞아야 해요 (해야 할 접종에 등록)</button>
         <button type="button" data-pick="done" class="mini-btn" style="padding:14px">이미 맞았어요 (완료로 기록)</button>
         <button type="button" data-cancel class="mini-btn" style="padding:12px">취소</button>
       </div></form>`;
@@ -8613,7 +8644,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v118'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v119'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span class="slogan">다달이, 매일의 기록이 모여<br><b>더 나은 생활</b>이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
