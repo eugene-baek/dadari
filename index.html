@@ -147,6 +147,7 @@
       be.push({ id: nid(), bid: 'bz_main', date: ds(Y, M + mo, 8), kind: 'sale', name: '자사몰', amount: 1400000 + mo * 100000, memo: '' }, { id: nid(), bid: 'bz_main', date: ds(Y, M + mo, 10), kind: 'cost', name: '매입·원가', amount: 700000, memo: '' }, { id: nid(), bid: 'bz_main', date: ds(Y, M + mo, 18), kind: 'cost', name: '광고비', amount: 150000, memo: '' },
         { id: nid(), bid: 'demobz2', date: ds(Y, M + mo, 14), kind: 'sale', name: '강의 수강료', amount: 600000 + (mo % 2) * 200000, memo: '' }, { id: nid(), bid: 'demobz2', date: ds(Y, M + mo, 20), kind: 'cost', name: '플랫폼 수수료', amount: 90000, memo: '' });
     });
+    be.push({ id: nid(), bid: 'bz_main', date: ds(Y, M - 5, 1), kind: 'invest', name: '초기 자본', amount: 8000000, memo: '' }, { id: nid(), bid: 'bz_main', date: ds(Y, M - 2, 1), kind: 'invest', name: '추가 투자', amount: 2000000, memo: '' });
     put('dadari_biz_v1', { entries: be, shops: [{ id: 'bz_main', name: '내 사업', target: 2000000 }, { id: 'demobz2', name: '온라인 클래스', target: 800000 }], target: 0 });
 
     // ⑥ 캘린더 · 냉장고(오늘 뭐 먹지) · 프로필
@@ -173,7 +174,7 @@
     s.call(localStorage, P + 'demo_seeded', SEED_V);
   }
   // 샘플 내용을 고치면 SEED_V를 올린다: 이미 체험판을 열어 본 기기도 새 샘플로 다시 채운다(체험 중 입력은 사라진다).
-  var SEED_V = '14';
+  var SEED_V = '15';
   try {
     if (g.call(localStorage, P + 'demo_seeded') !== SEED_V) {
       var olds = [], oi;
@@ -1042,10 +1043,16 @@
   @media (max-width: 480px) { .alarm-times { grid-template-columns: repeat(2, minmax(0, 1fr)); } }   /* 좁은 화면에서는 2칸씩(시각 입력칸이 화면 밖으로 나가던 문제) */
   .alarm-times label { font-size: 12px; }
   .alarm-times input { padding: 8px 4px; font-size: 14px; }
-  .st-table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 14px; margin-top: 6px; }   /* 고정 칸 폭: 글자를 키워도 표가 화면 밖으로 나가지 않는다 */
-  .st-table th:nth-child(1) { width: 32%; }
-  .st-table th:last-child { width: 30%; }
+  .st-table { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 6px; }
   .st-table td { overflow-wrap: anywhere; }
+  .st-table td.st-amt { white-space: nowrap; overflow-wrap: normal; }   /* 금액이 숫자 중간에서 끊기지 않게 */
+  .st-table:not(.st-main) td, .st-table:not(.st-main) th { padding-left: 3px; padding-right: 3px; }
+  .st-table:not(.st-main) td.st-amt { font-size: 14px; letter-spacing: -0.03em; }   /* 사업별·월별처럼 금액 칸이 3개인 표는 조금 좁게 */
+  @media (max-width: 360px) { .st-table:not(.st-main) td.st-amt, .st-table:not(.st-main) th.st-amt { font-size: 12.5px; letter-spacing: -0.04em; } .st-table:not(.st-main) td, .st-table:not(.st-main) th { padding-left: 2px; padding-right: 2px; } }   /* 금액 칸이 3개인 표를 320px 폰에서도 화면 안에 */
+  .st-table.st-main { table-layout: fixed; }   /* 관리 현황표(3칸)만 고정 칸 폭: 글자를 키워도 화면 밖으로 나가지 않는다 */
+  .st-table.st-main th:nth-child(1) { width: 29%; }
+  .st-table.st-main th:last-child { width: 35%; }
+  .st-table.st-main td.st-amt { white-space: normal; }   /* "월 1,168,976원"처럼 글자가 붙은 금액은 띄어쓰기에서만 줄을 바꾼다 */
   .st-table th { text-align: left; font-size: 12px; font-weight: 600; color: var(--text-muted); padding: 4px 6px; }
   .st-table th:last-child, .st-table td.st-amt { text-align: right; }
   .st-table td { padding: 10px 6px; border-top: 1px solid var(--border); vertical-align: top; }
@@ -1310,6 +1317,7 @@
     <div class="cards-actions" style="flex-wrap:wrap">
       <button type="button" class="mini-btn" id="add-sale-btn">＋ 매출 입력</button>
       <button type="button" class="mini-btn" id="add-cost-btn">＋ 비용 입력</button>
+      <button type="button" class="mini-btn" id="add-invest-btn">＋ 투자금</button>
       <button type="button" class="mini-btn" id="biz-target-btn">🏢 사업·목표 관리</button>
     </div>
   </section>
@@ -2422,7 +2430,7 @@
             renderCal();
           }
           if (data.biz && Array.isArray(data.biz.entries)) {
-            mergeById(biz.entries, data.biz.entries, (e) => validDate(e.date) && (e.kind === 'sale' || e.kind === 'cost') && e.amount > 0);
+            mergeById(biz.entries, data.biz.entries, (e) => validDate(e.date) && ['sale', 'cost', 'invest', 'return'].includes(e.kind) && e.amount > 0);
             if (Array.isArray(data.biz.shops)) mergeById(biz.shops, data.biz.shops, (s) => typeof s.name === 'string' && s.name);
             if (!biz.target && data.biz.target > 0) biz.target = Math.round(data.biz.target);
             normalizeBiz();
@@ -4994,7 +5002,7 @@
   // 사업은 여러 개일 수 있다: shops[{id, name, target(월 목표 매출)}], 내역(entries)은 bid로 어느 사업인지 가진다.
   // 예전 형식(사업 구분 없이 entries·target만 있음)은 normalizeBiz가 기본 사업 'bz_main'으로 옮긴다.
   const BIZ_KEY = 'dadari_biz_v1';
-  let biz = loadJson(BIZ_KEY, { entries: [], shops: [], target: 0 });   // entries: {id, bid, date, kind 'sale'|'cost', name(채널·항목), amount, memo}
+  let biz = loadJson(BIZ_KEY, { entries: [], shops: [], target: 0 });   // entries: {id, bid, date, kind 'sale'|'cost'|'invest'(투자금 넣음)|'return'(투자금 회수), name(채널·항목·투자 내용), amount, memo}
   if (!biz || !Array.isArray(biz.entries)) biz = { entries: [], shops: [], target: 0 };
   function normalizeBiz() {
     if (!Array.isArray(biz.shops)) biz.shops = [];
@@ -5015,6 +5023,9 @@
   const bizSelEntries = () => (bizSel === 'all' ? biz.entries : biz.entries.filter((e) => e.bid === bizSel));
   const bizSelTarget = () => (bizSel === 'all' ? biz.shops : biz.shops.filter((s) => s.id === bizSel)).reduce((s, x) => s + x.target, 0);
   const BIZ_SALE_NAMES = ['자사몰', '스마트스토어', '쿠팡', '오픈마켓', '도매', '오프라인', '기타'];
+  const BIZ_INVEST_NAMES = ['초기 자본', '추가 투자', '설비·인테리어', '재고 구입', '보증금', '기타'];
+  const BIZ_RETURN_NAMES = ['투자금 일부 회수', '대표 인출', '기타'];
+  const BIZ_KIND_LABEL = { sale: '매출', cost: '비용', invest: '투자금', return: '투자금 회수' };
   const BIZ_COST_NAMES = ['매입·원가', '광고비', '수수료', '배송비', '포장재', '인건비', '임대료', '세금·공과', '기타'];
 
   const bizSum = (list, kind) => list.filter((e) => e.kind === kind).reduce((s, e) => s + e.amount, 0);
@@ -5054,6 +5065,34 @@
         <div class="bar"><i class="${p >= 100 ? '' : p < 50 ? 'near' : ''}" style="width:${Math.min(100, p)}%"></i></div></div>`;
     }
 
+    // 투자금 회수(전체 기간): 투자금은 사업에서 나는 순이익(매출 − 광고비·매입 같은 모든 운영 비용)으로 되찾아야 하니 그 계산을 풀어서 보여 준다.
+    // 투자금은 매출·비용·순이익에 들어가지 않는다. 회수한 금액은 남은 투자금에서 빼고, 최근 3개월 평균 순이익으로 모두 되찾을 때까지 걸리는 기간도 어림해 준다.
+    const inv = bizSum(pool, 'invest'), ret = bizSum(pool, 'return'), netInv = inv - ret;
+    if (inv || ret) {
+      const cs = bizSum(pool, 'sale'), cc = bizSum(pool, 'cost'), cum = cs - cc, recP = netInv > 0 ? Math.round((Math.max(0, cum) / netInv) * 100) : 0;
+      const topCost = bizGroups(pool, 'cost').slice(0, 3).map(([n, v]) => `${esc(n)} ${formatWon(v)}`).join(' · ');
+      const d3 = new Date(); d3.setDate(1); d3.setMonth(d3.getMonth() - 2);
+      const from3 = d3.getFullYear() + '-' + pad2(d3.getMonth() + 1) + '-01', last3 = pool.filter((e) => e.date >= from3), avg3 = Math.round((bizSum(last3, 'sale') - bizSum(last3, 'cost')) / 3);
+      const left = netInv - cum;
+      const eta = netInv > 0 && left > 0 && avg3 > 0 ? `최근 3개월 평균 순이익 ${formatWon(avg3)} 기준으로 약 ${Math.ceil(left / avg3)}개월 뒤에 모두 되찾아요` : netInv > 0 && left > 0 ? '최근 3개월 평균 순이익이 아직 마이너스(또는 0)라서 회수 시점을 어림할 수 없어요' : '';
+      const row = (label, val, sub, strong) => `<div class="fx-row"><span>${label}${sub ? `<br><small style="color:var(--text-muted)">${sub}</small>` : ''}</span><b style="${strong ? 'font-size:16px;' : ''}${strong && cum < 0 ? 'color:var(--expense)' : ''}">${val}</b></div>`;
+      html += `<h2 class="section-title" style="margin:16px 0 4px">투자금 회수 · 전체 기간</h2><div class="ins-sum" style="padding:6px 14px">`
+        + row('넣은 투자금', formatWon(inv))
+        + (ret ? row('회수한 금액', formatWon(ret)) + row('남은 투자금', formatWon(Math.max(0, netInv))) : '')
+        + row('누적 매출', formatWon(cs))
+        + row('누적 비용', formatWon(cc), '광고비 등 운영 비용 모두 포함')
+        + (topCost ? `<div style="font-size:13px;color:var(--text-muted);padding:0 0 8px;line-height:1.5">${topCost}</div>` : '')
+        + row('누적 순이익', (cum < 0 ? '-' : '') + formatWon(Math.abs(cum)), '매출 − 비용', true)
+        + (netInv > 0 ? row('투자금 회수율', recP + '%', cum >= netInv ? '투자금을 모두 되찾았어요 ✓' : cum >= 0 ? '모두 되찾기까지 ' + formatWon(left) + ' 남음' : '아직 순이익이 마이너스예요', true) : '')
+        + `</div>`
+        + (netInv > 0 ? `<div class="bar" style="margin-top:8px"><i class="${recP >= 100 ? '' : recP < 30 ? 'near' : ''}" style="width:${Math.min(100, recP)}%"></i></div>` : '')
+        + (eta ? `<p class="goal-hint" style="margin:6px 0 0">${eta}</p>` : '');
+      if (multi && bizSel === 'all') {
+        const rows = biz.shops.map((sh) => { const l = pool.filter((e) => e.bid === sh.id), i2 = bizSum(l, 'invest') - bizSum(l, 'return'); if (!i2 && !bizSum(l, 'invest')) return ''; const pr = bizSum(l, 'sale') - bizSum(l, 'cost'); return `<div class="fx-row"><span>${esc(sh.name)} · 투자금 ${formatWon(Math.max(0, i2))}</span><b>${i2 > 0 ? Math.round((Math.max(0, pr) / i2) * 100) + '% 회수' : '회수 완료'}</b></div>`; }).filter(Boolean).join('');
+        if (rows) html += `<div class="ins-sum" style="margin-top:8px">${rows}</div>`;
+      }
+    }
+
     // 전체 보기에서는 사업별 이번 달 성적을 나란히 보여 주고, 누르면 그 사업으로 들어간다
     if (multi && bizSel === 'all') {
       html += `<h2 class="section-title" style="margin:16px 0 4px">사업별 · ${P.label}</h2><table class="st-table"><thead><tr><th>사업</th><th class="st-amt">매출</th><th class="st-amt">비용</th><th class="st-amt">순이익</th></tr></thead><tbody>`
@@ -5081,9 +5120,9 @@
 
     html += `<h2 class="section-title" style="margin:16px 0 4px">${P.label} 내역${list.length ? ' · ' + list.length + '건' : ''}</h2>`;
     html += list.length ? [...list].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : b.id.localeCompare(a.id))).slice(0, 60).map((e) =>
-      `<button type="button" class="visit" data-biz="${e.id}"><div class="v1"><span>${e.date.slice(5).replace('-', '/')} · ${multi && bizSel === 'all' ? esc(bizShopName(e.bid)) + ' · ' : ''}${esc(e.name || (e.kind === 'sale' ? '매출' : '비용'))}</span>
-        <b style="color:var(--${e.kind === 'sale' ? 'income' : 'expense'})">${e.kind === 'sale' ? '+' : '-'}${formatWon(e.amount)}</b></div>${e.memo ? `<div class="v2">${esc(e.memo)}</div>` : ''}</button>`).join('')
-      : '<div class="empty-msg">이 기간 내역이 없어요<br>아래 “＋ 매출 입력” “＋ 비용 입력”으로 기록하세요</div>';
+      `<button type="button" class="visit" data-biz="${e.id}"><div class="v1"><span>${e.date.slice(5).replace('-', '/')} · ${multi && bizSel === 'all' ? esc(bizShopName(e.bid)) + ' · ' : ''}${e.kind === 'invest' || e.kind === 'return' ? '💰 ' + BIZ_KIND_LABEL[e.kind] + (e.name ? ' · ' : '') : ''}${esc(e.name || (e.kind === 'invest' || e.kind === 'return' ? '' : BIZ_KIND_LABEL[e.kind]))}</span>
+        <b style="${e.kind === 'sale' ? 'color:var(--income)' : e.kind === 'cost' ? 'color:var(--expense)' : ''}">${e.kind === 'sale' || e.kind === 'invest' ? '+' : '-'}${formatWon(e.amount)}</b></div>${e.memo ? `<div class="v2">${esc(e.memo)}</div>` : ''}</button>`).join('')
+      : '<div class="empty-msg">이 기간 내역이 없어요<br>아래 “＋ 매출 입력” “＋ 비용 입력” “＋ 투자금”으로 기록하세요</div>';
     if (list.length > 60) html += `<p class="goal-hint">최근 60건만 보여요 (전체 ${list.length}건) — 기간을 줄이면 더 볼 수 있어요</p>`;
     el('biz-body').innerHTML = html;
   }
@@ -5092,29 +5131,34 @@
     const val = (x) => attr(x == null ? '' : String(x));
     const k = entry ? entry.kind : kind || 'sale';
     const used = (kk) => [...new Set(biz.entries.filter((e) => e.kind === kk).map((e) => e.name).filter(Boolean))];
-    const names = (kk) => [...new Set([...used(kk), ...(kk === 'sale' ? BIZ_SALE_NAMES : BIZ_COST_NAMES)])];
+    const baseNames = { sale: BIZ_SALE_NAMES, cost: BIZ_COST_NAMES, invest: BIZ_INVEST_NAMES, return: BIZ_RETURN_NAMES };
+    const nameLabel = { sale: '판매 채널', cost: '비용 항목', invest: '투자 내용 (선택)', return: '회수 내용 (선택)' };
+    const namePh = { sale: '예: 스마트스토어, 쿠팡', cost: '예: 광고비, 매입·원가', invest: '예: 초기 자본, 설비 구입', return: '예: 투자금 일부 회수' };
+    const hint = { sale: '하루 매출을 채널별로 합계만 넣어도 돼요. 비용은 매입·광고비·수수료처럼 항목별로 넣으면 순이익이 계산돼요.', cost: '하루 매출을 채널별로 합계만 넣어도 돼요. 비용은 매입·광고비·수수료처럼 항목별로 넣으면 순이익이 계산돼요.', invest: '사업에 넣은 돈이에요. 매출·비용·순이익에는 들어가지 않고, "투자금 현황"에서 순이익으로 얼마나 되찾았는지 보여 줘요.', return: '사업에서 투자금을 돌려받은 금액이에요. 남은 투자금에서 빠져요(순이익과는 따로 계산돼요).' };
+    const names = (kk) => [...new Set([...used(kk), ...baseNames[kk]])];
     const dl = (kk) => names(kk).map((n) => `<option value="${attr(n)}">`).join('');
     const defBid = entry ? entry.bid : bizSel !== 'all' ? bizSel : biz.shops[0].id;
     const defDate = entry ? entry.date : (ymKey(bizView) === todayStr().slice(0, 7) ? todayStr() : ymKey(bizView) + '-01');
     openSheet(`<form>
-      <h3>${entry ? '내역 수정' : k === 'sale' ? '매출 입력' : '비용 입력'}</h3>
+      <h3>${entry ? '내역 수정' : k === 'sale' ? '매출 입력' : k === 'cost' ? '비용 입력' : k === 'invest' ? '투자금 입력' : '투자금 회수 입력'}</h3>
       ${biz.shops.length > 1 ? `<label>사업</label><select name="bid">${biz.shops.map((s) => `<option value="${attr(s.id)}"${s.id === defBid ? ' selected' : ''}>${esc(s.name)}</option>`).join('')}</select>` : ''}
       <label>구분</label>
-      <select name="kind"><option value="sale"${k === 'sale' ? ' selected' : ''}>매출</option><option value="cost"${k === 'cost' ? ' selected' : ''}>비용</option></select>
+      <select name="kind"><option value="sale"${k === 'sale' ? ' selected' : ''}>매출</option><option value="cost"${k === 'cost' ? ' selected' : ''}>비용</option><option value="invest"${k === 'invest' ? ' selected' : ''}>투자금 (넣음)</option><option value="return"${k === 'return' ? ' selected' : ''}>투자금 회수 (돌려받음)</option></select>
       <label>날짜</label><input name="date" type="date" required value="${val(defDate)}">
-      <label id="biz-name-label">${k === 'sale' ? '판매 채널' : '비용 항목'}</label>
-      <input name="name" maxlength="30" list="biz-names" placeholder="${k === 'sale' ? '예: 스마트스토어, 쿠팡' : '예: 광고비, 매입·원가'}" value="${val(entry && entry.name)}" autocomplete="off">
+      <label id="biz-name-label">${nameLabel[k]}</label>
+      <input name="name" maxlength="30" list="biz-names" placeholder="${namePh[k]}" value="${val(entry && entry.name)}" autocomplete="off">
       <datalist id="biz-names">${dl(k)}</datalist>
       <label>금액 (원)</label><input name="amount" type="number" min="1" inputmode="numeric" required value="${val(entry && entry.amount)}">
       <label>메모 (선택)</label><input name="memo" maxlength="80" placeholder="예: 10월 1주차 정산" value="${val(entry && entry.memo)}">
-      <p class="goal-hint">하루 매출을 채널별로 합계만 넣어도 돼요. 비용은 매입·광고비·수수료처럼 항목별로 넣으면 순이익이 계산돼요.</p>
+      <p class="goal-hint" id="biz-hint">${hint[k]}</p>
       <div class="sheet-actions"><button type="button" data-cancel>취소</button>${entry ? '<button type="button" data-delete>삭제</button>' : ''}<button type="submit">저장</button></div>
     </form>`, (fd) => {
       const amount = parseInt(fd.get('amount'), 10);
       const date = String(fd.get('date'));
       if (!(amount > 0) || !validDate(date)) { showToast('날짜와 금액을 확인해 주세요'); return false; }
       const bid = biz.shops.some((s) => s.id === fd.get('bid')) ? fd.get('bid') : defBid;
-      const rec = { bid, date, kind: fd.get('kind') === 'cost' ? 'cost' : 'sale', name: String(fd.get('name')).trim(), amount, memo: String(fd.get('memo')).trim() };
+      const kd = ['cost', 'invest', 'return'].includes(String(fd.get('kind'))) ? String(fd.get('kind')) : 'sale';
+      const rec = { bid, date, kind: kd, name: String(fd.get('name')).trim(), amount, memo: String(fd.get('memo')).trim() };
       if (entry) Object.assign(entry, rec); else biz.entries.push({ id: newId(), ...rec });
       saveBiz();
       if (bizSel !== 'all') bizSel = bid;
@@ -5127,7 +5171,9 @@
     kindSel.addEventListener('change', () => {
       const kk = kindSel.value;
       sheetBody.querySelector('#biz-names').innerHTML = dl(kk);
-      sheetBody.querySelector('#biz-name-label').textContent = kk === 'sale' ? '판매 채널' : '비용 항목';
+      sheetBody.querySelector('#biz-name-label').textContent = nameLabel[kk];
+      sheetBody.querySelector('[name=name]').placeholder = namePh[kk];
+      sheetBody.querySelector('#biz-hint').textContent = hint[kk];
     });
     const del = sheetBody.querySelector('[data-delete]');
     if (del) del.addEventListener('click', () => {
@@ -5143,6 +5189,7 @@
   wirePeriod('biz', () => bizPer, () => bizView, (v) => { bizView = v; }, renderBiz);
   el('add-sale-btn').addEventListener('click', () => openBizSheet(null, 'sale'));
   el('add-cost-btn').addEventListener('click', () => openBizSheet(null, 'cost'));
+  el('add-invest-btn').addEventListener('click', () => openBizSheet(null, 'invest'));
   // 사업 관리: 사업 이름·월 목표 매출을 고치고, 사업을 더하거나 지운다(지우면 그 사업의 내역도 함께 지워진다)
   function openShopsSheet(addNew) {
     const rowHtml = (s, isNew) => `<div class="shop-row" data-id="${attr(s.id)}"${isNew ? ' data-new="1"' : ''}>
@@ -8092,6 +8139,7 @@
     const bizMonth = biz.entries.filter((e) => e.date.startsWith(ym));
     const bizSales = bizSum(bizMonth, 'sale'), bizCost = bizSum(bizMonth, 'cost');
     const bizTarget = biz.shops.reduce((s, x) => s + x.target, 0);
+    const bizNetInv = bizSum(biz.entries, 'invest') - bizSum(biz.entries, 'return');   // 남은 투자금
     const savTotal = savings.accounts.reduce((a, x) => a + savBal(x.id), 0);
     const savMonthIn = savings.log.filter((l) => !l.start && l.date.startsWith(ym) && l.amount > 0).reduce((a, l) => a + l.amount, 0);
     const savMiss = savings.accounts.filter((a) => a.monthly > 0 && a.payDay >= 1 && now.getDate() >= a.payDay && savMonthOf(a.id, ym) < a.monthly).length;
@@ -8118,7 +8166,7 @@
       row('💼', '나는 N잡러', side.jobs.length ? `N잡 ${side.jobs.length}개 · 이번 달 수입 ${money(sideMonth.income)}${sideMonth.hours > 0 ? ' · ' + hoursTxt(sideMonth.hours) : ''}` : '등록한 N잡이 없어요', '', side.jobs.length ? `${sideMonth.net < 0 ? '-' : ''}${formatWon(Math.abs(sideMonth.net))}` : '-', 'side'),
       row('💪', '운동 관리', fit.log.length ? `이번 주 ${fitWk.n}회 · ${fitWk.min ? fmtMin(fitWk.min) : '0분'}` : '아직 운동 기록이 없어요', '', fit.log.length ? `🔥 ${fitStreak(fit.log)}일` : '-', 'fit'),
       row('💵', '나는 샐러리', salary.jobs.length ? `직장 ${salary.jobs.length}개 · 이번 달 실수령 ${money(salMonth.net)}` : '등록한 직장이 없어요', '', salary.jobs.length ? formatWon(salMonth.net) : '-', 'salary'),
-      row('📈', '나는 CEO', (biz.shops.length > 1 ? `사업 ${biz.shops.length}개 · ` : '') + (bizMonth.length ? `매출 ${formatWon(bizSales)} · 비용 ${formatWon(bizCost)}` : '이번 달 입력 없음'), bizTarget > 0 && bizSales < bizTarget ? `목표 ${formatWon(bizTarget)} 중 ${Math.round((bizSales / bizTarget) * 100)}%` : '', bizMonth.length ? `${bizSales - bizCost < 0 ? '-' : ''}${formatWon(Math.abs(bizSales - bizCost))}` : '-', 'biz'),
+      row('📈', '나는 CEO', (biz.shops.length > 1 ? `사업 ${biz.shops.length}개 · ` : '') + (bizMonth.length ? `매출 ${formatWon(bizSales)} · 비용 ${formatWon(bizCost)}` : '이번 달 입력 없음') + (bizNetInv > 0 ? `<div class="st-sub">투자금 ${formatWon(bizNetInv)} · 회수율 ${Math.round((Math.max(0, bizSum(biz.entries, 'sale') - bizSum(biz.entries, 'cost')) / bizNetInv) * 100)}%</div>` : ''), bizTarget > 0 && bizSales < bizTarget ? `목표 ${formatWon(bizTarget)} 중 ${Math.round((bizSales / bizTarget) * 100)}%` : '', bizMonth.length ? `${bizSales - bizCost < 0 ? '-' : ''}${formatWon(Math.abs(bizSales - bizCost))}` : '-', 'biz'),
       row('🐷', '저축', savings.accounts.length ? `통장·목표 ${savings.accounts.length}개 · 이번 달 입금 ${money(savMonthIn)}` : '등록한 통장이 없어요', savMiss ? `이번 달 저축 계획 미달 ${savMiss}건` : '', savings.accounts.length ? formatWon(savTotal) : '-', 'savings'),
       row('🍳', '냉장고', `재료 ${fridge.length}개 · 임박 ${soonFood.length - expiredFood}개`, expiredFood ? `기한 지남 ${expiredFood}개` : '', '-', 'food')
     ];
@@ -8149,7 +8197,7 @@
         <div class="summary-item balance" data-sv="ledger" data-ssub="sum" role="button" tabindex="0"><div class="lbl">잔액</div><div class="val">${bal < 0 ? '-' : ''}${formatWon(Math.abs(bal))}</div></div></div>
       <div data-sub="chart">${statusChartsHtml() || '<div class="empty-msg">아직 그래프로 보여 줄 기록이 없어요</div>'}</div>
       <div data-sub="table">${dashWelcome()}${dashShortcuts()}${dashAgenda()}${dashTiles()}<h2 class="section-title" style="margin:18px 0 0">관리 현황표</h2>
-      <table class="st-table"><thead><tr><th>영역</th><th>현황</th><th>금액</th></tr></thead><tbody>${rows}</tbody></table>
+      <table class="st-table st-main"><thead><tr><th>영역</th><th>현황</th><th>금액</th></tr></thead><tbody>${rows}</tbody></table>
       <p class="goal-hint" style="margin:6px 0 0">행을 누르면 해당 메뉴로 이동해요.</p></div>
       <div data-sub="fixed">${fixedHtml + cardHtml || '<div class="empty-msg">고정으로 나가는 돈이나 등록한 카드가 아직 없어요</div>'}</div>`;
     applySub('status');
@@ -8646,7 +8694,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v129'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v130'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span class="slogan">다달이, 매일의 기록이 모여<br><b>더 나은 생활</b>이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
