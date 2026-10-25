@@ -148,6 +148,8 @@
         { id: nid(), bid: 'demobz2', date: ds(Y, M + mo, 14), kind: 'sale', name: '강의 수강료', amount: 600000 + (mo % 2) * 200000, memo: '' }, { id: nid(), bid: 'demobz2', date: ds(Y, M + mo, 20), kind: 'cost', name: '플랫폼 수수료', amount: 90000, memo: '' });
     });
     be.push({ id: nid(), bid: 'bz_main', date: ds(Y, M - 5, 1), kind: 'invest', name: '초기 자본', amount: 8000000, memo: '' }, { id: nid(), bid: 'bz_main', date: ds(Y, M - 2, 1), kind: 'invest', name: '추가 투자', amount: 2000000, memo: '' });
+    put('dadari_debt_v1', { items: [{ id: 'demod1', dir: 'borrow', name: '사업자 대출', party: 'OO은행', amount: 10000000, date: ds(Y, M - 6, 5), rate: 4.5, due: ds(Y + 2, M, 5), payDay: 25, monthly: 450000, note: '설비 구입', txId: '' }, { id: 'demod2', dir: 'lend', name: '동생에게 빌려준 돈', party: '동생', amount: 1000000, date: ds(Y, M - 3, 12), rate: 0, due: ds(Y, M + 1, 20), payDay: 0, monthly: 0, note: '', txId: '' }],
+      log: [0, 1, 2, 3, 4].map(function (i) { return { id: 'demodl' + i, did: 'demod1', date: ds(Y, M - 4 + i, 25), principal: 400000, interest: 38000 - i * 1500, memo: '', txP: '', txI: '' }; }).concat([{ id: 'demodl9', did: 'demod2', date: ds(Y, M - 1, 20), principal: 300000, interest: 0, memo: '일부 회수', txP: '', txI: '' }]) });
     put('dadari_biz_v1', { entries: be, shops: [{ id: 'bz_main', name: '내 사업', target: 2000000 }, { id: 'demobz2', name: '온라인 클래스', target: 800000 }], target: 0 });
 
     // ⑥ 캘린더 · 냉장고(오늘 뭐 먹지) · 프로필
@@ -174,7 +176,7 @@
     s.call(localStorage, P + 'demo_seeded', SEED_V);
   }
   // 샘플 내용을 고치면 SEED_V를 올린다: 이미 체험판을 열어 본 기기도 새 샘플로 다시 채운다(체험 중 입력은 사라진다).
-  var SEED_V = '15';
+  var SEED_V = '17';
   try {
     if (g.call(localStorage, P + 'demo_seeded') !== SEED_V) {
       var olds = [], oi;
@@ -1254,6 +1256,7 @@
   <button type="button" data-view="biz"><span class="ic">📈</span>나는 CEO</button>
   <button type="button" data-view="ledger" class="active"><span class="ic">💰</span>가계부</button>
   <button type="button" data-view="savings"><span class="ic">🐷</span>저축</button>
+  <button type="button" data-view="debt"><span class="ic">🏦</span>부채·차용</button>
   <button type="button" data-view="rental"><span class="ic">🧰</span>렌탈·구독</button>
   <button type="button" data-view="health"><span class="ic">🩺</span>건강</button>
   <button type="button" data-view="insurance"><span class="ic">🛡</span>보험</button>
@@ -1337,6 +1340,20 @@
     </div>
   </section>
   <div class="ad-slot" id="ad-slot-savings-2" data-slot="savings-2" role="complementary" aria-label="광고 자리"><span class="ad-tag">AD</span>광고 배너 자리</div>
+</main>
+
+<main id="view-debt" hidden>
+  <div class="ad-slot" id="ad-slot-debt-1" data-slot="debt-1" role="complementary" aria-label="광고 자리"><span class="ad-tag">AD</span>광고 배너 자리</div>
+  <section class="card">
+    <div class="biz-shops" id="debt-dir" data-cap="구분" hidden></div>
+    <div id="debt-body"></div>
+    <div class="cards-actions" style="flex-wrap:wrap">
+      <button type="button" class="mini-btn" id="add-debt-btn">＋ 빌린 돈</button>
+      <button type="button" class="mini-btn" id="add-lend-btn">＋ 빌려준 돈</button>
+      <button type="button" class="mini-btn" id="add-repay-btn">＋ 갚음·받음 기록</button>
+    </div>
+  </section>
+  <div class="ad-slot" id="ad-slot-debt-2" data-slot="debt-2" role="complementary" aria-label="광고 자리"><span class="ad-tag">AD</span>광고 배너 자리</div>
 </main>
 
 <main id="view-side" hidden>
@@ -2271,7 +2288,7 @@
 
   el('export-btn').addEventListener('click', () => {
     // 예전 백업은 내역 배열만 있었다. 지금은 카드·자동이체·월 목표까지 한 파일에 담고, 불러올 때 두 형식을 모두 받는다.
-    const backup = { app: 'dadari', version: 2, transactions, categories, cards, recurs, recurDone: [...recurDone], goal, schedule, health, insurance, rentals, academies, biz, fridge, calendar: calItems, calTabs, savings, side, salary, fit, profile, goalLog };
+    const backup = { app: 'dadari', version: 2, transactions, categories, cards, recurs, recurDone: [...recurDone], goal, schedule, health, insurance, rentals, academies, biz, fridge, calendar: calItems, calTabs, savings, debt, side, salary, fit, profile, goalLog };
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -2408,6 +2425,11 @@
             mergeById(side.log, data.side.log, (l) => validDate(l.date) && side.jobs.some((j) => j.id === l.jid));
             saveSide();
             renderSide();
+          }
+          if (data.debt && Array.isArray(data.debt.items)) {
+            mergeById(debt.items, data.debt.items, (d) => typeof d.name === 'string' && d.name && d.amount > 0);
+            mergeById(debt.log, data.debt.log, (l) => validDate(l.date) && debt.items.some((d) => d.id === l.did));
+            saveDebt();
           }
           if (data.savings && Array.isArray(data.savings.accounts)) {
             mergeById(savings.accounts, data.savings.accounts, (a) => typeof a.name === 'string' && a.name);
@@ -3076,6 +3098,7 @@
     el('view-status').hidden = v !== 'status';
     el('view-calendar').hidden = v !== 'calendar';
     el('view-savings').hidden = v !== 'savings';
+    el('view-debt').hidden = v !== 'debt';
     el('view-side').hidden = v !== 'side';
     el('view-salary').hidden = v !== 'salary';
     el('view-fit').hidden = v !== 'fit';
@@ -3093,6 +3116,7 @@
     if (v === 'food') renderFood();
     if (v === 'calendar') renderCal();
     if (v === 'savings') renderSavings();
+    if (v === 'debt') renderDebt();
     if (v === 'side') renderSide();
     if (v === 'salary') renderSalary();
     if (v === 'fit') renderFit();
@@ -5756,6 +5780,216 @@
     if (b) openSavDetail(savings.accounts.find((x) => x.id === b.dataset.sav));
   });
 
+
+  /* ---------- 부채·차용 (빌린 돈 · 빌려준 돈) ---------- */
+  // 항목마다 방향(`dir`)이 있다: 'borrow' 빌린 돈(내가 갚을 돈=부채, 차입금·차용금) / 'lend' 빌려준 돈(내가 받을 돈=채권, 대여금).
+  // 갚을 때(빌린 돈)·돌려받을 때(빌려준 돈)마다 원금·이자를 기록해 남은 잔액과 이자를 본다.
+  // 가계부 연결(기본 켜짐, `DEBT_CAT`): 빌린 돈 → 수입 "대출·차용"·상환 지출 "대출 상환"·"대출 이자" / 빌려준 돈 → 지출 "대여금"·회수 수입 "대여금 회수"·"대여 이자".
+  // 연결은 `txId`(처음 돈이 오간 것)·`txP`·`txI`(원금·이자)로 이어 수정·삭제가 같이 간다.
+  const DEBT_KEY = 'dadari_debt_v1';
+  let debt = loadJson(DEBT_KEY, { items: [], log: [] });   // items: {id,dir,name,party,amount,date,rate(연 %),due,payDay,monthly,note,txId}, log: {id,did,date,principal,interest,memo,txP,txI}
+  if (!debt || !Array.isArray(debt.items) || !Array.isArray(debt.log)) debt = { items: [], log: [] };
+  const saveDebt = () => saveJson(DEBT_KEY, debt);
+  const debtDirOf = (d) => (d && d.dir === 'lend' ? 'lend' : 'borrow');
+  const DEBT_CAT = { borrow: { start: ['income', '대출·차용'], p: ['expense', '대출 상환'], i: ['expense', '대출 이자'] }, lend: { start: ['expense', '대여금'], p: ['income', '대여금 회수'], i: ['income', '대여 이자'] } };
+  const DEBT_TXT = {
+    borrow: { title: '빌린 돈', party: '빌린 곳 (선택)', partyPh: '예: OO은행, 정책자금, 부모님', namePh: '예: 사업자 대출, 친구에게 빌린 돈', amount: '빌린 금액 (원)', date: '빌린 날짜', startLedger: '가계부에도 수입(대출·차용)으로 기록', startNote: '빌린 돈이 통장에 들어온 날 기준이에요. 가계부 수입 합계에 들어가고, 이미 가계부에 적었다면 체크를 끄세요.', startTx: '입금', due: '만기일 (선택)', monthly: '월 상환액 (선택)', monthlyPh: '원금+이자 합쳐서 매달 내는 돈', payDay: '매월 상환일 (선택)', left: '남은 잔액', leftShort: '갚을 돈', done: '상환 완료 ✓', pLabel: '갚은 원금 (원)', iLabel: '낸 이자 (원)', repayLedger: '가계부에도 지출로 기록 (원금은 “대출 상환”, 이자는 “대출 이자”)', repayNote: '자동이체로 이미 가계부에 기록되는 상환이면 체크를 끄세요(같은 돈이 두 번 잡혀요).', repayHead: '상환 기록', sum1: '빌린 돈 합계', sum2: '갚은 원금', sum3: '지금까지 낸 이자', pct: '원금 상환', empty: '아직 상환 기록이 없어요', section: '갚는 중', sectionDone: '상환 완료' },
+    lend: { title: '빌려준 돈', party: '빌려준 사람 (선택)', partyPh: '예: 친구, 거래처, 직원', namePh: '예: 거래처 대여금, 동생에게 빌려준 돈', amount: '빌려준 금액 (원)', date: '빌려준 날짜', startLedger: '가계부에도 지출(대여금)로 기록', startNote: '빌려준 돈이 통장에서 나간 날 기준이에요. 가계부 지출에 들어가고, 이미 가계부에 적었다면 체크를 끄세요.', startTx: '대여', due: '받기로 한 날 (선택)', monthly: '월 받기로 한 금액 (선택)', monthlyPh: '매달 돌려받기로 한 돈', payDay: '매월 받는 날 (선택)', left: '받을 잔액', leftShort: '받을 돈', done: '회수 완료 ✓', pLabel: '돌려받은 원금 (원)', iLabel: '받은 이자 (원)', repayLedger: '가계부에도 수입으로 기록 (원금은 “대여금 회수”, 이자는 “대여 이자”)', repayNote: '이미 가계부에 수입으로 적었다면 체크를 끄세요(같은 돈이 두 번 잡혀요).', repayHead: '회수 기록', sum1: '빌려준 돈 합계', sum2: '돌려받은 원금', sum3: '지금까지 받은 이자', pct: '원금 회수', empty: '아직 돌려받은 기록이 없어요', section: '받을 돈', sectionDone: '회수 완료' }
+  };
+  const debtRepaid = (id) => debt.log.filter((l) => l.did === id).reduce((a, l) => a + (+l.principal || 0), 0);
+  const debtPaidInt = (id) => debt.log.filter((l) => l.did === id).reduce((a, l) => a + (+l.interest || 0), 0);
+  const debtBal = (id) => { const d = debt.items.find((x) => x.id === id); return d ? Math.max(0, d.amount - debtRepaid(id)) : 0; };
+  let debtDirSel = 'all';   // 화면 필터: all | borrow | lend
+  function debtCat(kind, name) { if (!categories[kind].includes(name)) { categories[kind].push(name); saveJson(CAT_KEY, categories); renderCategoryOptions(); } }
+  function debtTx(dir, part, date, amount, memo) {
+    const [kind, category] = DEBT_CAT[dir][part];
+    debtCat(kind, category);
+    const id = newId();
+    transactions.push({ id, type: kind, date, category, amount, memo });
+    return id;
+  }
+  const dropTx = (id) => { if (id) { tomb(id); transactions = transactions.filter((t) => t.id !== id); } };
+
+  function debtHtml() {
+    if (!debt.items.length) return '<div class="empty-msg">등록한 빌린 돈·빌려준 돈이 없어요<br>아래 “＋ 빌린 돈” “＋ 빌려준 돈”으로 등록하고<br>갚거나 돌려받을 때마다 “＋ 갚음·받음 기록”으로 남기면 남은 잔액이 계산돼요</div>';
+    const today = todayStr(), want = debtDirSel === 'all' ? ['borrow', 'lend'] : [debtDirSel];
+    const list = debt.items.filter((d) => want.includes(debtDirOf(d)));
+    if (!list.length) return '<div class="empty-msg">이 구분에는 등록한 항목이 없어요</div>';
+    const row = (label, val, strong) => `<div class="fx-row"><span>${label}</span><b${strong ? ' style="font-size:16px"' : ''}>${val}</b></div>`;
+    const sums = (dir) => { const l = list.filter((d) => debtDirOf(d) === dir); const total = l.reduce((a, d) => a + d.amount, 0), repaid = l.reduce((a, d) => a + debtRepaid(d.id), 0); return { n: l.length, total, repaid, left: Math.max(0, total - repaid), interest: l.reduce((a, d) => a + debtPaidInt(d.id), 0) }; };
+    let html = '';
+    want.forEach((dir) => {
+      const t = DEBT_TXT[dir], x = sums(dir);
+      if (!x.n) return;
+      const pctAll = x.total ? Math.round((x.repaid / x.total) * 100) : 0;
+      html += `${want.length > 1 ? `<div class="h-sec">${t.title}</div>` : ''}<div class="ins-sum" style="padding:6px 14px">${row(t.sum1, formatWon(x.total))}${row(t.sum2, formatWon(x.repaid))}${row(t.left, formatWon(x.left), true)}${x.interest ? row(t.sum3, formatWon(x.interest)) : ''}</div>
+        <div class="bar" style="margin:8px 0 0"><i class="${pctAll >= 100 ? '' : pctAll < 30 ? 'near' : ''}" style="width:${Math.min(100, pctAll)}%"></i></div><p class="goal-hint" style="margin:4px 0 8px">${t.pct} ${pctAll}%</p>`;
+    });
+    if (want.length > 1) { const b = sums('borrow'), l = sums('lend'); if (b.n && l.n) html += `<div class="ins-sum" style="margin-top:8px">받을 돈 <b>${formatWon(l.left)}</b> − 갚을 돈 <b>${formatWon(b.left)}</b> = <b>${l.left - b.left < 0 ? '-' : ''}${formatWon(Math.abs(l.left - b.left))}</b></div>`; }
+    const card = (d) => {
+      const dir = debtDirOf(d), t = DEBT_TXT[dir], bal = debtBal(d.id), pct = d.amount ? Math.round(((d.amount - bal) / d.amount) * 100) : 0, sub = [`${dir === 'lend' ? '빌려준' : '빌린'} ${formatWon(d.amount)}`, `${dir === 'lend' ? '회수' : '상환'} ${pct}%`];
+      if (d.rate > 0) sub.push(`연 ${d.rate}%`);
+      if (validDate(d.due)) { const dd = diffDays(d.due, today); sub.push(bal > 0 ? `${dir === 'lend' ? '받을 날' : '만기'} ${d.due.slice(2).replace(/-/g, '.')} (${dd >= 0 ? 'D-' + dd : -dd + '일 지남'})` : d.due.slice(2).replace(/-/g, '.')); }
+      if (d.monthly > 0 && bal > 0) sub.push(`월 ${formatWon(d.monthly)}${d.payDay >= 1 ? ' · 매월 ' + (d.payDay >= 31 ? '말일' : d.payDay + '일') : ''}`);
+      const tag = want.length > 1 ? '' : '';
+      return `<button type="button" class="visit" data-debt="${attr(d.id)}"><div class="v1"><span>${esc(d.name)}${d.party ? ` <small style="color:var(--text-muted)">${esc(d.party)}</small>` : ''}${tag}</span><b>${bal > 0 ? formatWon(bal) : t.done}</b></div>
+        <div class="bar" style="margin:6px 0 4px"><i class="${pct >= 100 ? '' : pct < 30 ? 'near' : ''}" style="width:${Math.min(100, pct)}%"></i></div><div class="v2">${sub.map(esc).join(' · ')}</div>${d.note ? `<div class="v2">${esc(d.note)}</div>` : ''}</button>`;
+    };
+    const byDue = (a, b) => ((validDate(a.due) ? a.due : '9999') < (validDate(b.due) ? b.due : '9999') ? -1 : 1);
+    want.forEach((dir) => {
+      const t = DEBT_TXT[dir], l = list.filter((d) => debtDirOf(d) === dir), active = l.filter((d) => debtBal(d.id) > 0), done = l.filter((d) => debtBal(d.id) <= 0);
+      if (active.length) html += `<div class="h-sec">${want.length > 1 ? t.title + ' · ' : ''}${t.section} · ${active.length}건</div>` + [...active].sort(byDue).map(card).join('');
+      if (done.length) html += `<div class="h-sec done">${want.length > 1 ? t.title + ' · ' : ''}${t.sectionDone} · ${done.length}건</div>` + [...done].sort(nameSort((d) => d.name)).map(card).join('');
+    });
+    return html;
+  }
+  function renderDebt() {
+    const nb = debt.items.filter((d) => debtDirOf(d) === 'borrow').length, nl = debt.items.length - nb;
+    if (debtDirSel === 'borrow' && !nb) debtDirSel = 'all';
+    if (debtDirSel === 'lend' && !nl) debtDirSel = 'all';
+    el('debt-dir').hidden = !(nb && nl);
+    el('debt-dir').innerHTML = [['all', '전체'], ['borrow', `빌린 돈 ${nb}`], ['lend', `빌려준 돈 ${nl}`]].map(([k, n]) => `<button type="button" data-dd="${k}" class="${k === debtDirSel ? 'active' : ''}">${n}</button>`).join('');
+    el('debt-body').innerHTML = debtHtml();
+  }
+
+  function openDebtSheet(d, dirNew) {
+    const val = (x) => attr(x == null ? '' : String(x));
+    const dir = d ? debtDirOf(d) : dirNew === 'lend' ? 'lend' : 'borrow', t = DEBT_TXT[dir];
+    const dueSel = d && validDate(d.due) ? d.due : '';
+    openSheet(`<form>
+      <h3>${d ? t.title + ' 수정' : t.title + ' 추가'}</h3>
+      <label>이름</label><input name="name" required maxlength="30" placeholder="${t.namePh}" value="${val(d && d.name)}" autocomplete="off">
+      <label>${t.party}</label><input name="party" maxlength="30" placeholder="${t.partyPh}" value="${val(d && d.party)}" autocomplete="off">
+      <label>${t.amount}</label><input name="amount" type="number" min="1" inputmode="numeric" required value="${val(d && d.amount)}">
+      <label>${t.date}</label><input name="date" type="date" required value="${val(d ? d.date : todayStr())}">
+      <label>연 이자율 (%, 선택)</label><input name="rate" type="number" min="0" step="0.01" inputmode="decimal" value="${val(d && d.rate ? d.rate : '')}" placeholder="예: 4.5">
+      <label>${t.due}</label><input name="due" type="date" value="${val(dueSel)}">
+      <label>${t.payDay}</label>${dayInput('payDay', d && d.payDay)}
+      <label>${t.monthly}</label><input name="monthly" type="number" min="0" inputmode="numeric" value="${val(d && d.monthly ? d.monthly : '')}" placeholder="${t.monthlyPh}">
+      <label>메모 (선택)</label><input name="note" maxlength="60" value="${val(d && d.note)}" placeholder="예: 쓴 곳(설비 구입), 갚는 방식 (계좌번호는 적지 마세요)">
+      ${d ? (d.txId ? `<p class="goal-hint">✓ 가계부에도 기록돼 있어요(${dir === 'lend' ? '지출' : '수입'}). 금액·날짜를 고치면 같이 바뀌어요.</p>` : `<label class="check"><input type="checkbox" name="ledger"> 가계부에 아직 없어요 — ${t.startLedger}</label>`) : `<label class="check"><input type="checkbox" name="ledger" checked> ${t.startLedger}</label><p class="goal-hint" style="margin:2px 0 0">${t.startNote}</p>`}
+      <div class="sheet-actions"><button type="button" data-cancel>취소</button>${d ? '<button type="button" data-delete data-own-cf>삭제</button>' : ''}<button type="submit">저장</button></div>
+    </form>`, (fd) => {
+      const name = String(fd.get('name')).trim(), amount = parseInt(fd.get('amount'), 10), date = String(fd.get('date'));
+      if (!name || !(amount > 0) || !validDate(date)) { showToast('이름·금액·날짜를 확인해 주세요'); return false; }
+      const rec = { name, party: String(fd.get('party')).trim(), amount, date, rate: Math.max(0, parseFloat(fd.get('rate')) || 0), due: validDate(String(fd.get('due'))) ? String(fd.get('due')) : '', payDay: Math.min(31, Math.max(0, parseInt(fd.get('payDay'), 10) || 0)), monthly: Math.max(0, parseInt(fd.get('monthly'), 10) || 0), note: String(fd.get('note')).trim() };
+      const memoOf = (nm) => `${nm} ${t.startTx}`;
+      if (d) {
+        Object.assign(d, rec);
+        const tx = d.txId && transactions.find((x) => x.id === d.txId);
+        if (tx) { tx.date = date; tx.amount = amount; tx.memo = memoOf(name); save(); renderAll(); }
+        else if (!d.txId && fd.get('ledger') === 'on') { d.txId = debtTx(dir, 'start', date, amount, memoOf(name)); save(); renderAll(); }
+      } else {
+        const item = { id: newId(), dir, ...rec, txId: '' };
+        if (fd.get('ledger') === 'on') { item.txId = debtTx(dir, 'start', date, amount, memoOf(name)); save(); renderAll(); }
+        debt.items.push(item);
+      }
+      saveDebt();
+      debtDirSel = 'all';
+      renderDebt();
+      showToast(d ? '수정했어요' : '추가했어요');
+    });
+    const del = sheetBody.querySelector('[data-delete]');
+    if (del) del.addEventListener('click', () => {
+      const logs = debt.log.filter((l) => l.did === d.id);
+      if (!confirm(`“${d.name}”와 ${t.repayHead} ${logs.length}건을 지울까요?\n가계부에 함께 기록한 수입·지출은 그대로 남아요.`)) return;
+      tomb(d.id);
+      logs.forEach((l) => tomb(l.id));
+      debt.log = debt.log.filter((l) => l.did !== d.id);
+      debt.items = debt.items.filter((x) => x.id !== d.id);
+      saveDebt();
+      closeSheet();
+      renderDebt();
+      showToast('삭제했어요');
+    });
+  }
+
+  function openDebtRepaySheet(did, l) {
+    const val = (x) => attr(x == null ? '' : String(x));
+    if (!debt.items.length) { showToast('먼저 빌린 돈·빌려준 돈을 등록해 주세요'); return; }
+    const sel = l ? l.did : did || (debt.items.find((x) => debtBal(x.id) > 0) || debt.items[0]).id;
+    const dOf = () => debt.items.find((x) => x.id === sel) || debt.items[0], t0 = DEBT_TXT[debtDirOf(dOf())];
+    openSheet(`<form>
+      <h3 id="dr-title">${l ? t0.repayHead + ' 수정' : t0.repayHead}</h3>
+      <label>빌린 돈·빌려준 돈</label><select name="did">${debt.items.map((x) => `<option value="${attr(x.id)}"${x.id === sel ? ' selected' : ''}>${debtDirOf(x) === 'lend' ? '[빌려준] ' : '[빌린] '}${esc(x.name)} · ${DEBT_TXT[debtDirOf(x)].leftShort} ${formatWon(debtBal(x.id))}</option>`).join('')}</select>
+      <label>날짜</label><input name="date" type="date" required value="${val(l ? l.date : todayStr())}">
+      <label id="dr-p">${t0.pLabel}</label><input name="principal" type="number" min="0" inputmode="numeric" value="${val(l && l.principal ? l.principal : '')}" placeholder="0">
+      <label id="dr-i">${t0.iLabel}</label><input name="interest" type="number" min="0" inputmode="numeric" value="${val(l && l.interest ? l.interest : '')}" placeholder="0">
+      <label>메모 (선택)</label><input name="memo" maxlength="60" value="${val(l && l.memo)}" placeholder="예: 10월분">
+      ${l ? (l.txP || l.txI ? '<p class="goal-hint">✓ 가계부에도 기록돼 있어요. 금액·날짜를 고치면 같이 바뀌어요.</p>' : '<label class="check"><input type="checkbox" name="ledger"> 가계부에 아직 없어요 — 가계부에도 기록</label>') : `<label class="check"><input type="checkbox" name="ledger" checked> <span id="dr-l">${t0.repayLedger}</span></label><p class="goal-hint" id="dr-n" style="margin:2px 0 0">${t0.repayNote}</p>`}
+      <div class="sheet-actions"><button type="button" data-cancel>취소</button>${l ? '<button type="button" data-delete>삭제</button>' : ''}<button type="submit">저장</button></div>
+    </form>`, (fd) => {
+      const item = debt.items.find((x) => x.id === fd.get('did')), date = String(fd.get('date'));
+      const principal = Math.max(0, parseInt(fd.get('principal'), 10) || 0), interest = Math.max(0, parseInt(fd.get('interest'), 10) || 0);
+      if (!item || !validDate(date) || (!principal && !interest)) { showToast('날짜와 원금·이자 중 하나는 입력해 주세요'); return false; }
+      const dir = debtDirOf(item), other = debt.log.filter((x) => x.did === item.id && x !== l).reduce((a, x) => a + (+x.principal || 0), 0);
+      if (principal > item.amount - other) { showToast(`원금이 남은 잔액(${formatWon(Math.max(0, item.amount - other))})보다 커요`); return false; }
+      const memo = String(fd.get('memo')).trim(), link = fd.get('ledger') === 'on';
+      if (l) {
+        Object.assign(l, { did: item.id, date, principal, interest, memo });
+        const tp = l.txP && transactions.find((x) => x.id === l.txP), ti = l.txI && transactions.find((x) => x.id === l.txI);
+        if (tp) { if (principal > 0) { tp.date = date; tp.amount = principal; tp.memo = `${item.name} 원금`; } else { dropTx(l.txP); l.txP = ''; } }
+        if (ti) { if (interest > 0) { ti.date = date; ti.amount = interest; ti.memo = `${item.name} 이자`; } else { dropTx(l.txI); l.txI = ''; } }
+        if (link && !l.txP && !l.txI) { if (principal > 0) l.txP = debtTx(dir, 'p', date, principal, `${item.name} 원금`); if (interest > 0) l.txI = debtTx(dir, 'i', date, interest, `${item.name} 이자`); }
+        save(); renderAll();
+      } else {
+        const log = { id: newId(), did: item.id, date, principal, interest, memo, txP: '', txI: '' };
+        if (link) { if (principal > 0) log.txP = debtTx(dir, 'p', date, principal, `${item.name} 원금`); if (interest > 0) log.txI = debtTx(dir, 'i', date, interest, `${item.name} 이자`); save(); renderAll(); }
+        debt.log.push(log);
+      }
+      saveDebt();
+      renderDebt();
+      showToast(l ? '수정했어요' : (dir === 'lend' ? '돌려받은 돈을 기록했어요' : '상환을 기록했어요'));
+    });
+    // 항목을 바꾸면 이름표·안내를 그 방향(빌린/빌려준)에 맞춘다
+    const didSel = sheetBody.querySelector('[name=did]');
+    didSel.addEventListener('change', () => {
+      const t = DEBT_TXT[debtDirOf(debt.items.find((x) => x.id === didSel.value))];
+      sheetBody.querySelector('#dr-title').textContent = t.repayHead;
+      sheetBody.querySelector('#dr-p').textContent = t.pLabel;
+      sheetBody.querySelector('#dr-i').textContent = t.iLabel;
+      const lb = sheetBody.querySelector('#dr-l'), nt = sheetBody.querySelector('#dr-n');
+      if (lb) lb.textContent = t.repayLedger;
+      if (nt) nt.textContent = t.repayNote;
+    });
+    const del = sheetBody.querySelector('[data-delete]');
+    if (del) del.addEventListener('click', () => {
+      tomb(l.id);
+      debt.log = debt.log.filter((x) => x.id !== l.id);
+      if (l.txP || l.txI) { dropTx(l.txP); dropTx(l.txI); save(); renderAll(); }
+      saveDebt();
+      closeSheet();
+      renderDebt();
+      showToast('삭제했어요');
+    });
+  }
+
+  function openDebtDetail(d) {
+    const dir = debtDirOf(d), t = DEBT_TXT[dir], logs = debt.log.filter((l) => l.did === d.id).sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0)), bal = debtBal(d.id);
+    openSheet(`<form>
+      <h3>${esc(d.name)}</h3>
+      <div class="ins-sum">${t.left} <b>${formatWon(bal)}</b> / ${dir === 'lend' ? '빌려준' : '빌린'} ${formatWon(d.amount)}<br>${t.sum2} ${formatWon(debtRepaid(d.id))} · ${dir === 'lend' ? '받은' : '낸'} 이자 ${formatWon(debtPaidInt(d.id))}</div>
+      <div class="sheet-actions" style="margin:10px 0"><button type="button" data-da="repay">＋ ${t.repayHead}</button><button type="button" data-da="edit">✏️ 수정</button></div>
+      ${logs.length ? `<div class="h-sec">${t.repayHead}</div>` + logs.slice(0, 30).map((l) => `<button type="button" class="visit" data-dl="${attr(l.id)}"><div class="v1"><span>${l.date.slice(2).replace(/-/g, '.')}${l.memo ? ' · ' + esc(l.memo) : ''}</span><b>${formatWon((+l.principal || 0) + (+l.interest || 0))}</b></div><div class="v2">원금 ${formatWon(+l.principal || 0)}${l.interest ? ' · 이자 ' + formatWon(+l.interest) : ''}</div></button>`).join('') : `<div class="empty-msg" style="padding:12px 0">${t.empty}</div>`}
+      <div class="sheet-actions"><button type="button" data-cancel>닫기</button></div>
+    </form>`, () => false);
+    sheetBody.querySelector('[data-da=repay]').addEventListener('click', () => { closeSheet(); openDebtRepaySheet(d.id); });
+    sheetBody.querySelector('[data-da=edit]').addEventListener('click', () => { closeSheet(); openDebtSheet(d); });
+    sheetBody.querySelectorAll('[data-dl]').forEach((b) => b.addEventListener('click', () => { closeSheet(); openDebtRepaySheet(null, debt.log.find((x) => x.id === b.dataset.dl)); }));
+  }
+
+  el('add-debt-btn').addEventListener('click', () => openDebtSheet(null, 'borrow'));
+  el('add-lend-btn').addEventListener('click', () => openDebtSheet(null, 'lend'));
+  el('add-repay-btn').addEventListener('click', () => openDebtRepaySheet(null));
+  el('debt-dir').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-dd]');
+    if (b) { debtDirSel = b.dataset.dd; renderDebt(); }
+  });
+  el('debt-body').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-debt]');
+    if (b) openDebtDetail(debt.items.find((x) => x.id === b.dataset.debt));
+  });
+
   /* ---------- 앱 잠금 ---------- */
   // 앱을 열 때(그리고 설정한 시간 넘게 나갔다 돌아올 때) 비밀번호(숫자 4~6자리)를 묻는 화면 잠금이다.
   // 설정은 이 기기의 localStorage에만 두고 동기화·백업에 넣지 않는다. 비밀번호는 PBKDF2(SHA-256)로 해시해 저장한다.
@@ -7038,6 +7272,12 @@
           if (validDate(r.start) && d < r.start) return;
           add(r.type === 'income' ? 'inc' : 'pay', d, { icon: r.type === 'income' ? '💵' : '🔁', text: r.type === 'income' ? `${r.name} (고정수입)` : `${r.name} (자동이체)`, amt: r.amount, view: 'ledger', sub: 'card', ref: r.id });
         });
+        debt.items.filter((d) => d.payDay >= 1 && d.monthly > 0 && debtBal(d.id) > 0).forEach((d) => {
+          const dt = ymdOf(y, m, d.payDay);
+          if (dt < d.date) return;
+          if (debtDirOf(d) === 'lend') add('inc', dt, { icon: '🤝', text: `${d.name} 받을 날`, amt: d.monthly, view: 'debt', ref: d.id });
+          else add('pay', dt, { icon: '🏦', text: `${d.name} 상환일`, amt: d.monthly, view: 'debt', ref: d.id });
+        });
         salary.jobs.filter((j) => (j.status || 'on') === 'on' && j.payDay >= 1).forEach((j) => {
           const lastNet = (salary.log.filter((l) => l.jid === j.id).sort((a, b) => (a.date < b.date ? 1 : -1))[0] || {}).net || 0;
           add('inc', ymdOf(y, m, j.payDay), { icon: '💵', text: `${j.name} 월급일`, amt: lastNet, view: 'salary', ref: j.id });
@@ -7055,6 +7295,7 @@
         add('contract', rentEnd(r), { icon: '🧰', text: `${r.name} 약정 만료`, view: 'rental', ref: r.id });
       });
     }
+    if (on('contract')) debt.items.filter((d) => debtBal(d.id) > 0).forEach((d) => add('contract', d.due, { icon: debtDirOf(d) === 'lend' ? '🤝' : '🏦', text: `${d.name} ${debtDirOf(d) === 'lend' ? '받을 날' : '만기'}`, view: 'debt', ref: d.id }));
     if (on('save')) {
       savings.accounts.forEach((a) => {
         if (a.payDay >= 1) ms.forEach(([y, m]) => add('save', ymdOf(y, m, a.payDay), { icon: '🐷', text: `${a.name} 저축일`, amt: a.monthly || 0, view: 'savings', ref: a.id }));
@@ -7693,7 +7934,7 @@
   // 대시보드는 설정(백업·동기화·앱 잠금)이 들어 있어 항상 사용한다.
   const TAB_KEY = 'dadari_tab_order_v1';
   const TAB_HIDE_KEY = 'dadari_tab_hidden_v1';
-  const TAB_LABELS = { status: '📊 대시보드', calendar: '📅 캘린더', salary: '💵 나는 샐러리', side: '💼 나는 N잡러', biz: '📈 나는 CEO', ledger: '💰 가계부', savings: '🐷 저축', rental: '🧰 렌탈·구독', health: '🩺 건강', insurance: '🛡 보험', schedule: '🗓 시간표', academy: '📚 학원비', food: '🍳 오늘 뭐 먹지', fit: '💪 운동 관리' };
+  const TAB_LABELS = { status: '📊 대시보드', calendar: '📅 캘린더', salary: '💵 나는 샐러리', side: '💼 나는 N잡러', biz: '📈 나는 CEO', ledger: '💰 가계부', savings: '🐷 저축', debt: '🏦 부채·차용', rental: '🧰 렌탈·구독', health: '🩺 건강', insurance: '🛡 보험', schedule: '🗓 시간표', academy: '📚 학원비', food: '🍳 오늘 뭐 먹지', fit: '💪 운동 관리' };
   const TAB_FIXED = ['status'];
   var tabsReady = false;   // 처음 화면을 그리기 전에는 메뉴를 옮기지 않는다(아래 초기화에서 true)
   function tabOrder() {
@@ -7837,6 +8078,13 @@
       const d = nextPay(c.payDay, today, 'month');
       const dd = d ? within(d, 0, 3) : null;
       if (dd !== null) add(dd, `${c.name} 결제일`, 'ledger', '💳', { sub: 'card', ref: c.id });
+    });
+    debt.items.filter((d) => debtBal(d.id) > 0).forEach((d) => {
+      const nx = d.payDay >= 1 && d.monthly > 0 ? nextPay(d.payDay, today, 'month') : '', dd = nx ? within(nx, 0, 3) : null;
+      const lend = debtDirOf(d) === 'lend';
+      if (dd !== null) add(dd, lend ? `${d.name} 받을 날 ${formatWon(d.monthly)}` : `${d.name} 상환일 ${formatWon(d.monthly)}`, 'debt', lend ? '🤝' : '🏦', { ref: d.id });
+      const du = within(d.due, -7, 30);
+      if (du !== null) add(du, lend ? `${d.name} 받기로 한 날${du < 0 ? ' 지남' : ''} (받을 돈 ${formatWon(debtBal(d.id))})` : `${d.name} 만기${du < 0 ? ' 지남' : ''} (남은 ${formatWon(debtBal(d.id))})`, 'debt', lend ? '🤝' : '🏦', { ref: d.id });
     });
     fridge.forEach((f) => { const dd = within(f.expiry, -30, 2); if (dd !== null) add(dd, `냉장고 · ${f.name} 소비기한${dd < 0 ? ' 지남' : ''}`, 'food', '🧊', { ref: f.id, mode: 'fridge' }); });
     // 운동 주간 목표(운동 관리): 이번 주(일~토) 목표를 아직 못 채웠고 시간이 빠듯할 때만 올린다 — 주말(금·토)이거나, 오늘이 정한 요일인데 아직 안 했거나, 횟수 목표가 남은 날로 겨우 채울 수준일 때.
@@ -8181,6 +8429,7 @@
     const xSide = idOf([...side.jobs].sort((a, b) => sideStats(side.log.filter((l) => l.jid === b.id && l.date.startsWith(ym))).net - sideStats(side.log.filter((l) => l.jid === a.id && l.date.startsWith(ym))).net));
     const xSal = idOf(salary.jobs), xCard = idOf([...cards].sort((a, b) => cardUse(b.id, ym) - cardUse(a.id, ym))), xRecur = idOf([...expRecurs].sort((a, b) => b.amount - a.amount));
     const xFood = idOf([...soonFood].sort((a, b) => ddOf(a) - ddOf(b)));
+    const debtActive = debt.items.filter((d) => debtBal(d.id) > 0), debtOwe = debtActive.filter((d) => debtDirOf(d) === 'borrow').reduce((a, d) => a + debtBal(d.id), 0), debtGet = debtActive.filter((d) => debtDirOf(d) === 'lend').reduce((a, d) => a + debtBal(d.id), 0), xDebt = idOf([...debtActive].sort((a, b) => ((validDate(a.due) ? a.due : '9999') < (validDate(b.due) ? b.due : '9999') ? -1 : 1))), debtSoon = debtActive.filter((d) => validDate(d.due) && diffDays(d.due, today) <= 30).length;
     const rowList = [
       row('💰', '가계부', `수입 ${money(inc)} · 지출 ${money(exp)}<div class="st-sub">고정비 ${money(fixedExp)}${goalTxt ? ' · ' + goalTxt : ''}</div>`, goal > 0 && exp > goal ? '월 목표를 넘었어요' : '', `${bal < 0 ? '-' : ''}${formatWon(Math.abs(bal))}`, 'ledger', 'sum', {}),
       row('🔁', '자동이체·정기결제', `${expRecurs.length}건${incRecurs.length ? ` · 고정수입 ${incRecurs.length}건` : ''}`, '', money(sum(expRecurs, (r) => r.amount)) === '-' ? '-' : '월 ' + formatWon(sum(expRecurs, (r) => r.amount)), 'ledger', 'card', { ref: xRecur }),
@@ -8194,6 +8443,7 @@
       row('💪', '운동 관리', fit.log.length ? `이번 주 ${fitWk.n}회 · ${fitWk.min ? fmtMin(fitWk.min) : '0분'}` : '아직 운동 기록이 없어요', '', fit.log.length ? `🔥 ${fitStreak(fit.log)}일` : '-', 'fit', 'log', { date: today }),
       row('💵', '나는 샐러리', salary.jobs.length ? `직장 ${salary.jobs.length}개 · 이번 달 실수령 ${money(salMonth.net)}` : '등록한 직장이 없어요', '', salary.jobs.length ? formatWon(salMonth.net) : '-', 'salary', '', { ref: xSal }),
       row('📈', '나는 CEO', (biz.shops.length > 1 ? `사업 ${biz.shops.length}개 · ` : '') + (bizMonth.length ? `매출 ${formatWon(bizSales)} · 비용 ${formatWon(bizCost)}` : '이번 달 입력 없음') + (bizNetInv > 0 ? `<div class="st-sub">투자금 ${formatWon(bizNetInv)} · 회수율 ${Math.round((Math.max(0, bizSum(biz.entries, 'sale') - bizSum(biz.entries, 'cost')) / bizNetInv) * 100)}%</div>` : ''), bizTarget > 0 && bizSales < bizTarget ? `목표 ${formatWon(bizTarget)} 중 ${Math.round((bizSales / bizTarget) * 100)}%` : '', bizMonth.length ? `${bizSales - bizCost < 0 ? '-' : ''}${formatWon(Math.abs(bizSales - bizCost))}` : '-', 'biz', '', {}),
+      row('🏦', '부채·차용', debt.items.length ? `갚을 돈 ${money(debtOwe)} · 받을 돈 ${money(debtGet)}` : '등록한 빌린 돈·빌려준 돈이 없어요', debtSoon ? `만기·받을 날 임박 ${debtSoon}건` : '', debt.items.length ? (debtGet - debtOwe < 0 ? '-' : '') + formatWon(Math.abs(debtGet - debtOwe)) : '-', 'debt', '', { ref: xDebt }),
       row('🐷', '저축', savings.accounts.length ? `통장·목표 ${savings.accounts.length}개 · 이번 달 입금 ${money(savMonthIn)}` : '등록한 통장이 없어요', savMiss ? `이번 달 저축 계획 미달 ${savMiss}건` : '', savings.accounts.length ? formatWon(savTotal) : '-', 'savings', '', { ref: xSav }),
       row('🍳', '냉장고', `재료 ${fridge.length}개 · 임박 ${soonFood.length - expiredFood}개`, expiredFood ? `기한 지남 ${expiredFood}개` : '', '-', 'food', '', { mode: 'fridge', ref: xFood })
     ];
@@ -8269,7 +8519,7 @@
 
   const snapshot = () => ({
     app: 'dadari', version: 3, updatedAt: new Date().toISOString(),
-    transactions, categories, cards, recurs, recurDone: [...recurDone], goal, schedule, health, insurance, rentals, academies, biz, fridge, calendar: calItems, calTabs, savings, side, salary, fit, profile, goalLog, tombs: [...tombs]
+    transactions, categories, cards, recurs, recurDone: [...recurDone], goal, schedule, health, insurance, rentals, academies, biz, fridge, calendar: calItems, calTabs, savings, debt, side, salary, fit, profile, goalLog, tombs: [...tombs]
   });
 
   // 두 기기가 따로 고친 내용을 합친다. 같은 id가 양쪽에 있으면 이 기기 것을 쓰고, 지운 항목(tombs)은 되살리지 않는다.
@@ -8316,6 +8566,11 @@
         const ids = new Set(jobs.map((x) => x.id));
         return { jobs, log: union(local.side && local.side.log, remote.side && remote.side.log).filter((l) => ids.has(l.jid)) };
       })(),
+      debt: (() => {
+        const items = union(local.debt && local.debt.items, remote.debt && remote.debt.items);
+        const ids = new Set(items.map((d) => d.id));
+        return { items, log: union(local.debt && local.debt.log, remote.debt && remote.debt.log).filter((l) => ids.has(l.did)) };
+      })(),
       savings: (() => {
         const accounts = union(local.savings && local.savings.accounts, remote.savings && remote.savings.accounts);
         const ids = new Set(accounts.map((a) => a.id));
@@ -8353,6 +8608,7 @@
       if (s.fit && Array.isArray(s.fit.log)) fit = { log: s.fit.log, weights: Array.isArray(s.fit.weights) ? s.fit.weights : [], goals: s.fit.goals && typeof s.fit.goals === 'object' ? s.fit.goals : {}, body: s.fit.body && typeof s.fit.body === 'object' ? s.fit.body : {} };
       if (s.salary && Array.isArray(s.salary.jobs)) salary = { jobs: s.salary.jobs, log: Array.isArray(s.salary.log) ? s.salary.log : [] };
       if (s.side && Array.isArray(s.side.jobs)) side = { jobs: s.side.jobs, log: Array.isArray(s.side.log) ? s.side.log : [] };
+      if (s.debt && Array.isArray(s.debt.items)) debt = { items: s.debt.items, log: Array.isArray(s.debt.log) ? s.debt.log : [] };
       if (s.savings && Array.isArray(s.savings.accounts)) savings = { accounts: s.savings.accounts, log: Array.isArray(s.savings.log) ? s.savings.log : [] };
       if (s.biz && Array.isArray(s.biz.entries)) { biz = { entries: s.biz.entries, shops: s.biz.shops, target: Math.max(0, +s.biz.target || 0) }; normalizeBiz(); }
       if (s.categories) { saveJson(CAT_KEY, s.categories); categories = loadCategories(); }
@@ -8721,7 +8977,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v132'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v133'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span class="slogan">다달이, 매일의 기록이 모여<br><b>더 나은 생활</b>이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
@@ -8775,12 +9031,13 @@
   renderRental = inMenu('rental', renderRental);
   renderAcademy = inMenu('academy', renderAcademy);
   renderSavings = inMenu('savings', renderSavings);
+  renderDebt = inMenu('debt', renderDebt);
   renderSide = inMenu('side', renderSide);
   renderSalary = inMenu('salary', renderSalary);
   renderFit = inMenu('fit', renderFit);
   renderCal = inMenu('calendar', renderCal);
   const savedView = loadJson(VIEW_KEY, 'ledger');
-  setView(['status', 'calendar', 'savings', 'schedule', 'health', 'insurance', 'rental', 'academy', 'biz', 'side', 'salary', 'food', 'fit', 'settings'].includes(savedView) ? savedView : 'ledger');
+  setView(['status', 'calendar', 'savings', 'debt', 'schedule', 'health', 'insurance', 'rental', 'academy', 'biz', 'side', 'salary', 'food', 'fit', 'settings'].includes(savedView) ? savedView : 'ledger');
   if (tabHidden(savedView)) setView('status');   // 마지막에 보던 메뉴를 감춰 두었으면 대시보드로 연다
   // 분류가 비어 있는 자동이체(예전 버전에서 만든 것)는 연결된 메뉴 이름으로 채운다: 렌탈·보험·학원비에서 만든 것은 그 이름, 나머지는 기타(수입은 급여). 렌탈·보험·학원비 입력창에는 분류 칸이 없고 늘 그 이름으로 기록된다.
   let recurCatFixed = false;
