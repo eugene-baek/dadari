@@ -3128,9 +3128,11 @@
         const d = dparse(o.date), head = `${d.getMonth() + 1}월 ${d.getDate()}일`;
         t = [...root.querySelectorAll('h2.section-title')].find((h) => h.offsetParent !== null && h.textContent.trim().startsWith(head)) || null;
       }
-      const target = t || root;
+      // 찾는 줄이 없으면 메뉴의 첫 화면(배너·메뉴 칸)이 아니라 그 메뉴의 **내용 시작**(첫 카드)으로 간다
+      const content = root.querySelector('section.card:not(.sub-off), .dc-card:not(.sub-off)');
+      const target = t || content || root;
       target.scrollIntoView({ block: t && (o.ref || o.el) ? 'center' : 'start' });
-      if (t && !o.ref && root.querySelector('.subtabs')) window.scrollBy(0, -60);   // 위에 붙은 소메뉴 줄에 가려지지 않게
+      if ((t || content) && !(t && (o.ref || o.el)) && root.querySelector('.subtabs')) window.scrollBy(0, -60);   // 위에 붙은 소메뉴 줄에 가려지지 않게
       const hl = t && (o.el ? t : t.closest('.vrow, .visit, .ctile, .rec, .tx-item, .cal-tx') || t);
       if (hl && hl !== root) { hl.classList.add('flash'); setTimeout(() => hl.classList.remove('flash'), 2200); }
     }, 30);
@@ -8151,24 +8153,36 @@
 
     const money = (n) => (n ? formatWon(n) : '-');
     // 현황표 줄은 메인 메뉴 순서(메뉴 관리에서 정한 순서)를 따라 늘어놓는다. 같은 메뉴의 줄(가계부·자동이체·카드)은 적은 순서를 지킨다.
-    const row = (ic, name, main, warn, amt, view, sub) => ({ v: view, h: tabHidden(view) ? '' : `<tr data-sv="${view}"${sub ? ` data-ssub="${sub}"` : ''}><td><span class="st-name">${ic} ${name}</span></td>
+    const row = (ic, name, main, warn, amt, view, sub, x = {}) => ({ v: view, h: tabHidden(view) ? '' : `<tr data-sv="${view}"${sub ? ` data-ssub="${sub}"` : ''}${x.ref ? ` data-sref="${attr(x.ref)}"` : ''}${x.mode ? ` data-smode="${x.mode}"` : ''}${x.date ? ` data-sdate="${x.date}"` : ''}><td><span class="st-name">${ic} ${name}</span></td>
       <td>${main}${warn ? `<div class="st-warn">${warn}</div>` : ''}</td><td class="st-amt">${amt}</td></tr>` });
     const goalTxt = goal > 0 ? `월 목표 ${formatWon(goal)} 중 ${Math.round((exp / goal) * 100)}% 사용` : '';
+    // 현황표 줄을 누르면 그 영역에서 "가장 확인이 필요한 항목"으로 간다(없으면 내용의 시작). 아래 값은 모두 그 항목의 id다.
+    const idOf = (arr) => (arr[0] || {}).id;
+    const byDate = (arr, f) => arr.filter((x) => validDate(f(x))).sort((a, b) => (f(a) < f(b) ? -1 : 1));
+    const xIns = idOf(byDate(insurance.filter((p) => insState(p, today) !== 'ended'), (p) => [p.renewal, p.expiry].filter((d) => validDate(d) && d >= addDays(today, -7)).sort()[0] || '')) || idOf(activeIns);
+    const xRent = idOf(byDate(liveRent, (r) => rentEnd(r) || '')) || idOf(liveRent);
+    const xAca = idOf(acaUnpaid) || idOf(liveAca);
+    const overdueV = planned.filter((v) => validDate(v.date) && v.date < today), nextV = byDate(health.visits.filter((v) => validDate(v.next) && v.next >= today), (v) => v.next)[0];
+    const xHealth = overdueV.length ? { mode: 'vaccine', ref: overdueV[0].id } : nextV ? { mode: 'visit', ref: nextV.id } : medsLeft ? { mode: 'meds' } : { mode: 'visit' };
+    const xSav = idOf(savings.accounts.filter((a) => a.monthly > 0 && a.payDay >= 1 && now.getDate() >= a.payDay && savMonthOf(a.id, ym) < a.monthly)) || idOf([...savings.accounts].sort((a, b) => savBal(b.id) - savBal(a.id)));
+    const xSide = idOf([...side.jobs].sort((a, b) => sideStats(side.log.filter((l) => l.jid === b.id && l.date.startsWith(ym))).net - sideStats(side.log.filter((l) => l.jid === a.id && l.date.startsWith(ym))).net));
+    const xSal = idOf(salary.jobs), xCard = idOf([...cards].sort((a, b) => cardUse(b.id, ym) - cardUse(a.id, ym))), xRecur = idOf([...expRecurs].sort((a, b) => b.amount - a.amount));
+    const xFood = idOf([...soonFood].sort((a, b) => ddOf(a) - ddOf(b)));
     const rowList = [
-      row('💰', '가계부', `수입 ${money(inc)} · 지출 ${money(exp)}<div class="st-sub">고정비 ${money(fixedExp)}${goalTxt ? ' · ' + goalTxt : ''}</div>`, goal > 0 && exp > goal ? '월 목표를 넘었어요' : '', `${bal < 0 ? '-' : ''}${formatWon(Math.abs(bal))}`, 'ledger', 'sum'),
-      row('🔁', '자동이체·정기결제', `${expRecurs.length}건${incRecurs.length ? ` · 고정수입 ${incRecurs.length}건` : ''}`, '', money(sum(expRecurs, (r) => r.amount)) === '-' ? '-' : '월 ' + formatWon(sum(expRecurs, (r) => r.amount)), 'ledger', 'card'),
-      row('💳', '카드', `등록 ${cards.length}장`, '', cards.length ? '이번 달 ' + formatWon(cardTotal) : '-', 'ledger', 'card'),
-      row('🛡', '보험', `납입 중 ${activeIns.length}건 / 전체 ${insurance.length}건`, insSoon ? `갱신·만기 임박 ${insSoon}건` : '', insMonthly ? '월 ' + formatWon(insMonthly) : '-', 'insurance'),
-      row('🧰', '렌탈·구독', `이용 중 ${liveRent.length}건`, rentSoon ? `약정 만료 임박 ${rentSoon}건` : '', rentMonthly ? '월 ' + formatWon(rentMonthly) : '-', 'rental'),
-      row('📚', '학원비', `수강 ${liveAca.length}건 · 납부 ${liveAca.length - acaUnpaid.length}/${liveAca.length}`, acaUnpaid.length ? `미납 ${acaUnpaid.length}건 ${formatWon(sum(acaUnpaid, (a) => +a.fee || 0))}` : '', acaTotal ? formatWon(acaTotal) : '-', 'academy'),
-      row('🩺', '건강', `접종 예정 ${planned.length} · 병원 예약 ${visitsNext}${medsLeft ? ` · 오늘 복약 ${medsLeft}개 남음` : ''}`, [overdueVac ? `접종 ${overdueVac}건 지남` : '', claimTodo ? `실비 청구 필요 ${claimTodo}건` : ''].filter(Boolean).join(' · '), '-', 'health'),
-      row('🗓', '시간표', `오늘 일정 ${todaySch}개 · 구성원 ${schedule.members.length}명`, '', '-', 'schedule'),
-      row('💼', '나는 N잡러', side.jobs.length ? `N잡 ${side.jobs.length}개 · 이번 달 수입 ${money(sideMonth.income)}${sideMonth.hours > 0 ? ' · ' + hoursTxt(sideMonth.hours) : ''}` : '등록한 N잡이 없어요', '', side.jobs.length ? `${sideMonth.net < 0 ? '-' : ''}${formatWon(Math.abs(sideMonth.net))}` : '-', 'side'),
-      row('💪', '운동 관리', fit.log.length ? `이번 주 ${fitWk.n}회 · ${fitWk.min ? fmtMin(fitWk.min) : '0분'}` : '아직 운동 기록이 없어요', '', fit.log.length ? `🔥 ${fitStreak(fit.log)}일` : '-', 'fit'),
-      row('💵', '나는 샐러리', salary.jobs.length ? `직장 ${salary.jobs.length}개 · 이번 달 실수령 ${money(salMonth.net)}` : '등록한 직장이 없어요', '', salary.jobs.length ? formatWon(salMonth.net) : '-', 'salary'),
-      row('📈', '나는 CEO', (biz.shops.length > 1 ? `사업 ${biz.shops.length}개 · ` : '') + (bizMonth.length ? `매출 ${formatWon(bizSales)} · 비용 ${formatWon(bizCost)}` : '이번 달 입력 없음') + (bizNetInv > 0 ? `<div class="st-sub">투자금 ${formatWon(bizNetInv)} · 회수율 ${Math.round((Math.max(0, bizSum(biz.entries, 'sale') - bizSum(biz.entries, 'cost')) / bizNetInv) * 100)}%</div>` : ''), bizTarget > 0 && bizSales < bizTarget ? `목표 ${formatWon(bizTarget)} 중 ${Math.round((bizSales / bizTarget) * 100)}%` : '', bizMonth.length ? `${bizSales - bizCost < 0 ? '-' : ''}${formatWon(Math.abs(bizSales - bizCost))}` : '-', 'biz'),
-      row('🐷', '저축', savings.accounts.length ? `통장·목표 ${savings.accounts.length}개 · 이번 달 입금 ${money(savMonthIn)}` : '등록한 통장이 없어요', savMiss ? `이번 달 저축 계획 미달 ${savMiss}건` : '', savings.accounts.length ? formatWon(savTotal) : '-', 'savings'),
-      row('🍳', '냉장고', `재료 ${fridge.length}개 · 임박 ${soonFood.length - expiredFood}개`, expiredFood ? `기한 지남 ${expiredFood}개` : '', '-', 'food')
+      row('💰', '가계부', `수입 ${money(inc)} · 지출 ${money(exp)}<div class="st-sub">고정비 ${money(fixedExp)}${goalTxt ? ' · ' + goalTxt : ''}</div>`, goal > 0 && exp > goal ? '월 목표를 넘었어요' : '', `${bal < 0 ? '-' : ''}${formatWon(Math.abs(bal))}`, 'ledger', 'sum', {}),
+      row('🔁', '자동이체·정기결제', `${expRecurs.length}건${incRecurs.length ? ` · 고정수입 ${incRecurs.length}건` : ''}`, '', money(sum(expRecurs, (r) => r.amount)) === '-' ? '-' : '월 ' + formatWon(sum(expRecurs, (r) => r.amount)), 'ledger', 'card', { ref: xRecur }),
+      row('💳', '카드', `등록 ${cards.length}장`, '', cards.length ? '이번 달 ' + formatWon(cardTotal) : '-', 'ledger', 'card', { ref: xCard }),
+      row('🛡', '보험', `납입 중 ${activeIns.length}건 / 전체 ${insurance.length}건`, insSoon ? `갱신·만기 임박 ${insSoon}건` : '', insMonthly ? '월 ' + formatWon(insMonthly) : '-', 'insurance', '', { ref: xIns }),
+      row('🧰', '렌탈·구독', `이용 중 ${liveRent.length}건`, rentSoon ? `약정 만료 임박 ${rentSoon}건` : '', rentMonthly ? '월 ' + formatWon(rentMonthly) : '-', 'rental', '', { ref: xRent }),
+      row('📚', '학원비', `수강 ${liveAca.length}건 · 납부 ${liveAca.length - acaUnpaid.length}/${liveAca.length}`, acaUnpaid.length ? `미납 ${acaUnpaid.length}건 ${formatWon(sum(acaUnpaid, (a) => +a.fee || 0))}` : '', acaTotal ? formatWon(acaTotal) : '-', 'academy', '', { ref: xAca }),
+      row('🩺', '건강', `접종 예정 ${planned.length} · 병원 예약 ${visitsNext}${medsLeft ? ` · 오늘 복약 ${medsLeft}개 남음` : ''}`, [overdueVac ? `접종 ${overdueVac}건 지남` : '', claimTodo ? `실비 청구 필요 ${claimTodo}건` : ''].filter(Boolean).join(' · '), '-', 'health', '', xHealth),
+      row('🗓', '시간표', `오늘 일정 ${todaySch}개 · 구성원 ${schedule.members.length}명`, '', '-', 'schedule', '', {}),
+      row('💼', '나는 N잡러', side.jobs.length ? `N잡 ${side.jobs.length}개 · 이번 달 수입 ${money(sideMonth.income)}${sideMonth.hours > 0 ? ' · ' + hoursTxt(sideMonth.hours) : ''}` : '등록한 N잡이 없어요', '', side.jobs.length ? `${sideMonth.net < 0 ? '-' : ''}${formatWon(Math.abs(sideMonth.net))}` : '-', 'side', '', { ref: xSide }),
+      row('💪', '운동 관리', fit.log.length ? `이번 주 ${fitWk.n}회 · ${fitWk.min ? fmtMin(fitWk.min) : '0분'}` : '아직 운동 기록이 없어요', '', fit.log.length ? `🔥 ${fitStreak(fit.log)}일` : '-', 'fit', 'log', { date: today }),
+      row('💵', '나는 샐러리', salary.jobs.length ? `직장 ${salary.jobs.length}개 · 이번 달 실수령 ${money(salMonth.net)}` : '등록한 직장이 없어요', '', salary.jobs.length ? formatWon(salMonth.net) : '-', 'salary', '', { ref: xSal }),
+      row('📈', '나는 CEO', (biz.shops.length > 1 ? `사업 ${biz.shops.length}개 · ` : '') + (bizMonth.length ? `매출 ${formatWon(bizSales)} · 비용 ${formatWon(bizCost)}` : '이번 달 입력 없음') + (bizNetInv > 0 ? `<div class="st-sub">투자금 ${formatWon(bizNetInv)} · 회수율 ${Math.round((Math.max(0, bizSum(biz.entries, 'sale') - bizSum(biz.entries, 'cost')) / bizNetInv) * 100)}%</div>` : ''), bizTarget > 0 && bizSales < bizTarget ? `목표 ${formatWon(bizTarget)} 중 ${Math.round((bizSales / bizTarget) * 100)}%` : '', bizMonth.length ? `${bizSales - bizCost < 0 ? '-' : ''}${formatWon(Math.abs(bizSales - bizCost))}` : '-', 'biz', '', {}),
+      row('🐷', '저축', savings.accounts.length ? `통장·목표 ${savings.accounts.length}개 · 이번 달 입금 ${money(savMonthIn)}` : '등록한 통장이 없어요', savMiss ? `이번 달 저축 계획 미달 ${savMiss}건` : '', savings.accounts.length ? formatWon(savTotal) : '-', 'savings', '', { ref: xSav }),
+      row('🍳', '냉장고', `재료 ${fridge.length}개 · 임박 ${soonFood.length - expiredFood}개`, expiredFood ? `기한 지남 ${expiredFood}개` : '', '-', 'food', '', { mode: 'fridge', ref: xFood })
     ];
     const menuOrder = tabOrder();
     const rows = rowList.filter((r) => r.h).sort((a, b) => menuOrder.indexOf(a.v) - menuOrder.indexOf(b.v)).map((r) => r.h).join('');
@@ -8186,7 +8200,7 @@
     // 카드별 현황
     const cardHtml = cards.length
       ? `<h2 class="section-title" style="margin:18px 0 4px">카드별 이번 달</h2><table class="st-table"><thead><tr><th>카드</th><th>전월 실적</th><th>이번 달 사용</th></tr></thead><tbody>`
-        + cards.map((c) => `<tr data-sv="ledger"><td><span class="st-name">${esc(c.name)}</span>${c.fixedDefault ? '<div class="st-sub">고정비 기본</div>' : ''}</td><td>${esc(cardPerfLabel(c, ym, prevYm)) || '<span class="st-sub">-</span>'}</td><td class="st-amt">${formatWon(cardUse(c.id, ym))}</td></tr>`).join('')
+        + cards.map((c) => `<tr data-sv="ledger" data-ssub="card" data-sref="${attr(c.id)}"><td><span class="st-name">${esc(c.name)}</span>${c.fixedDefault ? '<div class="st-sub">고정비 기본</div>' : ''}</td><td>${esc(cardPerfLabel(c, ym, prevYm)) || '<span class="st-sub">-</span>'}</td><td class="st-amt">${formatWon(cardUse(c.id, ym))}</td></tr>`).join('')
         + `<tr><td><span class="st-name">합계</span></td><td></td><td class="st-amt">${formatWon(cardTotal)}</td></tr></tbody></table>` : '';
 
     const DAYN = ['일', '월', '화', '수', '목', '금', '토'];
@@ -8694,7 +8708,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v130'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v131'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span class="slogan">다달이, 매일의 기록이 모여<br><b>더 나은 생활</b>이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
