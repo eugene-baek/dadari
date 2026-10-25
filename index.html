@@ -6133,6 +6133,8 @@
       <div class="summary-item expense"><div class="lbl">비용</div><div class="val">${formatWon(month.expense)}</div></div>
       <div class="summary-item balance"><div class="lbl">순수익</div><div class="val" style="${month.net < 0 ? 'color:var(--expense)' : ''}">${net(month.net)}</div></div></div>
       ${periodHint(P, [month.hours > 0 ? ['일한 시간', hoursTxt(month.hours)] : '', month.hours > 0 ? ['시급', wageTxt(month.net, month.hours)] : '', P.kind === 'month' ? ['올해 순수익', net(year.net)] : ['월 평균 순수익', net(Math.round(month.net / mCount)) + ' (' + mCount + '개월)']])}`;
+    const unlinked = logs.filter((l) => l.income > 0 && !l.txId);
+    if (unlinked.length) html += `<div class="ins-sum" style="margin-top:12px">가계부에 아직 없는 N잡 수입 <b>${unlinked.length}건 · ${formatWon(unlinked.reduce((a, l) => a + l.income, 0))}</b><br><button type="button" class="mini-btn" data-sidesync style="margin-top:6px;width:100%">가계부에 모두 수입으로 기록</button></div>`;
     if (goalSum > 0 && P.kind === 'month') {
       html += `<div style="margin-top:12px"><div style="display:flex;justify-content:space-between;font-size:13px;color:var(--text-muted);margin-bottom:5px"><span>월 목표 순수익 ${formatWon(goalSum)}</span><span>${pct}% 달성${month.net < goalSum ? ' · ' + formatWon(goalSum - Math.max(0, month.net)) + ' 남음' : ' 👑'}</span></div>
         <div class="bar"><i class="${pct >= 100 ? '' : pct < 50 ? 'near' : ''}" style="width:${Math.max(0, Math.min(100, pct))}%"></i></div></div>`;
@@ -6230,6 +6232,13 @@
     });
   }
 
+  // N잡 수입 기록을 가계부 수입(부수입)으로 하나 더 만든다(기록의 `txId`로 이어 두어 수정·삭제가 같이 간다). 저장은 부른 쪽에서 한다.
+  function sideToLedger(log, job) {
+    if (!categories.income.includes('부수입')) { categories.income.push('부수입'); saveJson(CAT_KEY, categories); renderCategoryOptions(); }
+    log.txId = newId();
+    transactions.push({ id: log.txId, type: 'income', date: log.date, category: '부수입', amount: log.income, memo: `${job ? job.name : 'N잡'} 수입` });
+  }
+
   function openSideLogSheet(l, jid) {
     if (!side.jobs.length) { showToast('먼저 N잡을 추가해 주세요'); return; }
     const val = (x) => attr(x == null ? '' : String(x));
@@ -6245,27 +6254,22 @@
       <p class="goal-hint" id="side-calc" hidden style="margin:2px 0 0"></p>
       <label>일한 시간 (선택)</label><input name="hours" type="number" min="0" step="0.5" inputmode="decimal" value="${val(l && l.hours ? l.hours : '')}" placeholder="예: 3.5 (시급 계산에 써요)">
       <label>메모 (선택)</label><input name="memo" maxlength="60" value="${val(l && l.memo)}" placeholder="예: 10월 1주차 정산">
-      ${l ? '' : '<label class="check"><input type="checkbox" name="ledger"> 수입이면 가계부에도 수입(부수입)으로 기록</label>'}
+      ${l ? (l.txId ? '<p class="goal-hint">✓ 이 수입은 가계부에도 수입(부수입)으로 기록돼 있어요. 수정하면 가계부도 같이 바뀌어요.</p>' : (l.income > 0 ? '<label class="check"><input type="checkbox" name="ledger"> 가계부에 아직 없어요 — 가계부에도 수입(부수입)으로 기록</label>' : '')) : '<label class="check"><input type="checkbox" name="ledger" checked> 수입이면 가계부에도 수입(부수입)으로 기록</label><p class="goal-hint" style="margin:2px 0 0">이미 가계부에 직접 적어 두었다면 체크를 끄세요(같은 수입이 두 번 잡혀요).</p>'}
       <div class="sheet-actions"><button type="button" data-cancel>취소</button>${l ? '<button type="button" data-delete>삭제</button>' : ''}<button type="submit">저장</button></div>
     </form>`, (fd) => {
       const income = Math.max(0, parseInt(fd.get('income'), 10) || 0), expense = Math.max(0, parseInt(fd.get('expense'), 10) || 0), hours = Math.max(0, parseFloat(fd.get('hours')) || 0), date = String(fd.get('date'));
       const job = side.jobs.find((j) => j.id === fd.get('jid'));
-      if (!job || !validDate(date) || (!income && !expense && !hours && !qty)) { showToast('날짜와 수입·비용·시간·건수 중 하나는 입력해 주세요'); return false; }
       const qty = Math.max(0, parseFloat(fd.get('qty')) || 0);
+      if (!job || !validDate(date) || (!income && !expense && !hours && !qty)) { showToast('날짜와 수입·비용·시간·건수 중 하나는 입력해 주세요'); return false; }
       const rec = { jid: job.id, date, income, expense, hours, qty, memo: String(fd.get('memo')).trim() };
       if (l) {
         Object.assign(l, rec);
         const t = l.txId && transactions.find((x) => x.id === l.txId);
         if (t) { t.date = date; t.amount = income || t.amount; t.memo = `${job.name} 수입`; save(); renderAll(); }
+        else if (!l.txId && income > 0 && fd.get('ledger') === 'on') { sideToLedger(l, job); save(); renderAll(); }   // 예전에 등록해서 가계부에 없던 수입을 지금 연결
       } else {
         const log = { id: newId(), ...rec };
-        if (income > 0 && fd.get('ledger') === 'on') {
-          if (!categories.income.includes('부수입')) { categories.income.push('부수입'); saveJson(CAT_KEY, categories); renderCategoryOptions(); }
-          log.txId = newId();
-          transactions.push({ id: log.txId, type: 'income', date, category: '부수입', amount: income, memo: `${job.name} 수입` });
-          save();
-          renderAll();
-        }
+        if (income > 0 && fd.get('ledger') === 'on') { sideToLedger(log, job); save(); renderAll(); }
         side.log.push(log);
       }
       saveSide();
@@ -6328,6 +6332,15 @@
   });
   el('side-status').addEventListener('click', (e) => { const b = e.target.closest('button[data-ss]'); if (b) { sideSt = b.dataset.ss; renderSide(); } });
   el('side-body').addEventListener('click', (e) => {
+    if (e.target.closest('[data-sidesync]')) {
+      const todo = side.log.filter((l) => l.income > 0 && !l.txId);
+      if (!todo.length) return;
+      if (!confirm(`N잡 수입 ${todo.length}건(합계 ${formatWon(todo.reduce((a, l) => a + l.income, 0))})을 가계부에 수입(부수입)으로 기록할까요?\n이미 가계부에 직접 적어 둔 수입이면 두 번 잡혀요.`)) return;
+      todo.forEach((l) => sideToLedger(l, side.jobs.find((j) => j.id === l.jid)));
+      saveSide(); save(); renderAll(); renderSide();
+      showToast(`${todo.length}건을 가계부에 기록했어요`);
+      return;
+    }
     const sj = e.target.closest('[data-sj]');
     if (sj) { openSideDetail(side.jobs.find((x) => x.id === sj.dataset.sj)); return; }
     const sl = e.target.closest('[data-sl]');
@@ -8708,7 +8721,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v131'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v132'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span class="slogan">다달이, 매일의 기록이 모여<br><b>더 나은 생활</b>이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
