@@ -1662,6 +1662,7 @@
         <div class="val" id="sum-balance">0원</div>
       </div>
     </div>
+    <p class="goal-hint" id="flow-note" hidden style="margin:8px 0 0"></p>
     <div class="year-sum">
       <div class="ys-head" id="year-label"></div>
       <div class="ys-row"><span>총 수입</span><b class="inc" id="ys-income">0원</b></div>
@@ -2005,6 +2006,14 @@
   }
   sqApplyPreset('month');
 
+  // 빌린 돈·빌려준 돈의 **원금** 흐름(대출·차용 / 대출 상환 / 대여금 / 대여금 회수)은 번 돈·쓴 돈이 아니라서 수입·지출·잔액 합계에서 뺀다.
+  // 이자(대출 이자·대여 이자)는 진짜 비용·수입이라 그대로 센다. 내역 목록에는 그대로 보이고 부채·차용 메뉴에서 따로 본다. 부채·차용의 `DEBT_CAT` 이름과 맞춰 둔다.
+  const PRINCIPAL_CATS = new Set(['대출·차용', '대출 상환', '대여금', '대여금 회수']);
+  const isPrincipal = (t) => PRINCIPAL_CATS.has(t.category);
+  const flowOnly = (list) => list.filter((t) => !isPrincipal(t));
+  const principalSum = (list) => list.filter(isPrincipal).reduce((a, t) => a + t.amount, 0);
+  const principalNote = (n) => (n > 0 ? `대출·대여 원금 ${formatWon(n)}은 합계에서 뺐어요 (부채·차용에서 확인)` : '');
+
   function renderSearch() {
     const f = el('sq-from'), t = el('sq-to'), ty = el('sq-type'), c = el('sq-cat'), q = el('sq-q');
     if (document.activeElement !== f) f.value = SQ.from;
@@ -2020,8 +2029,8 @@
     const list = transactions.filter((x) => (!SQ.from || x.date >= SQ.from) && (!SQ.to || x.date <= SQ.to)
       && (SQ.type === 'all' || x.type === SQ.type) && (!SQ.cat || x.category === SQ.cat)
       && (!kw || [x.category, x.memo, payLabel(x)].some((s) => String(s || '').toLowerCase().includes(kw))));
-    const inc = list.filter((x) => x.type === 'income').reduce((a, x) => a + x.amount, 0);
-    const exp = list.filter((x) => x.type === 'expense').reduce((a, x) => a + x.amount, 0);
+    const inc = flowOnly(list).filter((x) => x.type === 'income').reduce((a, x) => a + x.amount, 0);
+    const exp = flowOnly(list).filter((x) => x.type === 'expense').reduce((a, x) => a + x.amount, 0);
     const range = SQ.from || SQ.to ? `${SQ.from || '처음'} ~ ${SQ.to || '끝'}` : '전체 기간';
     let html = `<p class="goal-hint" style="margin:0 0 8px">${range} · ${list.length}건</p>
       <div class="summary-grid">
@@ -2060,8 +2069,10 @@
     el('month-label').textContent = viewDate.getFullYear() + '년 ' + (viewDate.getMonth() + 1) + '월';
 
     const monthTx = transactions.filter((t) => txMonthKey(t) === key);
-    const income = monthTx.filter((t) => t.type === 'income').reduce((s, t) => s + t.amount, 0);
-    const expense = monthTx.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+    const flowTx = flowOnly(monthTx);
+    const income = flowTx.filter((t) => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+    const expense = flowTx.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+    const fn = el('flow-note'); fn.textContent = principalNote(principalSum(monthTx)); fn.hidden = !fn.textContent;
 
     el('sum-income').textContent = formatWon(income);
     el('sum-expense').textContent = formatWon(expense);
@@ -2070,15 +2081,15 @@
     // 보고 있는 달이 속한 해의 1~12월 누계
     const yr = String(viewDate.getFullYear());
     let yInc = 0, yExp = 0;
-    transactions.forEach((t) => { if (t.date.startsWith(yr)) { if (t.type === 'income') yInc += t.amount; else yExp += t.amount; } });
+    transactions.forEach((t) => { if (t.date.startsWith(yr) && !isPrincipal(t)) { if (t.type === 'income') yInc += t.amount; else yExp += t.amount; } });
     el('year-label').textContent = (yr === String(new Date().getFullYear()) ? '📅 올해 ' + yr + '년' : '📅 ' + yr + '년') + ' 전체 (1월~12월)';
     el('ys-income').textContent = formatWon(yInc);
     el('ys-expense').textContent = formatWon(yExp);
     el('ys-balance').textContent = formatWon(yInc - yExp);
 
     renderSearch();
-    renderWeeks(monthTx.filter((t) => t.type === 'expense'));
-    renderBreakdown(monthTx.filter((t) => t.type === 'expense'));
+    renderWeeks(flowTx.filter((t) => t.type === 'expense'));
+    renderBreakdown(flowTx.filter((t) => t.type === 'expense'));
     renderCards();
     renderFixed(monthTx);
     renderList(onlyFixed ? monthTx.filter(isFixed) : monthTx);
@@ -2600,7 +2611,7 @@
     const inc = fixed.filter((t) => t.type === 'income');
     const exp = fixed.filter((t) => t.type === 'expense');
     const sum = (l) => l.reduce((s, t) => s + t.amount, 0);
-    const spent = monthTx.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+    const spent = flowOnly(monthTx).filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
     const row = (t) => `<div class="fx-row"${originAttr(txOrigin(t))}>
         <span>${t.date.slice(5).replace('-', '/')} <em>${escapeHtml(t.memo || t.category)}</em>${payLabel(t) ? ' · ' + escapeHtml(payLabel(t)) : ''}</span>
         <b class="${t.type}">${t.type === 'income' ? '+' : '-'}${formatWon(t.amount)}</b></div>`;
@@ -7386,7 +7397,7 @@
       });
     }
     if (cal === 'fin') transactions.forEach((t) => {
-      if (!t.date || t.date < from || t.date > to) return;
+      if (!t.date || t.date < from || t.date > to || isPrincipal(t)) return;
       const o = money[t.date] = money[t.date] || { inc: 0, exp: 0 };
       if (t.type === 'income') o.inc += t.amount; else o.exp += t.amount;
     });
@@ -8395,7 +8406,7 @@
     const now = new Date(), months = [];
     for (let i = 5; i >= 0; i--) { const d = new Date(now.getFullYear(), now.getMonth() - i, 1); months.push({ ym: monthKey(d), m: d.getMonth() + 1 }); }
     months.forEach((mo) => {
-      const l = transactions.filter((t) => t.date.startsWith(mo.ym));
+      const l = flowOnly(transactions.filter((t) => t.date.startsWith(mo.ym)));
       mo.inc = l.filter((t) => t.type === 'income').reduce((s, t) => s + t.amount, 0);
       mo.exp = l.filter((t) => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
       mo.sav = savings.log.filter((x) => !x.start && x.amount > 0 && x.date.startsWith(mo.ym)).reduce((s, x) => s + x.amount, 0);
@@ -8417,7 +8428,7 @@
 
     // 이번 달 지출 카테고리(많은 순 5개 + 나머지는 "기타 항목")
     const cur = months[5], catT = {};
-    transactions.filter((t) => t.date.startsWith(cur.ym) && t.type === 'expense').forEach((t) => { const k = t.category || '기타'; catT[k] = (catT[k] || 0) + t.amount; });
+    transactions.filter((t) => t.date.startsWith(cur.ym) && t.type === 'expense' && !isPrincipal(t)).forEach((t) => { const k = t.category || '기타'; catT[k] = (catT[k] || 0) + t.amount; });
     let ent = Object.entries(catT).sort((a, b) => b[1] - a[1]);
     if (ent.length > 6) ent = [...ent.slice(0, 5), ['기타 항목', ent.slice(5).reduce((s, e) => s + e[1], 0)]];
     if (ent.length) {
@@ -8467,7 +8478,7 @@
 
     // ── 돈 ──
     const ch = statusChartsHtml();
-    const mtx = transactions.filter((t) => t.date.startsWith(ym)), inc = sum(mtx.filter((t) => t.type === 'income'), (t) => t.amount), exp = sum(mtx.filter((t) => t.type === 'expense'), (t) => t.amount);
+    const mtx = flowOnly(transactions.filter((t) => t.date.startsWith(ym))), inc = sum(mtx.filter((t) => t.type === 'income'), (t) => t.amount), exp = sum(mtx.filter((t) => t.type === 'expense'), (t) => t.amount);
     const ledger = transactions.length ? card('ledger', '💰', '가계부', `${formatWon(exp)} 지출`, `이번 달 · 수입 ${formatWon(inc)} · 남은 돈 ${signed(inc - exp)}`, ch.ledger, { sub: 'sum' }) : empty('ledger', '💰', '가계부', '아직 가계부 기록이 없어요');
     const savTotal = savings.accounts.reduce((a, x) => a + savBal(x.id), 0), goals = savings.accounts.filter((a) => a.goal > 0).sort((a, b) => savBal(b.id) / b.goal - savBal(a.id) / a.goal).slice(0, 4);
     const sav = savings.accounts.length ? card('savings', '🐷', '저축', formatWon(savTotal), `통장·목표 ${savings.accounts.length}개`, ch.sav + (goals.length ? sec('목표 달성률') + hbars(goals.map((a) => { const pc = Math.round((savBal(a.id) / a.goal) * 100); return { n: a.name, w: pc, t: pc + '%' }; })) : '')) : empty('savings', '🐷', '저축', '통장·목표를 만들면 저축 통계가 나와요');
@@ -8520,7 +8531,7 @@
     const now = new Date(), today = todayStr(), ym = today.slice(0, 7);
     const prevYm = monthKey(new Date(now.getFullYear(), now.getMonth() - 1, 1));
     const sum = (l, f) => l.reduce((s, x) => s + f(x), 0);
-    const mtx = transactions.filter((t) => t.date.startsWith(ym));
+    const monthAll = transactions.filter((t) => t.date.startsWith(ym)), mtx = flowOnly(monthAll), flowTxt = principalNote(principalSum(monthAll));
     const inc = sum(mtx.filter((t) => t.type === 'income'), (t) => t.amount);
     const exp = sum(mtx.filter((t) => t.type === 'expense'), (t) => t.amount);
     const fixedExp = sum(mtx.filter((t) => t.type === 'expense' && isFixed(t)), (t) => t.amount);
@@ -8620,6 +8631,7 @@
         <div class="summary-item income" data-sv="ledger" data-ssub="sum" role="button" tabindex="0"><div class="lbl">이번 달 수입</div><div class="val">${formatWon(inc)}</div></div>
         <div class="summary-item expense" data-sv="ledger" data-ssub="sum" role="button" tabindex="0"><div class="lbl">지출</div><div class="val">${formatWon(exp)}</div></div>
         <div class="summary-item balance" data-sv="ledger" data-ssub="sum" role="button" tabindex="0"><div class="lbl">잔액</div><div class="val">${bal < 0 ? '-' : ''}${formatWon(Math.abs(bal))}</div></div></div>
+      ${flowTxt ? `<p class="goal-hint" style="margin:8px 0 0">${flowTxt}</p>` : ''}
       <div data-sub="chart">${statCardsHtml() || '<div class="empty-msg">아직 통계로 보여 줄 기록이 없어요</div>'}</div>
       <div data-sub="table">${dashWelcome()}${dashShortcuts()}${dashAgenda()}${dashTiles()}<h2 class="section-title" style="margin:18px 0 0">관리 현황표</h2>
       <table class="st-table st-main"><thead><tr><th>영역</th><th>현황</th><th>금액</th></tr></thead><tbody>${rows}</tbody></table>
@@ -9126,7 +9138,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v140'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v141'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span class="slogan">다달이, 매일의 기록이 모여<br><b>더 나은 생활</b>이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
