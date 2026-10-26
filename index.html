@@ -509,6 +509,8 @@
   .donut-center b { font-size: 16px; font-variant-numeric: tabular-nums; }
   .bk-row { display: flex; align-items: center; gap: 8px; padding: 9px 2px; border-bottom: 1px solid var(--border); font-size: 15px; }
   .bk-row:last-child { border-bottom: none; }
+  .tx-dup { color: var(--expense); font-weight: 700; }
+  .summary-item[data-lq] { cursor: pointer; }
   .tx-go { display: inline-block; margin-left: 4px; padding: 1px 8px; border: none; border-radius: 999px; background: var(--mc-soft); color: var(--mc-text); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
   [data-gv] { cursor: pointer; }
   .fx-row[data-gv]::after, .bk-row[data-gv]::after { content: '›'; color: var(--text-muted); margin-left: 6px; }
@@ -1649,15 +1651,15 @@
 
   <section class="card" data-sub="sum">
     <div class="summary-grid">
-      <div class="summary-item income">
+      <div class="summary-item income" data-lq="income" role="button" tabindex="0">
         <div class="lbl">수입</div>
         <div class="val" id="sum-income">0원</div>
       </div>
-      <div class="summary-item expense">
+      <div class="summary-item expense" data-lq="expense" role="button" tabindex="0">
         <div class="lbl">지출</div>
         <div class="val" id="sum-expense">0원</div>
       </div>
-      <div class="summary-item balance">
+      <div class="summary-item balance" data-lq="all" role="button" tabindex="0">
         <div class="lbl">잔액</div>
         <div class="val" id="sum-balance">0원</div>
       </div>
@@ -2032,12 +2034,17 @@
     const inc = flowOnly(list).filter((x) => x.type === 'income').reduce((a, x) => a + x.amount, 0);
     const exp = flowOnly(list).filter((x) => x.type === 'expense').reduce((a, x) => a + x.amount, 0);
     const range = SQ.from || SQ.to ? `${SQ.from || '처음'} ~ ${SQ.to || '끝'}` : '전체 기간';
+    const dupN = {}; list.forEach((x) => { const k = x.type + '|' + x.date + '|' + x.amount; dupN[k] = (dupN[k] || 0) + 1; });
+    const flags = (x) => (isPrincipal(x) ? ' · 합계 제외' : '') + (dupN[x.type + '|' + x.date + '|' + x.amount] > 1 ? ' · <span class="tx-dup">같은 날 같은 금액 ' + dupN[x.type + '|' + x.date + '|' + x.amount] + '건</span>' : '');
+    const byCat = {}; flowOnly(list).forEach((x) => { if (SQ.type === 'all' || x.type === SQ.type) { const k = x.category || '기타'; (byCat[k] = byCat[k] || { n: 0, v: 0 }); byCat[k].n++; byCat[k].v += x.amount; } });
+    const catRows = Object.entries(byCat).sort((a, b) => b[1].v - a[1].v);
     let html = `<p class="goal-hint" style="margin:0 0 8px">${range} · ${list.length}건</p>
       <div class="summary-grid">
         <div class="summary-item income"><div class="lbl">수입</div><div class="val">${formatWon(inc)}</div></div>
         <div class="summary-item expense"><div class="lbl">지출</div><div class="val">${formatWon(exp)}</div></div>
         <div class="summary-item balance"><div class="lbl">잔액</div><div class="val">${formatWon(inc - exp)}</div></div>
       </div>`;
+    if (SQ.type !== 'all' && catRows.length > 1) html += `<div class="ins-sum" style="margin-top:10px"><div class="goal-hint" style="margin:0 0 4px">분류별 ${SQ.type === 'income' ? '수입' : '지출'} (합계에서 뺀 대출·대여 원금 제외)</div>${catRows.map(([k, o]) => `<div class="fx-row"><span>${escapeHtml(k)} <small style="color:var(--text-muted)">${o.n}건</small></span><b>${formatWon(o.v)}</b></div>`).join('')}</div>`;
     if (SQ.from && SQ.to && SQ.from <= SQ.to && exp > 0) {
       const days = Math.round((new Date(SQ.to) - new Date(SQ.from)) / 86400000) + 1;
       html += `<p class="goal-hint" style="margin:8px 0 0">하루 평균 지출 ${formatWon(Math.round(exp / days))} (${days}일)</p>`;
@@ -2046,7 +2053,7 @@
       const sorted = [...list].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
       html += '<div class="tx-list" style="margin-top:12px">' + sorted.slice(0, 100).map((x) => `<div class="tx-item" data-id="${x.id}">
           <div class="tx-main"><div class="tx-cat">${escapeHtml(x.category || '')}${x.memo ? ' · ' + escapeHtml(x.memo) : ''}</div>
-          <div class="tx-meta">${x.date.slice(2).replace(/-/g, '.')}${payLabel(x) ? ' · ' + escapeHtml(payLabel(x)) : ''}${isFixed(x) ? ' · 고정' : ''}${originChip(x)}</div></div>
+          <div class="tx-meta">${x.date.slice(2).replace(/-/g, '.')}${payLabel(x) ? ' · ' + escapeHtml(payLabel(x)) : ''}${isFixed(x) ? ' · 고정' : ''}${flags(x)}${originChip(x)}</div></div>
           <div class="tx-amt ${x.type}">${x.type === 'income' ? '+' : '-'}${formatWon(x.amount)}</div><div class="tx-actions"><button class="del-btn" title="삭제" aria-label="삭제">🗑</button></div></div>`).join('') + '</div>'
         + (sorted.length > 100 ? `<p class="goal-hint" style="margin:8px 0 0">최근 100건만 보여 줘요. 합계에는 ${sorted.length}건이 모두 들어 있어요.</p>` : '');
     } else html += '<div class="empty-msg" style="padding:14px 0">조건에 맞는 내역이 없어요</div>';
@@ -2063,6 +2070,18 @@
     if (row) openTxSheet(row.closest('.tx-item').dataset.id);
   });
   el('sq-q').addEventListener('input', () => { SQ.q = el('sq-q').value; renderSearch(); });
+  // 요약 칸(가계부·대시보드)을 누르면 그 달의 수입/지출/전체 내역을 "내역" 탭의 검색 결과로 보여 준다.
+  function openLedgerSearch(type, ym) {
+    const [y, m] = (ym || monthKey(new Date())).split('-').map(Number);
+    SQ.preset = ''; SQ.from = sqIso(new Date(y, m - 1, 1)); SQ.to = sqIso(new Date(y, m, 0)); SQ.type = type === 'income' || type === 'expense' ? type : 'all'; SQ.cat = ''; SQ.q = '';
+    renderSearch();
+    goTo('ledger', { sub: 'list', el: 'search-card' });
+  }
+  document.querySelectorAll('#view-ledger [data-lq]').forEach((n) => {
+    const go = () => openLedgerSearch(n.dataset.lq, monthKey(viewDate));
+    n.addEventListener('click', go);
+    n.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+  });
 
   function renderAll() {
     const key = monthKey(viewDate);
@@ -2232,6 +2251,8 @@
       return;
     }
     const sorted = [...monthTx].sort((a, b) => (a.date < b.date ? 1 : -1));
+    const dupN = {}; monthTx.forEach((x) => { const k = x.type + '|' + x.date + '|' + x.amount; dupN[k] = (dupN[k] || 0) + 1; });
+    const flags = (x) => (isPrincipal(x) ? ' · 합계 제외' : '') + (dupN[x.type + '|' + x.date + '|' + x.amount] > 1 ? ' · <span class="tx-dup">같은 날 같은 금액 ' + dupN[x.type + '|' + x.date + '|' + x.amount] + '건</span>' : '');
     wrap.innerHTML = sorted
       .map((t) => {
         const sign = t.type === 'income' ? '+' : '-';
@@ -2239,7 +2260,7 @@
         return `<div class="tx-item" data-id="${t.id}">
           <div class="tx-main">
             <div class="tx-cat">${t.category}${t.memo ? ' · ' + escapeHtml(t.memo) : ''}</div>
-            <div class="tx-meta">${day}${payLabel(t) ? ' · ' + escapeHtml(payLabel(t)) : ''}${t.recurId ? ' · 자동' : ''}${isFixed(t) ? ' · 고정' : ''}${originChip(t)}</div>
+            <div class="tx-meta">${day}${payLabel(t) ? ' · ' + escapeHtml(payLabel(t)) : ''}${t.recurId ? ' · 자동' : ''}${isFixed(t) ? ' · 고정' : ''}${flags(t)}${originChip(t)}</div>
           </div>
           <div class="tx-amt ${t.type}">${sign}${formatWon(t.amount)}</div>
           <div class="tx-actions">
@@ -8628,9 +8649,9 @@
     const DAYN = ['일', '월', '화', '수', '목', '금', '토'];
     el('status-body').innerHTML = `<div class="month-nav" style="margin-bottom:10px"><div class="label">${now.getFullYear()}년 ${now.getMonth() + 1}월 ${now.getDate()}일 (${DAYN[dow]})</div></div>
       <div class="summary-grid">
-        <div class="summary-item income" data-sv="ledger" data-ssub="sum" role="button" tabindex="0"><div class="lbl">이번 달 수입</div><div class="val">${formatWon(inc)}</div></div>
-        <div class="summary-item expense" data-sv="ledger" data-ssub="sum" role="button" tabindex="0"><div class="lbl">지출</div><div class="val">${formatWon(exp)}</div></div>
-        <div class="summary-item balance" data-sv="ledger" data-ssub="sum" role="button" tabindex="0"><div class="lbl">잔액</div><div class="val">${bal < 0 ? '-' : ''}${formatWon(Math.abs(bal))}</div></div></div>
+        <div class="summary-item income" data-lq="income" role="button" tabindex="0"><div class="lbl">이번 달 수입</div><div class="val">${formatWon(inc)}</div></div>
+        <div class="summary-item expense" data-lq="expense" role="button" tabindex="0"><div class="lbl">지출</div><div class="val">${formatWon(exp)}</div></div>
+        <div class="summary-item balance" data-lq="all" role="button" tabindex="0"><div class="lbl">잔액</div><div class="val">${bal < 0 ? '-' : ''}${formatWon(Math.abs(bal))}</div></div></div>
       ${flowTxt ? `<p class="goal-hint" style="margin:8px 0 0">${flowTxt}</p>` : ''}
       <div data-sub="chart">${statCardsHtml() || '<div class="empty-msg">아직 통계로 보여 줄 기록이 없어요</div>'}</div>
       <div data-sub="table">${dashWelcome()}${dashShortcuts()}${dashAgenda()}${dashTiles()}<h2 class="section-title" style="margin:18px 0 0">관리 현황표</h2>
@@ -8643,6 +8664,8 @@
   el('status-body').addEventListener('click', (e) => {
     const vm = e.target.closest('[data-vm]');
     if (vm) { stSel = +vm.dataset.vm; renderStatus(); return; }
+    const lq = e.target.closest('[data-lq]');
+    if (lq) { openLedgerSearch(lq.dataset.lq, todayStr().slice(0, 7)); return; }
     const gd = e.target.closest('[data-gender]');
     if (gd) { profile.gender = gd.dataset.gender; saveProfile(); renderStatus(); renderHealth(); showToast('저장했어요'); return; }
     if (e.target.closest('[data-wclose]')) { try { localStorage.setItem(WELCOME_KEY, '1'); } catch (err) { /* 무시 */ } renderStatus(); return; }
@@ -9138,7 +9161,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v141'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v142'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span class="slogan">다달이, 매일의 기록이 모여<br><b>더 나은 생활</b>이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
