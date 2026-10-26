@@ -1831,6 +1831,7 @@
   let currentType = 'expense';
   let onlyFixed = false;
   let viewDate = new Date();
+  viewDate.setDate(1);   // 29~31일에 ◀▶로 달을 옮기면 없는 날(9/31)이 다음 달로 넘어가 같은 달에 머무르므로 1일로 둔다
   viewDate.setDate(1);
 
   const el = (id) => document.getElementById(id);
@@ -1971,8 +1972,7 @@
     restoreFixedPay();
     el('f-amount').value = '';
     el('f-memo').value = '';
-    viewDate = new Date(entry.date);
-    viewDate.setDate(1);
+    viewDate = new Date(+entry.date.slice(0, 4), +entry.date.slice(5, 7) - 1, 1);
     renderAll();
     showToast('기록되었어요');
   });
@@ -2046,8 +2046,10 @@
       </div>`;
     if (SQ.type !== 'all' && catRows.length > 1) html += `<div class="ins-sum" style="margin-top:10px"><div class="goal-hint" style="margin:0 0 4px">분류별 ${SQ.type === 'income' ? '수입' : '지출'} (합계에서 뺀 대출·대여 원금 제외)</div>${catRows.map(([k, o]) => `<div class="fx-row"><span>${escapeHtml(k)} <small style="color:var(--text-muted)">${o.n}건</small></span><b>${formatWon(o.v)}</b></div>`).join('')}</div>`;
     if (SQ.from && SQ.to && SQ.from <= SQ.to && exp > 0) {
-      const days = Math.round((new Date(SQ.to) - new Date(SQ.from)) / 86400000) + 1;
-      html += `<p class="goal-hint" style="margin:8px 0 0">하루 평균 지출 ${formatWon(Math.round(exp / days))} (${days}일)</p>`;
+      // 이번 달처럼 끝이 아직 오지 않은 기간은 오늘까지의 날수로 나눈다(남은 날까지 나누면 평균이 실제보다 작게 나온다)
+      const t0 = todayStr(), upto = SQ.to > t0 && SQ.from <= t0 ? t0 : SQ.to;
+      const days = Math.round((new Date(upto) - new Date(SQ.from)) / 86400000) + 1;
+      html += `<p class="goal-hint" style="margin:8px 0 0">하루 평균 지출 ${formatWon(Math.round(exp / days))} (${upto !== SQ.to ? '오늘까지 ' : ''}${days}일)</p>`;
     }
     if (list.length) {
       const sorted = [...list].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
@@ -2518,6 +2520,7 @@
             mergeById(debt.items, data.debt.items, (d) => typeof d.name === 'string' && d.name && d.amount > 0);
             mergeById(debt.log, data.debt.log, (l) => validDate(l.date) && debt.items.some((d) => d.id === l.did));
             saveDebt();
+            renderDebt();
           }
           if (data.savings && Array.isArray(data.savings.accounts)) {
             mergeById(savings.accounts, data.savings.accounts, (a) => typeof a.name === 'string' && a.name);
@@ -2628,7 +2631,7 @@
   const isFixed = (t) => (t.fixed === undefined ? !!t.recurId : t.fixed);
 
   function renderFixed(monthTx) {
-    const fixed = monthTx.filter(isFixed).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+    const fixed = flowOnly(monthTx).filter(isFixed).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
     const inc = fixed.filter((t) => t.type === 'income');
     const exp = fixed.filter((t) => t.type === 'expense');
     const sum = (l) => l.reduce((s, t) => s + t.amount, 0);
@@ -4086,7 +4089,7 @@
     const b = parseD(birth), r = parseD(ref);
     return (r.getFullYear() - b.getFullYear()) * 12 + r.getMonth() - b.getMonth() - (r.getDate() < b.getDate() ? 1 : 0);
   };
-  const addMonthsTo = (s, n) => { const d = parseD(s); d.setMonth(d.getMonth() + n); return fmtD(d); };
+  const addMonthsTo = (s, n) => { const d = parseD(s), day = d.getDate(); d.setDate(1); d.setMonth(d.getMonth() + n); d.setDate(Math.min(day, new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate())); return fmtD(d); };
   const ageText = (mo) => (mo < 24 ? `${Math.max(mo, 0)}개월` : `만 ${Math.floor(mo / 12)}세`);
   const doseNo = (d) => { const m = /(\d+)\s*차/.exec(d || ''); return m ? +m[1] : 0; };
 
@@ -4632,6 +4635,7 @@
 
   // 납입 만기: 납입 기간으로 계산하거나, 상태를 "납입 완료"로 직접 골랐으면 납입을 마친 날을 쓴다(날짜를 모르면 먼 과거로 두어 이미 끝난 것으로 본다).
   const insEnd = (p) => (p.freq === 'once' ? (validDate(p.start) ? addDays(p.start, 1) : '1900-01-01') : p.status === 'paid' ? (validDate(p.paidDate) ? addDays(p.paidDate, 1) : '1900-01-01') : validDate(p.start) && +p.payYears > 0 ? addMonthsTo(p.start, Math.round(p.payYears * 12)) : '');
+  function insPayMonth(p) { return p.payMonth >= 1 ? p.payMonth : validDate(p.start) ? +p.start.slice(5, 7) : 1; }   // 연납 납입 월(비워 두면 계약 시작 월, 시작일도 없으면 1월)
   const monthlyOf = (p) => (p.freq === 'once' ? 0 : p.freq === 'year' ? p.premium / 12 : p.premium);
   const insState = (p, today) => (p.status === 'ended' ? 'ended' : insEnd(p) && insEnd(p) <= today ? 'paidup' : 'active');
   const rentEnd = (r) => (validDate(r.start) && +r.termMonths > 0 ? addMonthsTo(r.start, +r.termMonths) : '');
@@ -5904,7 +5908,7 @@
     const list = debt.items.filter((d) => want.includes(debtDirOf(d)));
     if (!list.length) return '<div class="empty-msg">이 구분에는 등록한 항목이 없어요</div>';
     const row = (label, val, strong) => `<div class="fx-row"><span>${label}</span><b${strong ? ' style="font-size:16px"' : ''}>${val}</b></div>`;
-    const sums = (dir) => { const l = list.filter((d) => debtDirOf(d) === dir); const total = l.reduce((a, d) => a + d.amount, 0), repaid = l.reduce((a, d) => a + debtRepaid(d.id), 0); return { n: l.length, total, repaid, left: Math.max(0, total - repaid), interest: l.reduce((a, d) => a + debtPaidInt(d.id), 0) }; };
+    const sums = (dir) => { const l = list.filter((d) => debtDirOf(d) === dir); const total = l.reduce((a, d) => a + d.amount, 0), repaid = l.reduce((a, d) => a + debtRepaid(d.id), 0); return { n: l.length, total, repaid, left: l.reduce((a, d) => a + debtBal(d.id), 0), interest: l.reduce((a, d) => a + debtPaidInt(d.id), 0) }; };
     let html = '';
     want.forEach((dir) => {
       const t = DEBT_TXT[dir], x = sums(dir);
@@ -5966,6 +5970,7 @@
     </form>`, (fd) => {
       const name = String(fd.get('name')).trim(), amount = parseInt(fd.get('amount'), 10), date = String(fd.get('date'));
       if (!name || !(amount > 0) || !validDate(date)) { showToast('이름·금액·날짜를 확인해 주세요'); return false; }
+      if (d && amount < debtRepaid(d.id)) { showToast(`이미 ${t.sum2} ${formatWon(debtRepaid(d.id))}보다 작게 고칠 수 없어요`); return false; }
       const rec = { name, party: String(fd.get('party')).trim(), amount, date, rate: Math.max(0, parseFloat(fd.get('rate')) || 0), due: validDate(String(fd.get('due'))) ? String(fd.get('due')) : '', payDay: Math.min(31, Math.max(0, parseInt(fd.get('payDay'), 10) || 0)), monthly: Math.max(0, parseInt(fd.get('monthly'), 10) || 0), note: String(fd.get('note')).trim() };
       const tbd = fd.get('dueTbd') === 'on';
       rec.dueTbd = tbd || !rec.due;
@@ -6031,7 +6036,7 @@
         const tp = l.txP && transactions.find((x) => x.id === l.txP), ti = l.txI && transactions.find((x) => x.id === l.txI);
         if (tp) { if (principal > 0) { tp.date = date; tp.amount = principal; tp.memo = `${item.name} 원금`; } else { dropTx(l.txP); l.txP = ''; } }
         if (ti) { if (interest > 0) { ti.date = date; ti.amount = interest; ti.memo = `${item.name} 이자`; } else { dropTx(l.txI); l.txI = ''; } }
-        if (link && !l.txP && !l.txI) { if (principal > 0) l.txP = debtTx(dir, 'p', date, principal, `${item.name} 원금`); if (interest > 0) l.txI = debtTx(dir, 'i', date, interest, `${item.name} 이자`); }
+        if (link || l.txP || l.txI) { if (principal > 0 && !l.txP) l.txP = debtTx(dir, 'p', date, principal, `${item.name} 원금`); if (interest > 0 && !l.txI) l.txI = debtTx(dir, 'i', date, interest, `${item.name} 이자`); }
         save(); renderAll();
       } else {
         const log = { id: newId(), did: item.id, date, principal, interest, memo, txP: '', txI: '' };
@@ -7358,7 +7363,7 @@
         const ym = y + '-' + pad2(m + 1);
         insurance.forEach((p) => {
           if (p.status === 'ended' || !(p.payDay >= 1)) return;
-          if (p.freq === 'year' && m + 1 !== (p.payMonth >= 1 ? p.payMonth : 1)) return;
+          if (p.freq === 'year' && m + 1 !== insPayMonth(p)) return;
           const d = ymdOf(y, m, p.payDay), end = insEnd(p);
           if ((!validDate(p.start) || d >= p.start) && (!end || d < end)) add('pay', d, { icon: '🛡', text: `보험료 ${p.name}`, amt: +p.premium || 0, view: 'insurance', ref: p.id });
         });
@@ -8149,7 +8154,7 @@
       const st = insState(p, today);
       if (st === 'ended') return;
       if (st === 'active') {
-        const d = p.freq === 'once' ? '' : nextPay(p.payDay, today, p.freq, p.payMonth);
+        const d = p.freq === 'once' ? '' : nextPay(p.payDay, today, p.freq, insPayMonth(p));
         const dd = d ? within(d, 0, 3) : null;
         if (dd !== null) add(dd, `보험료 ${p.name} ${formatWon(p.premium)}`, 'insurance', '🛡', { ref: p.id });
         const e = within(p.freq === 'once' ? p.start : insEnd(p), 0, 30);
@@ -8310,7 +8315,7 @@
       insurance.forEach((p) => {
         if (insState(p, today) !== 'active' || !(p.payDay >= 1)) return;
         const summary = `🛡 보험료 ${p.name} ${formatWon(p.premium)}`;
-        if (p.freq === 'year') ev({ uid: 'pay-ins-' + p.id, summary, date: nextPay(p.payDay, today, 'year', p.payMonth), rrule: 'FREQ=YEARLY' });
+        if (p.freq === 'year') ev({ uid: 'pay-ins-' + p.id, summary, date: nextPay(p.payDay, today, 'year', insPayMonth(p)), rrule: 'FREQ=YEARLY' });
         else monthly({ uid: 'pay-ins-' + p.id, summary }, p.payDay);
       });
       rentals.forEach((r) => {
@@ -8521,7 +8526,7 @@
     const ins = insurance.length ? card('insurance', '🛡', '보험', insM ? '월 ' + formatWon(insM) : '-', `납입 중 ${activeIns.length}건 / 전체 ${insurance.length}건`, kinds.length ? sec('종류별 월 납입') + hbars(kinds.map(([k, v]) => ({ n: k, w: (v / kMax) * 100, t: formatWon(Math.round(v)) }))) : '') : empty('insurance', '🛡', '보험', '보험을 등록하면 통계가 나와요');
     const liveRent = rentals.filter((r) => rentState(r, today) !== 'ended'), rentM = sum(liveRent, (r) => +r.fee || 0), rTop = [...liveRent].filter((r) => +r.fee > 0).sort((a, b) => b.fee - a.fee).slice(0, 5), rMax = rTop[0] ? +rTop[0].fee : 1;
     const rent = rentals.length ? card('rental', '🧰', '렌탈·구독', rentM ? '월 ' + formatWon(rentM) : '-', `이용 중 ${liveRent.length}건`, rTop.length ? sec('월 이용료 큰 순') + hbars(rTop.map((r) => ({ n: r.name, w: (r.fee / rMax) * 100, t: formatWon(+r.fee) }))) : '') : empty('rental', '🧰', '렌탈·구독', '렌탈·구독을 등록하면 통계가 나와요');
-    const acaM = (mo) => sum(academies.filter((a) => a.status !== 'ended' && acaInMonth(a, mo.ym)), (a) => +a.fee || 0), liveAca = academies.filter((a) => a.status === 'active' && acaInMonth(a, ym)), unpaid = liveAca.filter((a) => !acaPaid(a, ym));
+    const acaM = (mo) => sum(academies.filter((a) => a.status === 'active' && acaInMonth(a, mo.ym)), (a) => +a.fee || 0), liveAca = academies.filter((a) => a.status === 'active' && acaInMonth(a, ym)), unpaid = liveAca.filter((a) => !acaPaid(a, ym));
     const aca = academies.length ? card('academy', '📚', '학원비', formatWon(acaM(months[5])), `이번 달 · 납부 ${liveAca.length - unpaid.length}/${liveAca.length}${unpaid.length ? ` · 미납 ${formatWon(sum(unpaid, (a) => +a.fee || 0))}` : ''}`, sec('최근 6개월 수강료') + vbars(monthCols((mo) => ({ a: acaM(mo) }), (v) => '수강료 ' + formatWon(v.a)), '최근 6개월 월별 학원 수강료 막대그래프')) : empty('academy', '📚', '학원비', '학원을 등록하면 통계가 나와요');
 
     // ── 생활 ──
@@ -8623,7 +8628,7 @@
       row('💪', '운동 관리', fit.log.length ? `이번 주 ${fitWk.n}회 · ${fitWk.min ? fmtMin(fitWk.min) : '0분'}` : '아직 운동 기록이 없어요', '', fit.log.length ? `🔥 ${fitStreak(fit.log)}일` : '-', 'fit', 'log', { date: today }),
       row('💵', '나는 샐러리', salary.jobs.length ? `직장 ${salary.jobs.length}개 · 이번 달 실수령 ${money(salMonth.net)}` : '등록한 직장이 없어요', '', salary.jobs.length ? formatWon(salMonth.net) : '-', 'salary', '', { ref: xSal }),
       row('📈', '나는 CEO', (biz.shops.length > 1 ? `사업 ${biz.shops.length}개 · ` : '') + (bizMonth.length ? `매출 ${formatWon(bizSales)} · 비용 ${formatWon(bizCost)}` : '이번 달 입력 없음') + (bizNetInv > 0 ? `<div class="st-sub">투자금 ${formatWon(bizNetInv)} · 회수율 ${Math.round((Math.max(0, bizSum(biz.entries, 'sale') - bizSum(biz.entries, 'cost')) / bizNetInv) * 100)}%</div>` : ''), bizTarget > 0 && bizSales < bizTarget ? `목표 ${formatWon(bizTarget)} 중 ${Math.round((bizSales / bizTarget) * 100)}%` : '', bizMonth.length ? `${bizSales - bizCost < 0 ? '-' : ''}${formatWon(Math.abs(bizSales - bizCost))}` : '-', 'biz', '', {}),
-      row('🏦', '부채·차용', debt.items.length ? `갚을 돈 ${money(debtOwe)} · 받을 돈 ${money(debtGet)}` : '등록한 빌린 돈·빌려준 돈이 없어요', debtSoon ? `만기·받을 날 임박 ${debtSoon}건` : '', debt.items.length ? (debtGet - debtOwe < 0 ? '-' : '') + formatWon(Math.abs(debtGet - debtOwe)) : '-', 'debt', '', { ref: xDebt }),
+      row('🏦', '부채·차용', debt.items.length ? `갚을 돈 ${money(debtOwe)} · 받을 돈 ${money(debtGet)}<div class="st-sub">금액 = 받을 돈 − 갚을 돈</div>` : '등록한 빌린 돈·빌려준 돈이 없어요', debtSoon ? `만기·받을 날 임박 ${debtSoon}건` : '', debt.items.length ? (debtGet - debtOwe < 0 ? '-' : '') + formatWon(Math.abs(debtGet - debtOwe)) : '-', 'debt', '', { ref: xDebt }),
       row('🐷', '저축', savings.accounts.length ? `통장·목표 ${savings.accounts.length}개 · 이번 달 입금 ${money(savMonthIn)}` : '등록한 통장이 없어요', savMiss ? `이번 달 저축 계획 미달 ${savMiss}건` : '', savings.accounts.length ? formatWon(savTotal) : '-', 'savings', '', { ref: xSav }),
       row('🍳', '냉장고', `재료 ${fridge.length}개 · 임박 ${soonFood.length - expiredFood}개`, expiredFood ? `기한 지남 ${expiredFood}개` : '', '-', 'food', '', { mode: 'fridge', ref: xFood })
     ];
@@ -8631,7 +8636,7 @@
     const rows = rowList.filter((r) => r.h).sort((a, b) => menuOrder.indexOf(a.v) - menuOrder.indexOf(b.v)).map((r) => r.h).join('');
 
     // 매달 고정으로 나가는 돈 (보험·렌탈·학원비는 각 탭 데이터에서, 그 밖의 자동이체는 정기결제 목록에서)
-    const parts = [['보험', insMonthly], ['렌탈·구독', rentMonthly], ['학원비', sum(academies.filter((a) => a.status === 'active'), (a) => +a.fee || 0)], ['자동이체·기타', otherRecurs]].filter((p) => p[1] > 0);
+    const parts = [['보험', insMonthly], ['렌탈·구독', rentMonthly], ['학원비', acaTotal], ['자동이체·기타', otherRecurs]].filter((p) => p[1] > 0);
     const fixedTotal = sum(parts, (p) => p[1]);
     const maxPart = Math.max(1, ...parts.map((p) => p[1]));
     const fixedHtml = parts.length
@@ -8814,6 +8819,7 @@
       saveCalTabs();
       saveGoalLog();
       saveSav();
+      saveDebt();
       saveSide();
       saveSal();
       saveFit();
@@ -8833,6 +8839,7 @@
     renderCal();
     renderFin();
     renderSavings();
+    renderDebt();
     renderSide();
     renderSalary();
     renderFit();
@@ -9161,7 +9168,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v142'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v143'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span class="slogan">다달이, 매일의 기록이 모여<br><b>더 나은 생활</b>이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
