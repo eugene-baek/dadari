@@ -1,6 +1,6 @@
 // 앱 파일을 캐시에 저장해 오프라인에서도 열리게 한다. 파일을 고치면 VERSION을 올릴 것.
-const VERSION = 'dadari-v134';
-const FILES = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
+const VERSION = 'dadari-v135';
+const FILES = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png', './logo-full.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));
