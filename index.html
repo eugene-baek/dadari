@@ -927,6 +927,10 @@
   .meal-row .mr2 label { margin: 0 0 3px; font-size: 13px; }
   .meal-hint { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
   .meal-hint:empty { display: none; }
+  .meal-guess { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .meal-guess small { font-size: 13px; color: var(--text-muted); }
+  .meal-guess button { border: 1px solid var(--border); border-radius: 99px; background: var(--card-bg); color: var(--text); font-size: 13.5px; padding: 6px 10px; cursor: pointer; }
+  .meal-guess[hidden] { display: none; }
   .meal-total { font-size: 16px; font-weight: 700; margin: 10px 0 2px; }
   .biz-shops { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
   .biz-shops[hidden] { display: none; }
@@ -6947,23 +6951,41 @@
     ['맥주', 150, '1캔(355ml)'], ['소주', 70, '1잔'], ['막걸리', 100, '1잔'], ['와인', 90, '1잔(120ml)'],
     ['사과', 100, '1개'], ['바나나', 90, '1개'], ['귤', 40, '1개'], ['오렌지', 80, '1개'], ['포도', 60, '100g'], ['딸기', 35, '100g(약 6개)'], ['수박', 90, '1조각'], ['참외', 70, '1개'], ['감', 100, '1개'], ['키위', 50, '1개'],
     ['토마토', 35, '1개'], ['방울토마토', 40, '10개'], ['배', 100, '1/2개'], ['복숭아', 80, '1개'], ['블루베리', 50, '100g'], ['아보카도', 160, '1/2개'],
-    ['고구마', 200, '1개(중)'], ['감자', 130, '1개'], ['옥수수', 130, '1개'], ['견과류', 150, '1줌(25g)'], ['단백질바', 200, '1개']
+    ['고구마', 200, '1개(중)'], ['감자', 130, '1개'], ['옥수수', 130, '1개'], ['견과류', 150, '1줌(25g)'], ['단백질바', 200, '1개'],
+    ['국밥', 650, '1그릇'], ['돼지국밥', 700, '1그릇'], ['순댓국', 650, '1그릇'], ['순대국', 650, '1그릇'], ['뼈해장국', 500, '1그릇'], ['청국장', 200, '1인분'], ['동태탕', 250, '1인분'], ['매운탕', 300, '1인분'], ['알탕', 300, '1인분'],
+    ['닭볶음탕', 600, '1인분'], ['찜닭', 600, '1인분'], ['갈비찜', 600, '1인분'], ['아구찜', 350, '1인분'], ['해물찜', 400, '1인분'], ['낙곱새', 700, '1인분'], ['곱창', 500, '1인분'], ['막창', 450, '1인분'], ['닭발', 300, '1인분'],
+    ['차돌박이', 400, '1인분(100g)'], ['오리구이', 600, '1인분'], ['훈제오리', 450, '1인분'], ['양꼬치', 400, '1인분'], ['스테이크', 600, '1인분(200g)'], ['리조또', 700, '1인분'], ['베이컨', 45, '1줄'], ['닭꼬치', 130, '1꼬치'], ['떡꼬치', 250, '1꼬치'],
+    ['닭강정', 400, '1인분(소)'], ['치킨너겟', 50, '1개'], ['감자튀김', 350, '1인분'], ['컵라면', 300, '1개'], ['짜파게티', 600, '1봉지'], ['불닭볶음면', 530, '1봉지'], ['비빔라면', 550, '1봉지'], ['라볶이', 600, '1인분'], ['어묵', 60, '1꼬치'], ['오뎅', 60, '1꼬치'],
+    ['마라탕', 700, '1그릇'], ['마라샹궈', 800, '1인분'], ['깐풍기', 600, '1인분'], ['양장피', 500, '1인분'], ['짬뽕밥', 600, '1그릇'], ['라멘', 700, '1그릇'], ['돈부리', 700, '1그릇'], ['가츠동', 750, '1그릇'], ['모둠초밥', 450, '1인분(10개)'], ['오니기리', 200, '1개'],
+    ['와플', 350, '1개'], ['팬케이크', 400, '1인분'], ['티라미수', 350, '1조각'], ['푸딩', 150, '1개'], ['츄러스', 250, '1개'], ['프라푸치노', 400, '1잔'], ['믹스커피', 50, '1잔'], ['아이스커피', 50, '1잔'], ['녹차', 0, '1잔'], ['보리차', 0, '1컵'], ['물', 0, '1컵'],
+    ['탄산수', 0, '1병'], ['제로콜라', 0, '1캔'], ['에너지드링크', 110, '1캔'], ['요구르트', 70, '1병'], ['식혜', 120, '1컵'], ['수정과', 100, '1컵'], ['망고', 100, '1/2개'], ['자두', 30, '1개'], ['체리', 60, '10알'], ['파인애플', 50, '100g'], ['멜론', 40, '100g'],
+    ['자몽', 60, '1/2개'], ['브로콜리', 35, '100g'], ['오이', 15, '1개'], ['당근', 30, '1개'], ['파프리카', 30, '1개'], ['양배추', 25, '100g'], ['곤약', 10, '100g'], ['연두부', 80, '1/2모'], ['닭가슴살소시지', 100, '1개'], ['프로틴', 120, '1잔'],
+    ['밥', 300, '1공기'], ['잡곡', 300, '1공기'], ['떡', 200, '1인분'], ['빵', 250, '1개'], ['과일', 80, '1인분'], ['반찬', 100, '1접시'], ['국', 100, '1그릇'], ['찌개', 250, '1인분']
   ];
   const foodNorm = (x) => String(x || '').replace(/\s+/g, '').toLowerCase();
   // 음식 이름 → 1회분 칼로리. 먼저 전에 내가 적은 같은 이름(내 기준), 없으면 표(이름이 같거나 한쪽이 다른 쪽을 포함, 두 글자 이상)에서 찾는다.
+  const foodQuery = (x) => foodNorm(x).replace(/(한|두|세|반)?[0-9.]*(인분|그릇|공기|잔|조각|줄|캔|병|봉지)/g, '').replace(/[0-9.]+개?/g, '').replace(/(먹었어요|먹음|먹었|정식|세트)$/, '');
+  // 이름에 적은 수량("2인분", "한 잔", "반 공기", "소주 한병")을 읽어 수량 칸에 넣는다. 병은 술 종류에 따라 잔 수로 바꾼다.
+  function foodQty(name, hitName) {
+    const t = String(name || '').replace(/\s+/g, ''), m = /(반|한|두|세|네|[0-9]+(?:\.[0-9]+)?)(인분|그릇|공기|잔|조각|줄|캔|병|봉지|개)/.exec(t);
+    if (!m) return 0;
+    const n = m[1] === '반' ? 0.5 : m[1] === '한' ? 1 : m[1] === '두' ? 2 : m[1] === '세' ? 3 : m[1] === '네' ? 4 : parseFloat(m[1]);
+    const mul = m[2] === '병' ? ({ 소주: 7, 막걸리: 7, 와인: 6, 맥주: 1.5 }[hitName] || 1) : 1;
+    return n > 0 ? Math.round(n * mul * 10) / 10 : 0;
+  }
   function foodPer(name) {
-    const n = foodNorm(name);
+    const raw = foodNorm(name), n = foodQuery(name) || raw;
     if (!n) return null;
     for (let i = fit.meals.length - 1; i >= 0; i--) {
-      const it = fit.meals[i].items.find((x) => foodNorm(x.name) === n && +x.kcal > 0 && +x.qty > 0);
-      if (it) return { per: Math.round(it.kcal / it.qty), text: `전에 적은 ‘${it.name}’ 기준 1회분 약 ${Math.round(it.kcal / it.qty)}kcal` };
+      const it = fit.meals[i].items.find((x) => foodNorm(x.name) === raw && +x.kcal > 0 && +x.qty > 0);
+      if (it) return { per: Math.round(it.kcal / it.qty), hit: it.name, text: `전에 적은 ‘${it.name}’ 기준 1회분 약 ${Math.round(it.kcal / it.qty)}kcal` };
     }
     let hit = FOODS.find((f) => foodNorm(f[0]) === n);
     if (!hit && n.length >= 2) {
       hit = FOODS.filter((f) => { const k = foodNorm(f[0]); return k.length >= 2 && (n.includes(k) || k.includes(n)); })
         .sort((a, b) => Math.abs(foodNorm(a[0]).length - n.length) - Math.abs(foodNorm(b[0]).length - n.length))[0];
     }
-    return hit ? { per: hit[1], text: `‘${hit[0]}’ ${hit[2]} 약 ${hit[1]}kcal 기준 (대략값)` } : null;
+    return hit ? { per: hit[1], hit: hit[0], text: `‘${hit[0]}’ ${hit[2]} 약 ${hit[1]}kcal 기준 (대략값)` } : null;
   }
   const mealKcal = (m) => m.items.reduce((a, i) => a + (+i.kcal || 0), 0);
   const mealName = (i) => esc(i.name) + (+i.qty && +i.qty !== 1 ? ' ×' + +i.qty : '');
@@ -7004,7 +7026,7 @@
     const hr = new Date().getHours(), slot0 = m ? m.slot : hr < 10 ? 'b' : hr < 15 ? 'l' : hr < 21 ? 'd' : 's';
     const names = [...new Set([...fit.meals.flatMap((x) => x.items.map((i) => i.name)), ...FOODS.map((f) => f[0])])];
     const rowHtml = (it) => `<div class="meal-row"><div class="mr1"><input data-f="name" list="meal-foods" maxlength="30" placeholder="음식 이름 (예: 김치찌개)" value="${val(it.name)}" autocomplete="off"><button type="button" class="icon-btn" data-rm aria-label="이 음식 지우기">✕</button></div>
-      <div class="mr2"><div><label>수량 (인분·개)</label><input data-f="qty" type="number" min="0" step="any" inputmode="decimal" value="${val(it.qty)}"></div><div><label>칼로리 (kcal)</label><input data-f="kcal" type="number" min="0" step="any" inputmode="numeric" value="${val(it.kcal || '')}" placeholder="자동"></div></div><div class="meal-hint"></div></div>`;
+      <div class="mr2"><div><label>수량 (인분·개)</label><input data-f="qty" type="number" min="0" step="any" inputmode="decimal" value="${val(it.qty)}"></div><div><label>칼로리 (kcal)</label><input data-f="kcal" type="number" min="0" step="any" inputmode="numeric" value="${val(it.kcal || '')}" placeholder="자동"></div></div><div class="meal-hint"></div><div class="meal-guess" hidden><small>대략 이 정도로 적기:</small> <button type="button" data-guess="200">간식 200</button><button type="button" data-guess="400">가벼운 식사 400</button><button type="button" data-guess="600">보통 식사 600</button><button type="button" data-guess="800">든든한 식사 800</button></div></div>`;
     openSheet(`<form>
       <h3>${m ? '식단 수정' : '식단 기록'}</h3>
       <label>누가 먹었나요</label><select name="who">${people().map((x) => `<option value="${attr(x.id)}"${x.id === who ? ' selected' : ''}>${esc(x.name)}</option>`).join('')}</select>
@@ -7015,7 +7037,8 @@
       <div id="meal-rows"></div>
       <button type="button" class="mini-btn" id="meal-add" style="width:100%;margin-top:8px">＋ 음식 더하기</button>
       <div class="meal-total" id="meal-total"></div>
-      <label>자세한 내용 (선택)</label><textarea name="memo" rows="3" maxlength="300" placeholder="예: 밥은 반 공기만, 국물은 남김, 집에서 만든 반찬"></textarea>
+      <label>자세한 내용 (선택)</label><textarea name="memo" rows="3" maxlength="300" placeholder="예: 김치찌개에 밥 반 공기, 국물은 남김"></textarea>
+      <div id="meal-found" class="meal-hint"></div>
       <div class="sheet-actions"><button type="button" data-cancel>취소</button>${m ? '<button type="button" data-delete>삭제</button>' : ''}<button type="submit">저장</button></div>
     </form>`, (fd) => {
       const items = [...sheetBody.querySelectorAll('.meal-row')].map((r) => ({ name: r.querySelector('[data-f=name]').value.trim(), qty: Math.max(0, parseFloat(r.querySelector('[data-f=qty]').value) || 0) || 1, kcal: Math.max(0, Math.round(parseFloat(r.querySelector('[data-f=kcal]').value) || 0)) })).filter((x) => x.name);
@@ -7035,11 +7058,14 @@
     // from: 'init' 처음 그림(값은 그대로) | 'name' | 'qty' | 'kcal'
     const refresh = (row, from) => {
       const nm = row.querySelector('[data-f=name]'), q = row.querySelector('[data-f=qty]'), k = row.querySelector('[data-f=kcal]'), hint = row.querySelector('.meal-hint');
-      const info = foodPer(nm.value), qty = parseFloat(q.value) || 0;
+      const info = foodPer(nm.value);
       if (from === 'kcal') row.dataset.manual = k.value === '' ? '' : '1';
-      if (from === 'name') row.dataset.manual = '';
+      if (from === 'name') { row.dataset.manual = ''; const pq = info ? foodQty(nm.value, info.hit) : 0; if (pq) { q.value = pq; row.dataset.qa = '1'; } else if (row.dataset.qa) { q.value = 1; row.dataset.qa = ''; } }
+      if (from === 'qty') row.dataset.qa = '';
+      const qty = parseFloat(q.value) || 0;
       if (from !== 'init' && from !== 'kcal' && !row.dataset.manual) k.value = info && qty > 0 ? Math.round(info.per * qty) : '';
-      hint.textContent = !nm.value.trim() ? '' : info ? info.text : '목록에 없는 음식이에요. 칼로리를 직접 적어 주세요(비워 둬도 저장돼요). 한 번 적어 두면 다음부터 자동으로 나와요.';
+      hint.textContent = !nm.value.trim() ? '' : info ? info.text : '목록에 없는 음식이에요. 칼로리를 직접 적거나 아래 대략값을 눌러 주세요. 한 번 적어 두면 다음부터 자동으로 나와요.';
+      row.querySelector('.meal-guess').hidden = !(nm.value.trim() && !info);
       total();
     };
     const addRow = (it, focus) => {
@@ -7054,6 +7080,8 @@
     box.addEventListener('input', (e) => { const f = e.target.dataset.f, row = e.target.closest('.meal-row'); if (row && f) refresh(row, f); });
     box.addEventListener('change', (e) => { const row = e.target.closest('.meal-row'); if (row && e.target.dataset.f === 'name') refresh(row, 'name'); });
     box.addEventListener('click', (e) => {
+      const g = e.target.closest('[data-guess]');
+      if (g) { const row = g.closest('.meal-row'), k = row.querySelector('[data-f=kcal]'), q = parseFloat(row.querySelector('[data-f=qty]').value) || 1; k.value = Math.round(+g.dataset.guess * q); row.dataset.manual = '1'; row.querySelector('.meal-hint').textContent = '대략 추정값이에요(정확하지 않아요). 아는 값으로 고쳐 주세요.'; total(); return; }
       const rm = e.target.closest('[data-rm]');
       if (!rm) return;
       if (box.children.length <= 1) { const r = box.firstElementChild; r.querySelectorAll('input').forEach((x) => { x.value = ''; }); r.querySelector('[data-f=qty]').value = 1; r.dataset.manual = ''; refresh(r, 'init'); return; }
@@ -7061,6 +7089,22 @@
       total();
     });
     sheetBody.querySelector('#meal-add').addEventListener('click', () => addRow({ name: '', qty: 1, kcal: 0 }, true));
+    // 자세한 내용에 적은 글에서 표의 음식 이름을 찾아 "＋ 이름 kcal" 버튼으로 보여 준다(이미 줄에 있는 음식은 뺀다)
+    const memoEl = sheetBody.querySelector('[name=memo]'), foundEl = sheetBody.querySelector('#meal-found');
+    const findFoods = () => {
+      const t = foodNorm(memoEl.value), have = [...box.querySelectorAll('[data-f=name]')].map((x) => foodNorm(x.value));
+      const hits = t ? FOODS.filter((f) => foodNorm(f[0]).length >= 2 && t.includes(foodNorm(f[0])) && !have.some((h) => h && (h.includes(foodNorm(f[0])) || foodNorm(f[0]).includes(h)))) : [];
+      const best = hits.filter((f) => !hits.some((o) => o !== f && foodNorm(o[0]).includes(foodNorm(f[0])))).slice(0, 6);   // 더 긴 이름(김치볶음밥)이 있으면 짧은 이름(김치)은 뺀다
+      foundEl.innerHTML = best.length ? '글에서 찾은 음식 — 눌러서 더하기<br>' + best.map((f) => `<button type="button" class="mini-btn" data-addfood="${attr(f[0])}" style="margin:4px 4px 0 0">＋ ${esc(f[0])} ${f[1]}kcal</button>`).join('') : '';
+    };
+    memoEl.addEventListener('input', findFoods);
+    foundEl.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-addfood]');
+      if (!b) return;
+      const rows = [...box.querySelectorAll('.meal-row')], empty = rows.find((r) => !r.querySelector('[data-f=name]').value.trim());
+      if (empty) { const nm = empty.querySelector('[data-f=name]'); nm.value = b.dataset.addfood; refresh(empty, 'name'); } else addRow({ name: b.dataset.addfood, qty: 1, kcal: 0 }, false), refresh(box.lastElementChild, 'name');
+      findFoods();
+    });
     const del = sheetBody.querySelector('[data-delete]');
     if (del) del.addEventListener('click', () => { tomb(m.id); fit.meals = fit.meals.filter((x) => x.id !== m.id); saveFit(); closeSheet(); renderFit(); showToast('삭제했어요'); });
   }
@@ -9339,7 +9383,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v146'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v147'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span class="slogan">다달이, 매일의 기록이 모여<br><b>더 나은 생활</b>이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
