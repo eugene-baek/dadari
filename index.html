@@ -6897,8 +6897,8 @@
   if (!fit.goals || typeof fit.goals !== 'object') fit.goals = {};
   if (!fit.body || typeof fit.body !== 'object') fit.body = {};
   const saveFit = () => saveJson(FIT_KEY, fit);
-  const FIT_TYPES = [['run', '🏃 러닝'], ['walk', '🚶 걷기'], ['gym', '🏋️ 헬스'], ['yoga', '🧘 요가·필라테스'], ['swim', '🏊 수영'], ['bike', '🚴 자전거'], ['hike', '⛰️ 등산'], ['ball', '⚽ 구기·라켓'], ['etc', '✨ 기타']];
-  const fitName = (k) => (FIT_TYPES.find((t) => t[0] === k) || FIT_TYPES[8])[1];
+  const FIT_TYPES = [['run', '🏃 러닝'], ['walk', '🚶 걷기'], ['gym', '🏋️ 헬스'], ['yoga', '🧘 요가·필라테스'], ['swim', '🏊 수영'], ['bike', '🚴 자전거'], ['hike', '⛰️ 등산'], ['ball', '⚽ 구기·라켓'], ['stepper', '🪜 스텝퍼'], ['etc', '✨ 기타']];
+  const fitName = (k) => (FIT_TYPES.find((t) => t[0] === k) || FIT_TYPES.find((t) => t[0] === 'etc'))[1];
   const fitWho = (x) => x.who || 'me';
   const fmtMin = (m) => (m >= 60 ? Math.floor(m / 60) + '시간' + (m % 60 ? ' ' + (m % 60) + '분' : '') : m + '분');
   const weekStartOf = (date) => { const y = +date.slice(0, 4), m = +date.slice(5, 7) - 1, dd = +date.slice(8, 10), x = new Date(y, m, dd - new Date(y, m, dd).getDay()); return x.getFullYear() + '-' + pad2(x.getMonth() + 1) + '-' + pad2(x.getDate()); };   // 일요일 시작(이 블록은 달력 블록보다 앞이라 dstr·dparse를 쓰지 않는다)
@@ -6906,7 +6906,7 @@
   const fitScope = () => fit.log.filter((l) => whoPick(conWho, fitWho(l)));
   // 예상 소모 칼로리 = MET × 체중(kg) × 시간(h). 종류별 대표 MET에, 러닝·걷기·자전거는 거리와 시간으로 속도를 구해 보정하고, 강도(가볍게 0.85·보통 1·강하게 1.15)를 곱한다.
   // 직접 입력한 칼로리가 있으면 그 값을 쓴다. 체중 기록이 없으면 60kg으로 계산한다(어디까지나 대략적인 예상값이다).
-  const FIT_MET = { run: 9.8, walk: 3.5, gym: 5, yoga: 3, swim: 6, bike: 7.5, hike: 6, ball: 7, etc: 4 };
+  const FIT_MET = { run: 9.8, walk: 3.5, gym: 5, yoga: 3, swim: 6, bike: 7.5, hike: 6, ball: 7, stepper: 9, etc: 4 };
   const FIT_LEVELS = [['low', '가볍게'], ['mid', '보통'], ['high', '강하게']];
   function fitWeightFor(who, date) {
     const ws = fit.weights.filter((w) => fitWho(w) === who).sort((a, b) => (a.date < b.date ? 1 : -1));
@@ -6951,7 +6951,7 @@
   }
   const fitSum = (logs) => {
     const es = logs.map(fitEst);
-    return { n: logs.length, min: logs.reduce((a, l) => a + (+l.min || 0), 0), km: logs.reduce((a, l) => a + (+l.km || 0), 0), kcal: es.reduce((a, e) => a + e.kcal, 0), estN: es.filter((e) => e.est && e.kcal).length };
+    return { n: logs.length, min: logs.reduce((a, l) => a + (+l.min || 0), 0), km: logs.reduce((a, l) => a + (+l.km || 0), 0), steps: logs.reduce((a, l) => a + (+l.steps || 0), 0), kcal: es.reduce((a, e) => a + e.kcal, 0), estN: es.filter((e) => e.est && e.kcal).length };
   };
 
   function fitStreak(logs) {
@@ -6970,7 +6970,7 @@
       <div class="summary-item balance"><div class="lbl">운동 횟수</div><div class="val">${sum.n}회</div></div>
       <div class="summary-item income"><div class="lbl">운동 시간</div><div class="val">${sum.min ? fmtMin(sum.min) : '0분'}</div></div>
       <div class="summary-item expense"><div class="lbl">소모 칼로리</div><div class="val">${sum.kcal ? sum.kcal.toLocaleString('ko-KR') + 'kcal' : '-'}</div></div></div>
-      <p class="goal-hint" style="margin:8px 0 0">${sum.kcal && sum.estN ? `칼로리: 입력 ${sum.n - sum.estN}건 + 예상 ${sum.estN}건 · ` : ''}${sum.km ? `거리 ${Math.round(sum.km * 10) / 10}km · ` : ''}🔥 연속 운동 ${fitStreak(scope)}일</p>`;
+      <p class="goal-hint" style="margin:8px 0 0">${sum.kcal && sum.estN ? `칼로리: 입력 ${sum.n - sum.estN}건 + 예상 ${sum.estN}건 · ` : ''}${sum.km ? `거리 ${Math.round(sum.km * 10) / 10}km · ` : ''}${sum.steps ? `스텝 ${sum.steps.toLocaleString('ko-KR')}개 · ` : ''}🔥 연속 운동 ${fitStreak(scope)}일</p>`;
     // 주간 목표 카드: 큰 숫자·굵은 진행 막대·요일별 운동 여부(점)로 한눈에 보이게 맨 위에 둔다
     const g = single && fit.goals[single], isNow = fitWeek === weekStartOf(todayStr());
     const dayDots = () => ['일', '월', '화', '수', '목', '금', '토'].map((nm, i) => { const d = addDays(fitWeek, i), c = wk.filter((l) => l.date === d).length, tgt = !!(g && g.days && g.days.includes(i)), miss = tgt && !c && d < todayStr(); return `<span class="fg-day${c ? ' on' : ''}${d === todayStr() ? ' today' : ''}${tgt ? ' tgt' : ''}${miss ? ' miss' : ''}"><i>${c ? '✓' : miss ? '✕' : ''}</i>${nm}${tgt ? '<em>목표</em>' : ''}</span>`; }).join('');
@@ -7011,7 +7011,7 @@
     const mm = todayStr().slice(0, 7), pm = monthKey(new Date(+mm.slice(0, 4), +mm.slice(5, 7) - 2, 1));
     const cm = fitSum(scope.filter((l) => l.date.startsWith(mm))), lm = fitSum(scope.filter((l) => l.date.startsWith(pm)));
     const wkN = Math.max(1, Math.ceil(new Date().getDate() / 7)), dm = cm.min - lm.min;
-    html += `<h2 class="section-title" style="margin:18px 0 4px">월간 요약</h2><div class="ins-sum">이번 달 <b>${cm.n}회</b> · ${cm.min ? fmtMin(cm.min) : '0분'}${cm.km ? ' · ' + Math.round(cm.km * 10) / 10 + 'km' : ''}${cm.kcal ? ' · ' + cm.kcal.toLocaleString('ko-KR') + 'kcal' : ''}<br>주 평균 ${Math.round((cm.n / wkN) * 10) / 10}회${lm.min || cm.min ? `<br>지난달 대비 시간 <b style="color:${dm >= 0 ? 'var(--income)' : 'var(--expense)'}">${dm >= 0 ? '+' : '-'}${fmtMin(Math.abs(dm))}</b>` : ''}</div>`;
+    html += `<h2 class="section-title" style="margin:18px 0 4px">월간 요약</h2><div class="ins-sum">이번 달 <b>${cm.n}회</b> · ${cm.min ? fmtMin(cm.min) : '0분'}${cm.km ? ' · ' + Math.round(cm.km * 10) / 10 + 'km' : ''}${cm.steps ? ' · 스텝 ' + cm.steps.toLocaleString('ko-KR') + '개' : ''}${cm.kcal ? ' · ' + cm.kcal.toLocaleString('ko-KR') + 'kcal' : ''}<br>주 평균 ${Math.round((cm.n / wkN) * 10) / 10}회${lm.min || cm.min ? `<br>지난달 대비 시간 <b style="color:${dm >= 0 ? 'var(--income)' : 'var(--expense)'}">${dm >= 0 ? '+' : '-'}${fmtMin(Math.abs(dm))}</b>` : ''}</div>`;
 
     // 체중
     let weightHtml = '';
@@ -7036,7 +7036,7 @@
     // 선택한 주 기록
     const list = wk.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
     const listHtml = `<h2 class="section-title" style="margin:4px 0 4px">이번 선택 주 기록${list.length ? ' · ' + list.length + '건' : ''}</h2>`
-      + (list.length ? list.map((l) => `<button type="button" class="visit" data-fl="${attr(l.id)}"><div class="v1"><span>${l.date.slice(5).replace('-', '/')} · ${esc(fitName(l.type))}${ppl.length > 1 && conWho === 'all' ? ' · ' + esc(whoName(fitWho(l))) : ''}</span><b>${l.min ? fmtMin(+l.min) : (l.km ? l.km + 'km' : '')}</b></div><div class="v2">${[l.km ? l.km + 'km' : '', (() => { const e = fitEst(l); return e.kcal ? (e.est ? '약 ' + e.kcal + 'kcal(예상)' : e.kcal + 'kcal') : ''; })(), l.memo || ''].filter(Boolean).map(esc).join(' · ')}</div></button>`).join('')
+      + (list.length ? list.map((l) => `<button type="button" class="visit" data-fl="${attr(l.id)}"><div class="v1"><span>${l.date.slice(5).replace('-', '/')} · ${esc(fitName(l.type))}${ppl.length > 1 && conWho === 'all' ? ' · ' + esc(whoName(fitWho(l))) : ''}</span><b>${l.min ? fmtMin(+l.min) : (l.km ? l.km + 'km' : l.steps ? (+l.steps).toLocaleString('ko-KR') + '스텝' : '')}</b></div><div class="v2">${[l.steps ? (+l.steps).toLocaleString('ko-KR') + '스텝' : '', l.km ? l.km + 'km' : '', (() => { const e = fitEst(l); return e.kcal ? (e.est ? '약 ' + e.kcal + 'kcal(예상)' : e.kcal + 'kcal') : ''; })(), l.memo || ''].filter(Boolean).map(esc).join(' · ')}</div></button>`).join('')
         : '<div class="empty-msg" style="padding:12px 0">이 주 운동 기록이 없어요<br>아래 “＋ 운동 기록”으로 직접 적어 보세요</div>');
     return `<div data-sub="log">${listHtml}${weightHtml}</div><div data-sub="stats">${html}</div>`;
   }
@@ -7058,6 +7058,7 @@
       <label>날짜</label><input name="date" type="date" required value="${val(l ? l.date : (todayStr() >= fitWeek && todayStr() <= addDays(fitWeek, 6) ? todayStr() : fitWeek))}">
       <label>운동 종류</label><select name="type">${FIT_TYPES.map(([k, n]) => `<option value="${k}"${(l ? l.type : 'run') === k ? ' selected' : ''}>${n}</option>`).join('')}</select>
       <label>운동 시간 (분)</label><input name="min" type="number" min="0" inputmode="numeric" value="${val(l && l.min ? l.min : '')}" placeholder="예: 40">
+      <div id="fit-steps-wrap"><label>밟은 스텝 수 (스텝퍼, 선택)</label><input name="steps" type="number" min="0" inputmode="numeric" value="${val(l && l.steps ? l.steps : '')}" placeholder="기구 화면에 나온 총 스텝 수 (예: 1200)"></div>
       <label>거리 (km, 선택)</label><input name="km" type="number" min="0" step="0.1" inputmode="decimal" value="${val(l && l.km ? l.km : '')}" placeholder="러닝·걷기·자전거 등">
       <label>운동 강도</label><select name="level">${FIT_LEVELS.map(([k, n]) => `<option value="${k}"${((l && l.level) || 'mid') === k ? ' selected' : ''}>${n}</option>`).join('')}</select>
       <label>소모 칼로리 (선택 · 비우면 예상값을 써요)</label><input name="kcal" type="number" min="0" inputmode="numeric" value="${val(l && l.kcal ? l.kcal : '')}" placeholder="워치·기구에 나온 값">
@@ -7065,9 +7066,9 @@
       <label>메모 (선택)</label><input name="memo" maxlength="60" value="${val(l && l.memo)}" placeholder="예: 한강 러닝, 상체 루틴">
       <div class="sheet-actions"><button type="button" data-cancel>취소</button>${l ? '<button type="button" data-delete>삭제</button>' : ''}<button type="submit">저장</button></div>
     </form>`, (fd) => {
-      const min = Math.max(0, parseInt(fd.get('min'), 10) || 0), km = Math.max(0, parseFloat(fd.get('km')) || 0), kcal = Math.max(0, parseInt(fd.get('kcal'), 10) || 0), date = String(fd.get('date'));
-      if (!validDate(date) || (!min && !km)) { showToast('날짜와 운동 시간(또는 거리)을 입력해 주세요'); return false; }
-      const rec = { who: String(fd.get('who')), date, type: String(fd.get('type')), level: String(fd.get('level')), min, km, kcal, memo: String(fd.get('memo')).trim() };
+      const min = Math.max(0, parseInt(fd.get('min'), 10) || 0), km = Math.max(0, parseFloat(fd.get('km')) || 0), steps = Math.max(0, parseInt(fd.get('steps'), 10) || 0), kcal = Math.max(0, parseInt(fd.get('kcal'), 10) || 0), date = String(fd.get('date'));
+      if (!validDate(date) || (!min && !km && !steps)) { showToast('날짜와 운동 시간(또는 거리·스텝 수)을 입력해 주세요'); return false; }
+      const rec = { who: String(fd.get('who')), date, type: String(fd.get('type')), level: String(fd.get('level')), min, km, steps: String(fd.get('type')) === 'stepper' ? steps : 0, kcal, memo: String(fd.get('memo')).trim() };
       if (l) Object.assign(l, rec); else fit.log.push({ id: newId(), ...rec });
       saveFit();
       fitWeek = weekStartOf(date);
@@ -7083,6 +7084,10 @@
       const e = fitEst(tmp), typed = parseInt(f.get('kcal'), 10) || 0;
       estEl.textContent = typed ? `직접 입력한 ${typed}kcal로 기록해요` : e.kcal ? `예상 소모 약 ${e.kcal}kcal · ${e.kg ? '체중 ' + e.kg + 'kg 기준' : '체중 기록이 없어 60kg 기준(체중을 기록하면 더 정확해요)'}` : '운동 시간을 입력하면 예상 소모 칼로리를 계산해요';
     };
+    const stepWrap = sheetBody.querySelector('#fit-steps-wrap'), typeSel = form.querySelector('[name=type]');
+    const stepSync = () => { stepWrap.hidden = typeSel.value !== 'stepper'; };
+    typeSel.addEventListener('change', stepSync);
+    stepSync();
     form.addEventListener('input', upd);
     form.addEventListener('change', upd);
     upd();
@@ -9168,7 +9173,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v143'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v144'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span class="slogan">다달이, 매일의 기록이 모여<br><b>더 나은 생활</b>이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
