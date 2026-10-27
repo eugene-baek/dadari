@@ -171,12 +171,12 @@
     // ⑦ 운동 관리
     var fl = [], types = ['run', 'gym', 'walk', 'yoga', 'swim'];
     for (var fi = 0; fi < 45; fi++) { if (fi % 3 === 2) continue; fl.push({ id: nid(), who: 'me', date: off(-fi), type: types[fi % 5], level: fi % 4 === 0 ? 'high' : 'mid', min: 25 + (fi * 7) % 40, km: types[fi % 5] === 'run' || types[fi % 5] === 'walk' ? Math.round((3 + (fi % 4) * 1.3) * 10) / 10 : 0, kcal: fi % 2 ? 150 + (fi * 23) % 250 : 0, memo: '' }); }
-    put('dadari_fit_v1', { log: fl, weights: [{ id: nid(), who: 'me', date: off(-60), kg: 65.4 }, { id: nid(), who: 'me', date: off(-40), kg: 64.8 }, { id: nid(), who: 'me', date: off(-20), kg: 64.1 }, { id: nid(), who: 'me', date: off(-2), kg: 63.5 }], goals: { me: { perWeek: 3, minWeek: 150, days: [1, 3, 5] } }, body: { me: { height: 165, goalKg: 62 } } });
+    put('dadari_fit_v1', { log: fl, weights: [{ id: nid(), who: 'me', date: off(-60), kg: 65.4 }, { id: nid(), who: 'me', date: off(-40), kg: 64.8 }, { id: nid(), who: 'me', date: off(-20), kg: 64.1 }, { id: nid(), who: 'me', date: off(-2), kg: 63.5 }], meals: [[0, 'b', [['토스트', 1, 300], ['우유', 1, 130]], ''], [0, 'l', [['비빔밥', 1, 560]], '나물 많이, 고추장은 조금'], [0, 'd', [['닭가슴살샐러드', 1, 250], ['고구마', 1, 200]], '운동 후 가볍게'], [0, 's', [['아메리카노', 1, 10], ['바나나', 1, 90]], ''], [-1, 'b', [['오트밀', 1, 150], ['삶은계란', 2, 150]], ''], [-1, 'l', [['김치찌개', 1, 250], ['쌀밥', 1, 300]], ''], [-1, 'd', [['삼겹살', 1, 500], ['쌀밥', 0.5, 150], ['맥주', 1, 150]], '회식']].map(function (x) { return { id: nid(), who: 'me', date: off(x[0]), slot: x[1], items: x[2].map(function (i) { return { name: i[0], qty: i[1], kcal: i[2] }; }), memo: x[3] }; }), goals: { me: { perWeek: 3, minWeek: 150, days: [1, 3, 5] } }, body: { me: { height: 165, goalKg: 62 } } });
     put('dadari_view_v1', 'status');
     s.call(localStorage, P + 'demo_seeded', SEED_V);
   }
   // 샘플 내용을 고치면 SEED_V를 올린다: 이미 체험판을 열어 본 기기도 새 샘플로 다시 채운다(체험 중 입력은 사라진다).
-  var SEED_V = '17';
+  var SEED_V = '18';
   try {
     if (g.call(localStorage, P + 'demo_seeded') !== SEED_V) {
       var olds = [], oi;
@@ -921,6 +921,13 @@
   .subtabs button { flex: 1 0 auto; padding: 9px 8px; border: 1px solid var(--border); border-radius: 99px; background: var(--card-bg); color: var(--text-muted); font-size: 13.5px; font-weight: 600; white-space: nowrap; cursor: pointer; }
   .subtabs button.active { background: var(--mc-soft); color: var(--mc-text); font-weight: 800; }
   .sub-off { display: none !important; }
+  .meal-row { padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .meal-row .mr1 { display: grid; grid-template-columns: minmax(0, 1fr) 40px; gap: 6px; }
+  .meal-row .mr2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; margin-top: 6px; }
+  .meal-row .mr2 label { margin: 0 0 3px; font-size: 13px; }
+  .meal-hint { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
+  .meal-hint:empty { display: none; }
+  .meal-total { font-size: 16px; font-weight: 700; margin: 10px 0 2px; }
   .biz-shops { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
   .biz-shops[hidden] { display: none; }
   .month-nav[hidden] { display: none; }
@@ -1446,9 +1453,10 @@
     </div>
     <div id="fit-body"></div>
     <div class="cards-actions" style="flex-wrap:wrap">
-      <button type="button" class="mini-btn" id="add-fit-btn">＋ 운동 기록</button>
-      <button type="button" class="mini-btn" id="add-fitw-btn">＋ 체중 기록</button>
-      <button type="button" class="mini-btn" id="fit-goal-btn">🎯 주간 목표</button>
+      <button type="button" class="mini-btn" id="add-fit-btn" data-sub="log stats">＋ 운동 기록</button>
+      <button type="button" class="mini-btn" id="add-fitw-btn" data-sub="log stats">＋ 체중 기록</button>
+      <button type="button" class="mini-btn" id="fit-goal-btn" data-sub="log stats">🎯 주간 목표</button>
+      <button type="button" class="mini-btn" id="add-meal-btn" data-sub="meal">＋ 식단 기록</button>
       <button type="button" class="mini-btn" id="fit-member-btn">👥 구성원 관리</button>
     </div>
   </section>
@@ -2499,6 +2507,7 @@
           if (data.fit && Array.isArray(data.fit.log)) {
             mergeById(fit.log, data.fit.log, (l) => validDate(l.date) && typeof l.type === 'string');
             mergeById(fit.weights, data.fit.weights, (w) => validDate(w.date) && w.kg > 0);
+            mergeById(fit.meals, data.fit.meals, (m) => validDate(m.date) && Array.isArray(m.items));
             Object.keys(data.fit.goals || {}).forEach((k) => { if (!fit.goals[k]) fit.goals[k] = data.fit.goals[k]; });
             Object.keys(data.fit.body || {}).forEach((k) => { if (!fit.body[k]) fit.body[k] = data.fit.body[k]; });
             saveFit();
@@ -3607,11 +3616,12 @@
       }
     },
     fit: {
-      count: (id) => { const n = fit.log.filter((l) => fitWho(l) === id).length + fit.weights.filter((w) => fitWho(w) === id).length; return [n ? `운동·체중 기록 ${n}건과 목표·신체 정보` : '', '']; },
+      count: (id) => { const n = fit.log.filter((l) => fitWho(l) === id).length + fit.weights.filter((w) => fitWho(w) === id).length + fit.meals.filter((m) => fitWho(m) === id).length; return [n ? `운동·체중·식단 기록 ${n}건과 목표·신체 정보` : '', '']; },
       purge: (id) => {
-        tomb(...fit.log.filter((l) => fitWho(l) === id).map((l) => l.id), ...fit.weights.filter((w) => fitWho(w) === id).map((w) => w.id));
+        tomb(...fit.log.filter((l) => fitWho(l) === id).map((l) => l.id), ...fit.weights.filter((w) => fitWho(w) === id).map((w) => w.id), ...fit.meals.filter((m) => fitWho(m) === id).map((m) => m.id));
         fit.log = fit.log.filter((l) => fitWho(l) !== id);
         fit.weights = fit.weights.filter((w) => fitWho(w) !== id);
+        fit.meals = fit.meals.filter((m) => fitWho(m) !== id);
         delete fit.goals[id];
         delete fit.body[id];
         saveFit();
@@ -6892,8 +6902,10 @@
   /* ---------- 운동 관리 ---------- */
   // 운동 기록(종류·시간·거리·칼로리)과 체중을 적어 주간 횟수·시간, 주간 목표, 연속 운동일, 최근 6주 추이를 본다. 구성원마다 따로 볼 수 있다.
   const FIT_KEY = 'dadari_fit_v1';
-  let fit = loadJson(FIT_KEY, { log: [], weights: [], goals: {}, body: {} });   // body: {구성원id: {height(cm), goalKg}}, log: {id,who,date,type,min,km,kcal,memo}, weights: {id,who,date,kg}, goals: {구성원id: {perWeek(회), minWeek(분)}}
-  if (!fit || !Array.isArray(fit.log) || !Array.isArray(fit.weights)) fit = { log: [], weights: [], goals: {}, body: {} };
+  let fit = loadJson(FIT_KEY, { log: [], weights: [], meals: [], goals: {}, body: {} });   // meals: {id,who,date,slot b|l|d|s,items:[{name,qty,kcal}],memo}, body: {구성원id: {height(cm), goalKg}}, log: {id,who,date,type,min,km,kcal,memo}, weights: {id,who,date,kg}, goals: {구성원id: {perWeek(회), minWeek(분)}}
+  if (!fit || !Array.isArray(fit.log) || !Array.isArray(fit.weights)) fit = { log: [], weights: [], meals: [], goals: {}, body: {} };
+  if (!Array.isArray(fit.meals)) fit.meals = [];
+  fit.meals = fit.meals.filter((m) => m && m.id && Array.isArray(m.items));
   if (!fit.goals || typeof fit.goals !== 'object') fit.goals = {};
   if (!fit.body || typeof fit.body !== 'object') fit.body = {};
   const saveFit = () => saveJson(FIT_KEY, fit);
@@ -6906,6 +6918,153 @@
   const fitScope = () => fit.log.filter((l) => whoPick(conWho, fitWho(l)));
   // 예상 소모 칼로리 = MET × 체중(kg) × 시간(h). 종류별 대표 MET에, 러닝·걷기·자전거는 거리와 시간으로 속도를 구해 보정하고, 강도(가볍게 0.85·보통 1·강하게 1.15)를 곱한다.
   // 직접 입력한 칼로리가 있으면 그 값을 쓴다. 체중 기록이 없으면 60kg으로 계산한다(어디까지나 대략적인 예상값이다).
+  /* ---------- 식단 (운동 관리 안) ---------- */
+  // 먹은 음식을 끼니(아침·점심·저녁·간식)별로 적는다. 음식 이름을 쓰면 아래 표(`FOODS`: 일반적인 1회분 기준 대략 칼로리)나 전에 내가 적은 같은 이름의 값으로
+  // 칼로리를 자동으로 채운다(수량을 곱해서). 표에 없거나 값이 다르면 직접 고친다. 모든 계산은 이 기기 안에서만 한다(음식 이름을 밖으로 보내지 않는다).
+  // 칼로리는 의학적 수치가 아니라 대략적인 참고값이다.
+  const MEAL_SLOTS = [['b', '🌅 아침'], ['l', '☀️ 점심'], ['d', '🌙 저녁'], ['s', '🍪 간식·야식']];
+  const FOODS = [
+    ['쌀밥', 300, '1공기'], ['공기밥', 300, '1공기'], ['현미밥', 290, '1공기'], ['잡곡밥', 300, '1공기'], ['보리밥', 300, '1공기'], ['볶음밥', 550, '1인분'], ['김치볶음밥', 600, '1인분'], ['새우볶음밥', 580, '1인분'],
+    ['비빔밥', 560, '1그릇'], ['돌솥비빔밥', 620, '1그릇'], ['오므라이스', 650, '1인분'], ['카레라이스', 650, '1인분'], ['제육덮밥', 700, '1그릇'], ['불고기덮밥', 680, '1그릇'], ['치킨마요덮밥', 750, '1그릇'], ['회덮밥', 600, '1그릇'],
+    ['김밥', 480, '1줄'], ['참치김밥', 500, '1줄'], ['치즈김밥', 520, '1줄'], ['주먹밥', 200, '1개'], ['초밥', 45, '1개'], ['죽', 250, '1그릇'], ['전복죽', 350, '1그릇'], ['호박죽', 250, '1그릇'], ['누룽지', 300, '1그릇'],
+    ['오트밀', 150, '1그릇(40g)'], ['시리얼', 180, '1그릇'], ['그래놀라', 200, '1그릇'],
+    ['김치찌개', 250, '1인분'], ['된장찌개', 150, '1인분'], ['순두부찌개', 250, '1인분'], ['부대찌개', 500, '1인분'], ['미역국', 100, '1그릇'], ['콩나물국', 50, '1그릇'], ['북엇국', 100, '1그릇'], ['갈비탕', 500, '1그릇'],
+    ['설렁탕', 450, '1그릇'], ['곰탕', 450, '1그릇'], ['육개장', 350, '1그릇'], ['감자탕', 700, '1인분'], ['삼계탕', 900, '1그릇'], ['해장국', 450, '1그릇'], ['떡국', 550, '1그릇'], ['만둣국', 500, '1그릇'], ['어묵탕', 200, '1인분'], ['추어탕', 400, '1그릇'],
+    ['라면', 500, '1봉지'], ['짜장면', 800, '1그릇'], ['짬뽕', 700, '1그릇'], ['우동', 450, '1그릇'], ['칼국수', 500, '1그릇'], ['잔치국수', 400, '1그릇'], ['물냉면', 500, '1그릇'], ['비빔냉면', 600, '1그릇'], ['비빔국수', 550, '1그릇'],
+    ['쫄면', 600, '1그릇'], ['토마토파스타', 650, '1인분'], ['크림파스타', 800, '1인분'], ['쌀국수', 500, '1그릇'], ['막국수', 450, '1그릇'], ['콩국수', 600, '1그릇'], ['수제비', 450, '1그릇'],
+    ['삼겹살', 500, '1인분(150g)'], ['목살', 380, '1인분(150g)'], ['소고기구이', 380, '1인분(150g)'], ['갈비구이', 500, '1인분'], ['불고기', 300, '1인분'], ['제육볶음', 450, '1인분'], ['닭가슴살', 110, '100g'], ['닭갈비', 450, '1인분'],
+    ['후라이드치킨', 250, '1조각'], ['양념치킨', 300, '1조각'], ['치킨', 270, '1조각'], ['닭다리', 200, '1개'], ['족발', 500, '1인분'], ['보쌈', 500, '1인분'], ['수육', 400, '1인분'], ['햄버거', 500, '1개'], ['치즈버거', 550, '1개'],
+    ['핫도그', 280, '1개'], ['피자', 280, '1조각'], ['돈까스', 700, '1인분'], ['탕수육', 600, '1인분'], ['스팸', 80, '1조각(30g)'], ['소시지', 100, '1개'],
+    ['고등어구이', 200, '1토막'], ['생선구이', 150, '1마리'], ['회', 200, '1인분(100g)'], ['연어회', 200, '100g'], ['참치캔', 200, '1캔'], ['오징어볶음', 300, '1인분'], ['낙지볶음', 250, '1인분'],
+    ['계란후라이', 90, '1개'], ['삶은계란', 75, '1개'], ['계란말이', 200, '1인분'], ['계란찜', 120, '1인분'], ['김치', 15, '1접시'], ['깍두기', 20, '1접시'], ['나물', 50, '1접시'], ['김', 25, '도시락김 1봉'], ['두부', 90, '1/4모'],
+    ['멸치볶음', 80, '1접시'], ['어묵볶음', 100, '1접시'], ['잡채', 250, '1인분'], ['감자조림', 100, '1접시'], ['콩나물무침', 30, '1접시'], ['시금치나물', 30, '1접시'], ['샐러드', 50, '1접시'], ['닭가슴살샐러드', 250, '1접시'],
+    ['장조림', 100, '1접시'], ['부침개', 250, '1장'], ['김치전', 250, '1장'], ['파전', 400, '1장'], ['만두', 60, '1개'], ['군만두', 70, '1개'],
+    ['떡볶이', 500, '1인분'], ['순대', 300, '1인분'], ['튀김', 100, '1개'], ['김말이', 100, '1개'], ['호떡', 230, '1개'], ['붕어빵', 100, '1개'], ['가래떡', 150, '1줄'], ['인절미', 150, '3개'], ['송편', 50, '1개'], ['팥빙수', 450, '1그릇'],
+    ['아이스크림', 200, '1개'], ['초콜릿', 150, '1개(작은 것)'], ['초코바', 250, '1개'], ['과자', 450, '1봉지'], ['감자칩', 320, '1봉지'], ['젤리', 100, '1봉지(작은 것)'], ['쿠키', 80, '1개'], ['도넛', 250, '1개'], ['케이크', 350, '1조각'], ['마카롱', 100, '1개'],
+    ['식빵', 100, '1장'], ['토스트', 300, '1개'], ['샌드위치', 300, '1개'], ['크로와상', 230, '1개'], ['베이글', 270, '1개'], ['단팥빵', 280, '1개'], ['머핀', 350, '1개'],
+    ['우유', 130, '1컵(200ml)'], ['저지방우유', 90, '1컵(200ml)'], ['두유', 100, '1팩'], ['요거트', 100, '1개'], ['그릭요거트', 130, '1컵(100g)'], ['치즈', 60, '1장'], ['아메리카노', 10, '1잔'], ['카페라떼', 150, '1잔'], ['카푸치노', 110, '1잔'],
+    ['바닐라라떼', 250, '1잔'], ['카페모카', 300, '1잔'], ['콜라', 100, '1캔(250ml)'], ['사이다', 100, '1캔(250ml)'], ['오렌지주스', 100, '1컵'], ['스무디', 250, '1잔'], ['프로틴쉐이크', 120, '1잔'],
+    ['맥주', 150, '1캔(355ml)'], ['소주', 70, '1잔'], ['막걸리', 100, '1잔'], ['와인', 90, '1잔(120ml)'],
+    ['사과', 100, '1개'], ['바나나', 90, '1개'], ['귤', 40, '1개'], ['오렌지', 80, '1개'], ['포도', 60, '100g'], ['딸기', 35, '100g(약 6개)'], ['수박', 90, '1조각'], ['참외', 70, '1개'], ['감', 100, '1개'], ['키위', 50, '1개'],
+    ['토마토', 35, '1개'], ['방울토마토', 40, '10개'], ['배', 100, '1/2개'], ['복숭아', 80, '1개'], ['블루베리', 50, '100g'], ['아보카도', 160, '1/2개'],
+    ['고구마', 200, '1개(중)'], ['감자', 130, '1개'], ['옥수수', 130, '1개'], ['견과류', 150, '1줌(25g)'], ['단백질바', 200, '1개']
+  ];
+  const foodNorm = (x) => String(x || '').replace(/\s+/g, '').toLowerCase();
+  // 음식 이름 → 1회분 칼로리. 먼저 전에 내가 적은 같은 이름(내 기준), 없으면 표(이름이 같거나 한쪽이 다른 쪽을 포함, 두 글자 이상)에서 찾는다.
+  function foodPer(name) {
+    const n = foodNorm(name);
+    if (!n) return null;
+    for (let i = fit.meals.length - 1; i >= 0; i--) {
+      const it = fit.meals[i].items.find((x) => foodNorm(x.name) === n && +x.kcal > 0 && +x.qty > 0);
+      if (it) return { per: Math.round(it.kcal / it.qty), text: `전에 적은 ‘${it.name}’ 기준 1회분 약 ${Math.round(it.kcal / it.qty)}kcal` };
+    }
+    let hit = FOODS.find((f) => foodNorm(f[0]) === n);
+    if (!hit && n.length >= 2) {
+      hit = FOODS.filter((f) => { const k = foodNorm(f[0]); return k.length >= 2 && (n.includes(k) || k.includes(n)); })
+        .sort((a, b) => Math.abs(foodNorm(a[0]).length - n.length) - Math.abs(foodNorm(b[0]).length - n.length))[0];
+    }
+    return hit ? { per: hit[1], text: `‘${hit[0]}’ ${hit[2]} 약 ${hit[1]}kcal 기준 (대략값)` } : null;
+  }
+  const mealKcal = (m) => m.items.reduce((a, i) => a + (+i.kcal || 0), 0);
+  const mealName = (i) => esc(i.name) + (+i.qty && +i.qty !== 1 ? ' ×' + +i.qty : '');
+  let mealDay = todayStr();   // 식단 탭에서 보고 있는 날(선택한 주 안)
+  const kc = (n) => Math.round(n).toLocaleString('ko-KR') + 'kcal';
+
+  function mealHtml() {
+    const days = Array.from({ length: 7 }, (_, i) => addDays(fitWeek, i)), today = todayStr(), DN = ['일', '월', '화', '수', '목', '금', '토'];
+    if (!days.includes(mealDay)) mealDay = days.includes(today) ? today : fitWeek;
+    const multi = people().length > 1 && conWho === 'all';
+    const ms = fit.meals.filter((m) => whoPick(conWho, fitWho(m)));
+    const intake = (d) => ms.filter((m) => m.date === d).reduce((a, m) => a + mealKcal(m), 0);
+    const burn = (d) => fitSum(fitScope().filter((l) => l.date === d)).kcal;
+    const chips = days.map((d, i) => `<button type="button" data-md="${d}" class="${d === mealDay ? 'active' : ''}">${DN[i]} ${+d.slice(8)}${ms.some((m) => m.date === d) ? ' •' : ''}</button>`).join('');
+    const day = ms.filter((m) => m.date === mealDay), inT = intake(mealDay), bn = burn(mealDay), blank = day.reduce((a, m) => a + m.items.filter((i) => !(+i.kcal > 0)).length, 0);
+    let html = `<div class="biz-shops" data-cap="날짜">${chips}</div>
+      <div class="ins-sum" style="margin-top:10px"><b>${mealDay.slice(5).replace('-', '/')} (${DN[parseD(mealDay).getDay()]})</b><br>먹은 칼로리 <b>${kc(inT)}</b> · 운동 소모 <b>${kc(bn)}</b>${bn ? ' <small style="color:var(--text-muted)">(예상 포함)</small>' : ''}<br>먹은 칼로리 − 운동 소모 = <b>${inT - bn < 0 ? '-' : ''}${kc(Math.abs(inT - bn))}</b>${blank ? `<br><small style="color:var(--text-muted)">칼로리를 비워 둔 음식 ${blank}개는 합계에 넣지 않았어요</small>` : ''}</div>`;
+    if (!day.length) html += '<div class="empty-msg" style="padding:14px 0">이날 먹은 음식 기록이 없어요<br>아래 “＋ 식단 기록”으로 적어 보세요</div>';
+    MEAL_SLOTS.forEach(([k, label]) => {
+      const list = day.filter((m) => (m.slot || 's') === k);
+      if (!list.length) return;
+      html += `<div class="h-sec">${label}<span class="cnt"> · ${kc(list.reduce((a, m) => a + mealKcal(m), 0))}</span></div>`
+        + list.map((m) => `<button type="button" class="visit" data-fm="${attr(m.id)}"><div class="v1"><span>${multi ? `<span class="who-tag">${esc(whoName(fitWho(m)))}</span>` : ''}${m.items.map(mealName).join(', ')}</span><b>${mealKcal(m) ? kc(mealKcal(m)) : '-'}</b></div>${m.memo ? `<div class="v2">${esc(m.memo)}</div>` : ''}</button>`).join('');
+    });
+    const wk = days.map((d, i) => ({ label: DN[i], a: intake(d), b: burn(d), cur: d === mealDay, tip: `${DN[i]} 먹은 ${kc(intake(d))} · 소모 ${kc(burn(d))}` }));
+    if (wk.some((x) => x.a || x.b)) {
+      const eaten = wk.filter((x) => x.a > 0);
+      html += `<h2 class="section-title" style="margin:18px 0 6px">이 주 먹은 칼로리 · 운동 소모</h2>` + vbars(wk, '이 주 하루별 먹은 칼로리와 운동 소모 막대그래프', ['먹은 칼로리', '운동 소모'])
+        + (eaten.length ? `<div class="ins-sum" style="margin-top:8px">기록한 ${eaten.length}일 평균 <b>${kc(eaten.reduce((a, x) => a + x.a, 0) / eaten.length)}</b> · 이 주 합계 <b>${kc(eaten.reduce((a, x) => a + x.a, 0))}</b></div>` : '');
+    }
+    html += '<p class="goal-hint" style="margin:10px 0 0">칼로리는 일반적인 1회분 기준 대략값이에요. 양·조리법에 따라 달라서 정확한 값을 알면 직접 고쳐 적어 주세요. 한 번 고쳐 적으면 다음부터 그 값으로 자동 입력돼요.</p>';
+    return html;
+  }
+
+  function openMealSheet(m, date) {
+    const val = (x) => attr(x == null ? '' : String(x));
+    const who = m ? fitWho(m) : conWho === 'all' ? 'me' : conWho;
+    const hr = new Date().getHours(), slot0 = m ? m.slot : hr < 10 ? 'b' : hr < 15 ? 'l' : hr < 21 ? 'd' : 's';
+    const names = [...new Set([...fit.meals.flatMap((x) => x.items.map((i) => i.name)), ...FOODS.map((f) => f[0])])];
+    const rowHtml = (it) => `<div class="meal-row"><div class="mr1"><input data-f="name" list="meal-foods" maxlength="30" placeholder="음식 이름 (예: 김치찌개)" value="${val(it.name)}" autocomplete="off"><button type="button" class="icon-btn" data-rm aria-label="이 음식 지우기">✕</button></div>
+      <div class="mr2"><div><label>수량 (인분·개)</label><input data-f="qty" type="number" min="0" step="any" inputmode="decimal" value="${val(it.qty)}"></div><div><label>칼로리 (kcal)</label><input data-f="kcal" type="number" min="0" step="any" inputmode="numeric" value="${val(it.kcal || '')}" placeholder="자동"></div></div><div class="meal-hint"></div></div>`;
+    openSheet(`<form>
+      <h3>${m ? '식단 수정' : '식단 기록'}</h3>
+      <label>누가 먹었나요</label><select name="who">${people().map((x) => `<option value="${attr(x.id)}"${x.id === who ? ' selected' : ''}>${esc(x.name)}</option>`).join('')}</select>
+      <label>날짜</label><input name="date" type="date" required value="${val(m ? m.date : date || todayStr())}">
+      <label>끼니</label><select name="slot">${MEAL_SLOTS.map(([k, n]) => `<option value="${k}"${k === slot0 ? ' selected' : ''}>${n}</option>`).join('')}</select>
+      <label>먹은 음식</label>
+      <datalist id="meal-foods">${names.map((n) => `<option value="${attr(n)}">`).join('')}</datalist>
+      <div id="meal-rows"></div>
+      <button type="button" class="mini-btn" id="meal-add" style="width:100%;margin-top:8px">＋ 음식 더하기</button>
+      <div class="meal-total" id="meal-total"></div>
+      <label>자세한 내용 (선택)</label><textarea name="memo" rows="3" maxlength="300" placeholder="예: 밥은 반 공기만, 국물은 남김, 집에서 만든 반찬"></textarea>
+      <div class="sheet-actions"><button type="button" data-cancel>취소</button>${m ? '<button type="button" data-delete>삭제</button>' : ''}<button type="submit">저장</button></div>
+    </form>`, (fd) => {
+      const items = [...sheetBody.querySelectorAll('.meal-row')].map((r) => ({ name: r.querySelector('[data-f=name]').value.trim(), qty: Math.max(0, parseFloat(r.querySelector('[data-f=qty]').value) || 0) || 1, kcal: Math.max(0, Math.round(parseFloat(r.querySelector('[data-f=kcal]').value) || 0)) })).filter((x) => x.name);
+      const date = String(fd.get('date'));
+      if (!validDate(date) || !items.length) { showToast('날짜와 먹은 음식을 하나 이상 적어 주세요'); return false; }
+      const rec = { who: String(fd.get('who')), date, slot: String(fd.get('slot')), items, memo: String(fd.get('memo') || '').trim() };
+      if (m) Object.assign(m, rec); else fit.meals.push({ id: newId(), ...rec });
+      saveFit();
+      fitWeek = weekStartOf(date);
+      mealDay = date;
+      renderFit();
+      showToast(m ? '수정했어요' : '기록했어요');
+    });
+    sheetBody.querySelector('[name=memo]').value = m ? m.memo || '' : '';
+    const box = sheetBody.querySelector('#meal-rows'), totalEl = sheetBody.querySelector('#meal-total');
+    const total = () => { const t = [...box.querySelectorAll('[data-f=kcal]')].reduce((a, x) => a + (parseFloat(x.value) || 0), 0); totalEl.textContent = '이 끼니 합계 약 ' + kc(t); };
+    // from: 'init' 처음 그림(값은 그대로) | 'name' | 'qty' | 'kcal'
+    const refresh = (row, from) => {
+      const nm = row.querySelector('[data-f=name]'), q = row.querySelector('[data-f=qty]'), k = row.querySelector('[data-f=kcal]'), hint = row.querySelector('.meal-hint');
+      const info = foodPer(nm.value), qty = parseFloat(q.value) || 0;
+      if (from === 'kcal') row.dataset.manual = k.value === '' ? '' : '1';
+      if (from === 'name') row.dataset.manual = '';
+      if (from !== 'init' && from !== 'kcal' && !row.dataset.manual) k.value = info && qty > 0 ? Math.round(info.per * qty) : '';
+      hint.textContent = !nm.value.trim() ? '' : info ? info.text : '목록에 없는 음식이에요. 칼로리를 직접 적어 주세요(비워 둬도 저장돼요). 한 번 적어 두면 다음부터 자동으로 나와요.';
+      total();
+    };
+    const addRow = (it, focus) => {
+      box.insertAdjacentHTML('beforeend', rowHtml(it));
+      const row = box.lastElementChild;
+      const info = foodPer(it.name);
+      row.dataset.manual = it.kcal > 0 && !(info && Math.round(info.per * (it.qty || 1)) === it.kcal) ? '1' : '';
+      refresh(row, 'init');
+      if (focus) row.querySelector('[data-f=name]').focus();
+    };
+    (m && m.items.length ? m.items : [{ name: '', qty: 1, kcal: 0 }]).forEach((it) => addRow(it, false));
+    box.addEventListener('input', (e) => { const f = e.target.dataset.f, row = e.target.closest('.meal-row'); if (row && f) refresh(row, f); });
+    box.addEventListener('change', (e) => { const row = e.target.closest('.meal-row'); if (row && e.target.dataset.f === 'name') refresh(row, 'name'); });
+    box.addEventListener('click', (e) => {
+      const rm = e.target.closest('[data-rm]');
+      if (!rm) return;
+      if (box.children.length <= 1) { const r = box.firstElementChild; r.querySelectorAll('input').forEach((x) => { x.value = ''; }); r.querySelector('[data-f=qty]').value = 1; r.dataset.manual = ''; refresh(r, 'init'); return; }
+      rm.closest('.meal-row').remove();
+      total();
+    });
+    sheetBody.querySelector('#meal-add').addEventListener('click', () => addRow({ name: '', qty: 1, kcal: 0 }, true));
+    const del = sheetBody.querySelector('[data-delete]');
+    if (del) del.addEventListener('click', () => { tomb(m.id); fit.meals = fit.meals.filter((x) => x.id !== m.id); saveFit(); closeSheet(); renderFit(); showToast('삭제했어요'); });
+  }
+
   const FIT_MET = { run: 9.8, walk: 3.5, gym: 5, yoga: 3, swim: 6, bike: 7.5, hike: 6, ball: 7, stepper: 9, etc: 4 };
   const FIT_LEVELS = [['low', '가볍게'], ['mid', '보통'], ['high', '강하게']];
   function fitWeightFor(who, date) {
@@ -7038,7 +7197,7 @@
     const listHtml = `<h2 class="section-title" style="margin:4px 0 4px">이번 선택 주 기록${list.length ? ' · ' + list.length + '건' : ''}</h2>`
       + (list.length ? list.map((l) => `<button type="button" class="visit" data-fl="${attr(l.id)}"><div class="v1"><span>${l.date.slice(5).replace('-', '/')} · ${esc(fitName(l.type))}${ppl.length > 1 && conWho === 'all' ? ' · ' + esc(whoName(fitWho(l))) : ''}</span><b>${l.min ? fmtMin(+l.min) : (l.km ? l.km + 'km' : l.steps ? (+l.steps).toLocaleString('ko-KR') + '스텝' : l.floors ? l.floors + '층' : '')}</b></div><div class="v2">${[l.steps ? (+l.steps).toLocaleString('ko-KR') + '스텝' : '', l.floors ? l.floors + '층' : '', l.km ? l.km + 'km' : '', (() => { const e = fitEst(l); return e.kcal ? (e.est ? '약 ' + e.kcal + 'kcal(예상)' : e.kcal + 'kcal') : ''; })(), l.memo || ''].filter(Boolean).map(esc).join(' · ')}</div></button>`).join('')
         : '<div class="empty-msg" style="padding:12px 0">이 주 운동 기록이 없어요<br>아래 “＋ 운동 기록”으로 직접 적어 보세요</div>');
-    return `<div data-sub="log">${listHtml}${weightHtml}</div><div data-sub="stats">${html}</div>`;
+    return `<div data-sub="log">${listHtml}${weightHtml}</div><div data-sub="meal">${mealHtml()}</div><div data-sub="stats">${html}</div>`;
   }
 
   function renderFit() {
@@ -7140,12 +7299,17 @@
   el('add-fit-btn').addEventListener('click', () => openFitLogSheet(null));
   el('add-fitw-btn').addEventListener('click', () => openFitWeightSheet(null));
   el('fit-goal-btn').addEventListener('click', openFitGoalSheet);
+  el('add-meal-btn').addEventListener('click', () => openMealSheet(null, mealDay));
   el('fit-member-btn').addEventListener('click', () => openMemberManager());
   el('fit-prev').addEventListener('click', () => { fitWeek = addDays(fitWeek, -7); renderFit(); });
   el('fit-next').addEventListener('click', () => { fitWeek = addDays(fitWeek, 7); renderFit(); });
   el('fit-who').addEventListener('click', (e) => { const b = e.target.closest('button[data-cw]'); if (b) { conWho = b.dataset.cw; renderFit(); } });
   el('fit-body').addEventListener('click', (e) => {
     if (e.target.closest('[data-fg=edit]')) { openFitGoalSheet(); return; }
+    const md = e.target.closest('[data-md]');
+    if (md) { mealDay = md.dataset.md; renderFit(); return; }
+    const fm = e.target.closest('[data-fm]');
+    if (fm) { openMealSheet(fit.meals.find((x) => x.id === fm.dataset.fm)); return; }
     const fl = e.target.closest('[data-fl]');
     if (fl) { openFitLogSheet(fit.log.find((x) => x.id === fl.dataset.fl)); return; }
     const fw = e.target.closest('[data-fw]');
@@ -8014,7 +8178,7 @@
   const SUB_KEY = 'dadari_sub_v1';
   const SUBS = {
     ledger: [['sum', '요약'], ['fin', '금융캘린더'], ['rec', '기록'], ['list', '내역'], ['plan', '목표·분석'], ['card', '카드·이체']],
-    fit: [['log', '기록'], ['stats', '목표·통계']],
+    fit: [['log', '운동 기록'], ['meal', '식단'], ['stats', '목표·통계']],
     status: [['table', '요약'], ['chart', '통계'], ['fixed', '고정·카드']]
   };
   const subGet = () => { try { return JSON.parse(localStorage.getItem(SUB_KEY)) || {}; } catch (e) { return {}; } };
@@ -8541,7 +8705,7 @@
     const ws = weekStartOf(today), weeks = [];
     for (let i = 5; i >= 0; i--) { const st = addDays(ws, -7 * i), l = fit.log.filter((x) => x.date >= st && x.date <= addDays(st, 6)); weeks.push({ label: +st.slice(5, 7) + '/' + +st.slice(8, 10), min: sum(l, (x) => +x.min || 0), n: l.length, cur: i === 0 }); }
     const fw = weeks[5];
-    const fitC = fit.log.length ? card('fit', '💪', '운동 관리', `이번 주 ${fw.n}회`, `${fw.min ? fmtMin(fw.min) : '0분'} · 🔥 연속 ${fitStreak(fit.log)}일`, sec('최근 6주 운동 시간') + vbars(weeks.map((w) => ({ label: w.label, a: w.min, cur: w.cur, tip: `${w.label}주 ${fmtMin(w.min)} ${w.n}회` })), '최근 6주 주별 운동 시간 막대그래프'), { sub: 'stats' }) : empty('fit', '💪', '운동 관리', '운동을 기록하면 통계가 나와요');
+    const fitC = fit.log.length ? card('fit', '💪', '운동 관리', `이번 주 ${fw.n}회`, `${fw.min ? fmtMin(fw.min) : '0분'} · 🔥 연속 ${fitStreak(fit.log)}일${(() => { const k = fit.meals.filter((m) => m.date === today).reduce((a, m) => a + mealKcal(m), 0); return k ? ' · 오늘 먹은 ' + kc(k) : ''; })()}`, sec('최근 6주 운동 시간') + vbars(weeks.map((w) => ({ label: w.label, a: w.min, cur: w.cur, tip: `${w.label}주 ${fmtMin(w.min)} ${w.n}회` })), '최근 6주 주별 운동 시간 막대그래프'), { sub: 'stats' }) : empty('fit', '💪', '운동 관리', '운동을 기록하면 통계가 나와요');
     const DAYN = ['일', '월', '화', '수', '목', '금', '토'], dow = now.getDay();
     const sch = schedule.items.length ? card('schedule', '🗓', '시간표', `오늘 ${schedule.items.filter((i) => i.day === dow).length}개`, `일정 ${schedule.items.length}개 · 구성원 ${schedule.members.length}명`, sec('요일별 일정 수') + vbars(DAYN.map((n, d) => ({ label: n, a: schedule.items.filter((i) => i.day === d).length, cur: d === dow, tip: `${n}요일 ${schedule.items.filter((i) => i.day === d).length}개` })), '요일별 시간표 일정 수 막대그래프')) : empty('schedule', '🗓', '시간표', '시간표를 만들면 통계가 나와요');
     const calCols = [];
@@ -8698,7 +8862,7 @@
   const defaultCats = () => ({ expense: [...CATEGORIES.expense], income: [...CATEGORIES.income] });
   const sameCats = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   const hasData = () => transactions.length || cards.length || recurs.length || schedule.members.length
-    || health.visits.length || health.periods.length || health.vaccines.length || health.meds.length || insurance.length || rentals.length || academies.length || biz.entries.length || biz.shops.length > 1 || biz.shops.some((s) => s.target > 0 || s.id !== 'bz_main') || fridge.length || calItems.length || savings.accounts.length || side.jobs.length || salary.jobs.length || fit.log.length || fit.weights.length || profile.name || profile.intro || profile.goals.length || goal > 0 || !sameCats(categories, defaultCats());
+    || health.visits.length || health.periods.length || health.vaccines.length || health.meds.length || insurance.length || rentals.length || academies.length || biz.entries.length || biz.shops.length > 1 || biz.shops.some((s) => s.target > 0 || s.id !== 'bz_main') || fridge.length || calItems.length || savings.accounts.length || side.jobs.length || salary.jobs.length || fit.log.length || fit.weights.length || fit.meals.length || profile.name || profile.intro || profile.goals.length || goal > 0 || !sameCats(categories, defaultCats());
 
   function markDirty() {
     if (applying) return;
@@ -8748,6 +8912,7 @@
       fit: {
         log: union(local.fit && local.fit.log, remote.fit && remote.fit.log),
         weights: union(local.fit && local.fit.weights, remote.fit && remote.fit.weights),
+        meals: union(local.fit && local.fit.meals, remote.fit && remote.fit.meals),
         goals: { ...((remote.fit && remote.fit.goals) || {}), ...((local.fit && local.fit.goals) || {}) },
         body: { ...((remote.fit && remote.fit.body) || {}), ...((local.fit && local.fit.body) || {}) }
       },
@@ -8800,7 +8965,7 @@
       if (Array.isArray(s.calTabs)) calTabs = s.calTabs;
       if (Array.isArray(s.goalLog)) goalLog = s.goalLog;
       if (s.profile && typeof s.profile === 'object') { profile = { show: true, emoji: '🙂', name: '', intro: '', ...s.profile, goals: Array.isArray(s.profile.goals) ? s.profile.goals : [] }; saveJson(PF_KEY, profile); }
-      if (s.fit && Array.isArray(s.fit.log)) fit = { log: s.fit.log, weights: Array.isArray(s.fit.weights) ? s.fit.weights : [], goals: s.fit.goals && typeof s.fit.goals === 'object' ? s.fit.goals : {}, body: s.fit.body && typeof s.fit.body === 'object' ? s.fit.body : {} };
+      if (s.fit && Array.isArray(s.fit.log)) fit = { log: s.fit.log, weights: Array.isArray(s.fit.weights) ? s.fit.weights : [], meals: Array.isArray(s.fit.meals) ? s.fit.meals.filter((m) => m && m.id && Array.isArray(m.items)) : [], goals: s.fit.goals && typeof s.fit.goals === 'object' ? s.fit.goals : {}, body: s.fit.body && typeof s.fit.body === 'object' ? s.fit.body : {} };
       if (s.salary && Array.isArray(s.salary.jobs)) salary = { jobs: s.salary.jobs, log: Array.isArray(s.salary.log) ? s.salary.log : [] };
       if (s.side && Array.isArray(s.side.jobs)) side = { jobs: s.side.jobs, log: Array.isArray(s.side.log) ? s.side.log : [] };
       if (s.debt && Array.isArray(s.debt.items)) debt = { items: s.debt.items, log: Array.isArray(s.debt.log) ? s.debt.log : [] };
@@ -9174,7 +9339,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v145'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v146'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span class="slogan">다달이, 매일의 기록이 모여<br><b>더 나은 생활</b>이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
