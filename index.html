@@ -9,7 +9,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="다달이">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" href="icon-192.png">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png?v=2">
+<link rel="icon" type="image/png" sizes="48x48" href="favicon-48.png?v=2">
+<link rel="shortcut icon" href="favicon.ico?v=2">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <title>다달이 — 나의 생활을 한눈에</title>
 <meta name="description" content="돈 관리부터 시간 관리까지, 일상의 모든 기록을 다달이에서 간편하게 관리하세요.">
@@ -9383,7 +9385,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v148'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v149'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span class="slogan">다달이, 매일의 기록이 모여<br><b>더 나은 생활</b>이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
