@@ -2713,7 +2713,7 @@
   function recRows(list) {
     const rows = list.map((r) => `<div class="rec">
         <div><div class="rec-name">${escapeHtml(r.name)}</div>
-        <div class="rec-sub">매월 ${dayLabel(r.day)} · ${escapeHtml(r.category || (r.type === 'income' ? '급여' : '기타'))}${r.auto ? ' · 자동 기록' : ' · 기록 안 함'}</div></div>
+        <div class="rec-sub">매월 ${dayLabel(r.day)} · ${escapeHtml(r.category || (r.type === 'income' ? '급여' : '기타'))}${r.auto ? ' · 자동 기록' : ' · 기록 안 함'}${+r.discount > 0 ? ' · ' + discTxt(r) : ''}</div></div>
         <div class="rec-amt${r.type === 'income' ? ' inc' : ''}">${r.type === 'income' ? '+' : ''}${formatWon(r.amount)}</div>
         <button type="button" class="icon-btn" data-del-recur="${r.id}" aria-label="자동이체 삭제">✕</button>
       </div>`).join('');
@@ -2818,6 +2818,8 @@
     if (c.kind === 'credit' && c.payDay) parts.push(`매월 ${dayLabel(c.payDay)} 결제`);
     parts.push(`이번 달 사용 ${formatWon(cardUse(c.id, monthKey(viewDate)))}`);
     if (mine.length) parts.push(`자동이체 월 ${formatWon(sumAmount(mine))}`);
+    const cdm = cardDiscountMonthly(c.id);
+    if (cdm) parts.push(`고정비 카드 할인 월 ${formatWon(cdm)}`);
     const info = [c.brand, c.fee ? '연회비 ' + formatWon(c.fee) : ''].filter(Boolean).map(escapeHtml).join(' · ');
     return `<div class="cardbox${plain ? ' plain' : ''}">
       <div class="cardhead">
@@ -3114,9 +3116,10 @@
       <select name="kind"><option value="expense">지출 (자동이체·정기결제)</option><option value="income">수입 (월급 등 고정수입)</option></select>
       <label>결제 카드 (지출만)</label>
       <select name="card">${cardOpts}</select>
+      <div id="recur-disc">${discField(0)}</div>
       <label>항목 이름</label>
       <input name="name" required maxlength="30" placeholder="예: 통신비, 넷플릭스">
-      <label>금액 (원)</label>
+      <label>금액 · 할인 전 정가 (원)</label>
       <input name="amount" type="number" min="1" inputmode="numeric" required>
       <label>매월 결제일</label>
       ${dayInput('day', 0, true)}
@@ -3129,19 +3132,24 @@
       <div class="sheet-actions"><button type="button" data-cancel>취소</button><button type="submit">저장</button></div>
     </form>`, (fd) => {
       const name = String(fd.get('name')).trim();
-      const amount = parseInt(fd.get('amount'), 10);
+      const listAmt = parseInt(fd.get('amount'), 10);
       const day = parseInt(fd.get('day'), 10);
       const start = /^\d{4}-\d{2}-\d{2}$/.test(fd.get('start')) ? String(fd.get('start')) : todayStr();
-      if (!name || !(amount > 0) || !(day >= 1 && day <= 31)) {
+      if (!name || !(listAmt > 0) || !(day >= 1 && day <= 31)) {
         showToast('항목 이름, 금액, 결제일을 확인해 주세요');
         return false;
       }
+      const isInc = fd.get('kind') === 'income', dc = isInc ? { discount: 0, list: listAmt, net: listAmt } : readDisc(fd, listAmt, String(fd.get('card')) || '', true);
+      if (dc.err) { showToast(dc.err); return false; }
+      const amount = dc.net;
       recurs.push({
         id: newId(),
         type: fd.get('kind') === 'income' ? 'income' : 'expense',
         cardId: fd.get('kind') === 'income' ? null : fd.get('card') || null,
         name,
         amount,
+        list: listAmt,
+        discount: dc.discount,
         day,
         category: String(fd.get('category') || '기타'),
         auto: fd.get('auto') === 'on',
@@ -3157,6 +3165,7 @@
     kindSel.addEventListener('change', () => {
       const income = kindSel.value === 'income';
       sheetBody.querySelector('[name=card]').disabled = income;
+      sheetBody.querySelector('#recur-disc').hidden = income;
       sheetBody.querySelector('[name=category]').innerHTML = catOptions(income ? 'income' : 'expense');
     });
   });
@@ -4714,6 +4723,27 @@
     }
     saveJson(RECURS_KEY, recurs);
   }
+  // 카드 할인: 카드로 결제하는 고정비(자동이체·렌탈·구독·보험·학원비)는 결제일 할인·청구할인으로 정가보다 덜 나가는 일이 많다.
+  // 항목에는 정가(`list`)와 한 번 결제할 때마다 빠지는 할인액(`discount`)을 적고, 실제로 내는 금액(`fee`·`premium`·`amount`)에는 정가 − 할인을 저장해서 모든 합계·가계부 자동 기록이 실제 낸 돈으로 맞는다.
+  const discField = (cur) => `<label>카드 할인 (한 번 결제할 때마다 빠지는 금액, 원 · 선택)</label><input name="discount" type="number" min="0" inputmode="numeric" placeholder="예: 3000 (결제일 할인·청구할인)" value="${attr(cur ? String(cur) : '')}"><p class="goal-hint" style="margin:2px 0 0">위 금액은 할인 받기 전 정가로 적어요. 할인을 받으려면 결제수단에서 카드를 골라야 해요.</p>`;
+  // 입력창에서 정가·할인·카드를 읽어 실제 내는 금액을 계산한다. 오류면 {err}.
+  function readDisc(fd, listPrice, cardId, needPositive) {
+    const d = Math.max(0, parseInt(fd.get('discount'), 10) || 0);
+    if (d && !cardId) return { err: '카드 할인은 결제수단에서 카드를 골라야 해요' };
+    if (d > listPrice || (needPositive && d >= listPrice)) return { err: '카드 할인이 금액보다 크거나 같아요' };
+    return { discount: d, list: listPrice, net: listPrice - d };
+  }
+  const discTxt = (x) => (+x.discount > 0 ? `카드 할인 -${formatWon(+x.discount)} (정가 ${formatWon(+x.list || 0)})` : '');
+  // 카드로 매달 덜 내는 돈(월 환산)의 합계. cardId를 주면 그 카드만. 자동이체는 렌탈·보험·학원비와 이어진 것(recurId)을 빼서 두 번 세지 않는다.
+  function cardDiscountMonthly(cardId) {
+    const today = todayStr(), ok = (c) => c && cardById(c) && (!cardId || c === cardId), lk = new Set([...insurance, ...rentals, ...academies].map((x) => x.recurId).filter(Boolean));
+    let t = 0;
+    rentals.forEach((r) => { if (ok(r.cardId) && rentState(r, today) !== 'ended') t += +r.discount || 0; });
+    insurance.forEach((p) => { if (ok(p.cardId) && insState(p, today) === 'active' && p.freq !== 'once') t += (+p.discount || 0) / (p.freq === 'year' ? 12 : 1); });
+    academies.forEach((a) => { if (ok(a.cardId) && a.status === 'active') t += +a.discount || 0; });
+    recurs.forEach((r) => { if (r.type !== 'income' && ok(r.cardId) && !lk.has(r.id)) t += +r.discount || 0; });
+    return Math.round(t);
+  }
   const cardSelectOptions = (selected) => '<option value="">현금 · 계좌이체</option>'
     + cards.map((c) => `<option value="${attr(c.id)}"${c.id === selected ? ' selected' : ''}>${esc(c.name)}</option>`).join('');
   const payInfo = (cardId) => (cardById(cardId) ? cardById(cardId).name : '');
@@ -4761,7 +4791,8 @@
         return sum ? `${esc(pp.name)} ${formatWon(sum)}` : '';
       }).filter(Boolean).join(' · ');
     }
-    html += `<div class="ins-sum">납입 중 <b>${active.length}건</b> · 월 약 <b>${formatWon(monthly)}</b><br>연 ${formatWon(yearly)}${per ? '<br>' + per : ''}</div>`;
+    const insDisc = Math.round(active.reduce((x, p) => x + (cardById(p.cardId) && p.freq !== 'once' ? (+p.discount || 0) / (p.freq === 'year' ? 12 : 1) : 0), 0));
+    html += `<div class="ins-sum">납입 중 <b>${active.length}건</b> · 월 약 <b>${formatWon(monthly)}</b><br>연 ${formatWon(yearly)}${insDisc ? `<br>카드 할인으로 매달 약 <b>${formatWon(insDisc)}</b> 덜 내요` : ''}${per ? '<br>' + per : ''}</div>`;
 
     const events = [];
     list.filter((p) => insState(p, today) !== 'ended').forEach((p) => {
@@ -4780,7 +4811,7 @@
       const total = +p.payYears > 0 ? Math.round(p.payYears * (p.freq === 'year' ? 1 : 12)) : 0;
       const nd = st === 'active' && !once ? nextDue(p.start, p.payDay, today, end, p.freq, p.payMonth) : '';
       const when = once ? '일시납' : p.freq === 'year' ? `매년 ${p.payMonth ? p.payMonth + '월 ' : ''}${p.payDay ? dayLabel(p.payDay) : ''}` : `매월 ${p.payDay ? dayLabel(p.payDay) : '-'}`;
-      const parts = [when, payInfo(p.cardId),
+      const parts = [when, payInfo(p.cardId), discTxt(p),
         once ? (validDate(p.start) ? p.start.slice(2).replace(/-/g, '.') + (p.start > today ? ' 납부 예정' : ' 완납') : '완납') : '',
         p.lifetime ? '보장 평생' : validDate(p.expiry) ? '보장 ~' + p.expiry.slice(2).replace(/-/g, '.') : '',
         n ? `납입 ${n}${total ? '/' + total : ''}회${total ? ` (${Math.min(100, Math.round((n / total) * 100))}%)` : ''} · 누적 ${formatWon(n * p.premium)}` : '',
@@ -4805,7 +4836,8 @@
     const live = list.filter((r) => rentState(r, today) !== 'ended').sort(nameSort(rentLabel));
     const ended = list.filter((r) => rentState(r, today) === 'ended').sort(nameSort(rentLabel));
     const monthly = live.reduce((s, r) => s + (+r.fee || 0), 0);
-    let html = `<div class="ins-sum">이용 중 <b>${live.length}건</b> · 월 <b>${formatWon(monthly)}</b><br>연 ${formatWon(monthly * 12)}</div>`;
+    const rentDisc = live.reduce((x, r) => x + (cardById(r.cardId) ? +r.discount || 0 : 0), 0);
+    let html = `<div class="ins-sum">이용 중 <b>${live.length}건</b> · 월 <b>${formatWon(monthly)}</b><br>연 ${formatWon(monthly * 12)}${rentDisc ? `<br>카드 할인으로 매달 <b>${formatWon(rentDisc)}</b> 덜 내요` : ''}</div>`;
 
     const events = [];
     live.forEach((r) => {
@@ -4819,7 +4851,7 @@
       const st = rentState(r, today), end = rentEnd(r);
       const n = dueCount(r.start, r.payDay, today, '', 'month');
       const total = +r.termMonths > 0 ? +r.termMonths : 0;
-      const parts = [r.payDay ? `매월 ${dayLabel(r.payDay)}` : '', payInfo(r.cardId),
+      const parts = [r.payDay ? `매월 ${dayLabel(r.payDay)}` : '', payInfo(r.cardId), discTxt(r),
         n ? `납입 ${Math.min(n, total || n)}${total ? '/' + total : ''}회` : '',
         end ? `약정 ${end.slice(2).replace(/-/g, '.')}까지${st === 'active' ? ' (' + ddText(diffDays(end, today)) + ')' : ''}` : '',
         validDate(r.nextVisit) ? `다음 방문 ${mdOf(r.nextVisit)} (${ddText(diffDays(r.nextVisit, today))})` : '', r.note];
@@ -4845,12 +4877,13 @@
       <label>보험사 (선택)</label><input name="insurer" maxlength="20" placeholder="예: OO생명, OO화재" value="${val(p && p.insurer)}">
       <label>상품 이름</label><input name="name" required maxlength="40" placeholder="예: 실손보험, 종신보험" value="${val(p && p.name)}">
       <label>종류</label><select name="kind"><option value="">선택 안 함</option>${kindOpts}</select>
-      <label id="ins-prem-lbl">불입금 (원)</label><input name="premium" type="number" min="1" inputmode="numeric" required value="${val(p && p.premium)}">
+      <label id="ins-prem-lbl">불입금 · 할인 전 정가 (원)</label><input name="premium" type="number" min="1" inputmode="numeric" required value="${val(p && (p.list != null ? p.list : p.premium))}">
       <label>납입 주기</label>
       <select name="freq"><option value="month"${p && (p.freq === 'year' || p.freq === 'once') ? '' : ' selected'}>매월</option><option value="year"${p && p.freq === 'year' ? ' selected' : ''}>매년 (연납)</option><option value="once"${p && p.freq === 'once' ? ' selected' : ''}>일시납 (한 번에 완납)</option></select>
       <div id="ins-day-wrap"><label>납입일 (매월 며칠 · 연납이면 그 달의 며칠)</label>${dayInput('payDay', p && p.payDay)}
       <label>연납이면 납입 월 (선택)</label><input name="payMonth" type="number" min="1" max="12" inputmode="numeric" value="${val(p && p.payMonth ? p.payMonth : '')}"></div>
       <label>결제수단</label><select name="card">${cardSelectOptions(p && p.cardId)}</select>
+      ${discField(p && p.discount)}
       <label id="ins-start-lbl">계약일 (선택)</label><input name="start" type="date" value="${val(p && p.start)}">
       <div id="ins-years-wrap"><label>납입 기간 (년, 선택)</label><input name="payYears" type="number" min="0" step="0.5" inputmode="decimal" placeholder="예: 20" value="${val(p && p.payYears ? p.payYears : '')}"></div>
       <label>보장 만기일 (선택)</label><input name="expiry" type="date" value="${val(p && p.expiry)}"${p && p.lifetime ? ' disabled' : ''}>
@@ -4865,11 +4898,14 @@
       <div class="sheet-actions"><button type="button" data-cancel>취소</button>${p ? '<button type="button" data-delete>삭제</button>' : ''}<button type="submit">저장</button></div>
     </form>`, (fd) => {
       const name = String(fd.get('name')).trim();
-      const premium = parseInt(fd.get('premium'), 10);
-      if (!name || !(premium > 0)) { showToast('상품 이름과 불입금을 확인해 주세요'); return false; }
+      const listPrem = parseInt(fd.get('premium'), 10);
+      if (!name || !(listPrem > 0)) { showToast('상품 이름과 불입금을 확인해 주세요'); return false; }
+      const dc = readDisc(fd, listPrem, String(fd.get('card')) || '', true);
+      if (dc.err) { showToast(dc.err); return false; }
+      const premium = dc.net;
       const date = (k) => (validDate(String(fd.get(k))) ? String(fd.get(k)) : '');
       const rec = {
-        who: String(fd.get('who')), insurer: String(fd.get('insurer')).trim(), name, kind: String(fd.get('kind')), premium,
+        who: String(fd.get('who')), insurer: String(fd.get('insurer')).trim(), name, kind: String(fd.get('kind')), premium, list: listPrem, discount: dc.discount,
         freq: ['year', 'once'].includes(String(fd.get('freq'))) ? String(fd.get('freq')) : 'month',
         payDay: Math.min(31, Math.max(0, parseInt(fd.get('payDay'), 10) || 0)), payMonth: Math.min(12, Math.max(0, parseInt(fd.get('payMonth'), 10) || 0)),
         cardId: String(fd.get('card')) || '', start: date('start'), payYears: Math.max(0, parseFloat(fd.get('payYears')) || 0),
@@ -4927,9 +4963,10 @@
       <label>명의 · 사용자</label><select name="who">${whoOpts}</select>
       <label>업체·서비스 (선택)</label><input name="company" maxlength="20" placeholder="예: OO렌탈, 넷플릭스" value="${val(r && r.company)}">
       <label>품목</label><input name="name" required maxlength="40" placeholder="예: 정수기, 안마의자, 넷플릭스 구독" value="${val(r && r.name)}">
-      <label>월 이용료 (원 · 무료로 제공받는 것은 0)</label><input name="fee" type="number" min="0" inputmode="numeric" required placeholder="무료면 0" value="${val(r && r.fee != null ? r.fee : '')}">
+      <label>월 이용료 · 할인 전 정가 (원 · 무료로 제공받는 것은 0)</label><input name="fee" type="number" min="0" inputmode="numeric" required placeholder="무료면 0" value="${val(r && (r.list != null ? r.list : r.fee) != null ? (r.list != null ? r.list : r.fee) : '')}">
       <label>결제일 (매월 며칠)</label>${dayInput('payDay', r && r.payDay)}
       <label>결제수단</label><select name="card">${cardSelectOptions(r && r.cardId)}</select>
+      ${discField(r && r.discount)}
       <label>계약 시작일 (선택)</label><input name="start" type="date" value="${val(r && r.start)}">
       <label>약정 기간 (개월, 선택)</label><input name="termMonths" type="number" min="0" inputmode="numeric" placeholder="예: 36, 60" value="${val(r && r.termMonths ? r.termMonths : '')}">
       <label>방문 관리 주기 (개월, 선택)</label><input name="visitEvery" type="number" min="0" inputmode="numeric" placeholder="예: 4" value="${val(r && r.visitEvery ? r.visitEvery : '')}">
@@ -4942,11 +4979,14 @@
       <div class="sheet-actions"><button type="button" data-cancel>취소</button>${r ? '<button type="button" data-delete>삭제</button>' : ''}<button type="submit">저장</button></div>
     </form>`, (fd) => {
       const name = String(fd.get('name')).trim();
-      const fee = parseInt(fd.get('fee'), 10);
-      if (!name || !(fee >= 0)) { showToast('품목과 월 이용료를 확인해 주세요(무료면 0을 적어요)'); return false; }
+      const listFee = parseInt(fd.get('fee'), 10);
+      if (!name || !(listFee >= 0)) { showToast('품목과 월 이용료를 확인해 주세요(무료면 0을 적어요)'); return false; }
+      const dc = readDisc(fd, listFee, String(fd.get('card')) || '', false);
+      if (dc.err) { showToast(dc.err); return false; }
+      const fee = dc.net;
       const date = (k) => (validDate(String(fd.get(k))) ? String(fd.get(k)) : '');
       const rec = {
-        who: String(fd.get('who')), company: String(fd.get('company')).trim(), name, fee,
+        who: String(fd.get('who')), company: String(fd.get('company')).trim(), name, fee, list: listFee, discount: dc.discount,
         payDay: Math.min(31, Math.max(0, parseInt(fd.get('payDay'), 10) || 0)), cardId: String(fd.get('card')) || '',
         start: date('start'), termMonths: Math.max(0, parseInt(fd.get('termMonths'), 10) || 0),
         visitEvery: Math.max(0, parseInt(fd.get('visitEvery'), 10) || 0), nextVisit: date('nextVisit'),
@@ -5053,7 +5093,7 @@
       }
     });
     let html = `<div class="ins-sum">이번 달 학원비 <b>${formatWon(total)}</b> · 납부 ${paidList.length}/${live.length}건<br>
-      ${total ? `미납 ${formatWon(total - paidSum)}` : '수강 중인 학원이 없어요'}${per ? '<br>' + per : ''}
+      ${total ? `미납 ${formatWon(total - paidSum)}` : '수강 중인 학원이 없어요'}${live.some((a) => cardById(a.cardId) && +a.discount > 0) ? `<br>카드 할인으로 이번 달 <b>${formatWon(live.reduce((x, a) => x + (cardById(a.cardId) ? +a.discount || 0 : 0), 0))}</b> 덜 내요` : ''}${per ? '<br>' + per : ''}
       <div class="bar" style="margin-top:6px"><i style="width:${total ? Math.round((paidSum / total) * 100) : 0}%"></i></div>
       <span style="font-size:12px;color:var(--text-muted)">${acaView.y}년 납부 완료 누적 ${formatWon(yearPaid)}</span></div>`;
 
@@ -5066,7 +5106,7 @@
     const row = (a, canPay) => {
       const paid = acaPaid(a, ym), auto = acaAuto(a, ym);
       const dd = due(a) && thisMonth ? diffDays(due(a), today) : null;
-      const parts = [a.subject, a.payDay ? `매월 ${dayLabel(a.payDay)}${dd !== null && !paid ? ' (' + ddText(dd) + ')' : ''}` : '', payInfo(a.cardId),
+      const parts = [a.subject, a.payDay ? `매월 ${dayLabel(a.payDay)}${dd !== null && !paid ? ' (' + ddText(dd) + ')' : ''}` : '', payInfo(a.cardId), discTxt(a),
         validDate(a.end) ? `~${a.end.slice(2).replace(/-/g, '.')}` : '', a.note];
       const btn = canPay ? `<button type="button" class="vcheck${paid ? ' on' : ''}" data-acapay="${a.id}" aria-label="납부 확인">${paid ? (auto ? '✓ 자동' : '✓ 납부') : '납부 확인'}</button>` : '';
       return `<div class="vrow"><button type="button" class="visit" data-aca="${a.id}"><div class="v1"><span>${esc(a.name)}${tag(a)}</span><span>월 ${formatWon(+a.fee || 0)}</span></div>
@@ -5088,9 +5128,10 @@
       <label>누구</label><select name="who">${whoOpts}</select>
       <label>학원 이름</label><input name="name" required maxlength="30" placeholder="예: OO영어, OO수학학원" value="${val(a && a.name)}">
       <label>과목 · 내용 (선택)</label><input name="subject" maxlength="30" placeholder="예: 영어, 수영, 미술" value="${val(a && a.subject)}">
-      <label>월 수강료 (원)</label><input name="fee" type="number" min="1" inputmode="numeric" required value="${val(a && a.fee)}">
+      <label>월 수강료 · 할인 전 정가 (원)</label><input name="fee" type="number" min="1" inputmode="numeric" required value="${val(a && (a.list != null ? a.list : a.fee))}">
       <label>납부일 (매월 며칠)</label>${dayInput('payDay', a && a.payDay)}
       <label>결제수단</label><select name="card">${cardSelectOptions(a && a.cardId)}</select>
+      ${discField(a && a.discount)}
       <label>수강 시작일 (선택)</label><input name="start" type="date" value="${val(a && a.start)}">
       <label>수강 종료일 (선택)</label><input name="end" type="date" value="${val(a && a.end)}">
       <label>상태</label>
@@ -5101,11 +5142,14 @@
       <div class="sheet-actions"><button type="button" data-cancel>취소</button>${a ? '<button type="button" data-delete>삭제</button>' : ''}<button type="submit">저장</button></div>
     </form>`, (fd) => {
       const name = String(fd.get('name')).trim();
-      const fee = parseInt(fd.get('fee'), 10);
-      if (!name || !(fee > 0)) { showToast('학원 이름과 월 수강료를 확인해 주세요'); return false; }
+      const listFee = parseInt(fd.get('fee'), 10);
+      if (!name || !(listFee > 0)) { showToast('학원 이름과 월 수강료를 확인해 주세요'); return false; }
+      const dc = readDisc(fd, listFee, String(fd.get('card')) || '', true);
+      if (dc.err) { showToast(dc.err); return false; }
+      const fee = dc.net;
       const date = (k) => (validDate(String(fd.get(k))) ? String(fd.get(k)) : '');
       const rec = {
-        who: String(fd.get('who')), name, subject: String(fd.get('subject')).trim(), fee,
+        who: String(fd.get('who')), name, subject: String(fd.get('subject')).trim(), fee, list: listFee, discount: dc.discount,
         payDay: Math.min(31, Math.max(0, parseInt(fd.get('payDay'), 10) || 0)), cardId: String(fd.get('card')) || '',
         start: date('start'), end: date('end'), status: ['paused', 'ended'].includes(String(fd.get('status'))) ? String(fd.get('status')) : 'active',
         auto: fd.get('auto') === 'on', note: String(fd.get('note')).trim()
@@ -8950,7 +8994,7 @@
     const maxPart = Math.max(1, ...parts.map((p) => p[1]));
     const fixedHtml = parts.length
       ? `<h2 class="section-title" style="margin:18px 0 8px">매달 고정으로 나가는 돈</h2>
-        <div class="ins-sum">월 약 <b>${formatWon(fixedTotal)}</b> · 연 ${formatWon(fixedTotal * 12)}${inc ? `<br>이번 달 수입 대비 ${Math.round((fixedTotal / inc) * 100)}%` : ''}</div>`
+        <div class="ins-sum">월 약 <b>${formatWon(fixedTotal)}</b> · 연 ${formatWon(fixedTotal * 12)}${cardDiscountMonthly() ? `<br>카드 할인으로 매달 약 <b>${formatWon(cardDiscountMonthly())}</b> 덜 나가요 (이미 뺀 금액이에요)` : ''}${inc ? `<br>이번 달 수입 대비 ${Math.round((fixedTotal / inc) * 100)}%` : ''}</div>`
         + parts.map(([n, v]) => `<div class="bar-row" data-sv="${{ '보험': 'insurance', '렌탈·구독': 'rental', '학원비': 'academy' }[n] || 'ledger'}"${n === '자동이체·기타' ? ' data-ssub="card"' : ''} style="cursor:pointer"><div class="cat-name" style="width:84px">${n}</div><div class="bar-track"><div class="bar-fill" style="width:${Math.max(4, Math.round((v / maxPart) * 100))}%"></div></div><div class="cat-amt" style="width:96px">${formatWon(v)}</div></div>`).join('')
       : '';
 
@@ -9500,7 +9544,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v154'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v155'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span class="slogan">다달이, 매일의 기록이 모여<br><b>더 나은 생활</b>이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
