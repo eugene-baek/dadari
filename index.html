@@ -2321,6 +2321,18 @@
     save();
     renderAll();
     showToast('삭제되었어요');
+    // 자동이체·고정수입이 만든 내역은 지워도 다음 달에 또 생긴다 → 자동 기록을 멈출지 묻는다(항목 자체는 남기고 "자동 기록"만 끈다)
+    const r = t.recurId && recurs.find((x) => x.id === t.recurId);
+    if (r && r.auto && confirm(`“${r.name}”은(는) 매달 ${dayLabel(r.day)}에 자동으로 기록되는 ${r.type === 'income' ? '고정수입' : '자동이체'}예요.
+이번 달 내역만 지웠고, 다음 달에는 또 기록돼요.
+
+앞으로 자동 기록을 멈출까요?
+(확인 = 자동 기록 끄기 · 취소 = 계속 기록)`)) {
+      r.auto = false;
+      saveJson(RECURS_KEY, recurs);
+      renderAll();
+      showToast('자동 기록을 껐어요 (카드·이체 목록에는 남아 있어요)');
+    }
     return true;
   }
 
@@ -7599,6 +7611,8 @@
         recurs.filter((r) => !linked.has(r.id) && r.day >= 1).forEach((r) => {
           const d = ymdOf(y, m, r.day);
           if (validDate(r.start) && d < r.start) return;
+          // 고정수입은 "예정"이라서 아직 오지 않은 날만 보인다(지난 달마다 3,000,000원이 계속 떠 보이던 것). 지난 수입은 날짜별 실제 수입으로 본다.
+          if (r.type === 'income' && (d < todayStr() || (r.auto && recurDone.has(r.id + ':' + ym)))) return;
           add(r.type === 'income' ? 'inc' : 'pay', d, { icon: r.type === 'income' ? '💵' : '🔁', text: r.type === 'income' ? `${r.name} (고정수입)` : `${r.name} (자동이체)`, amt: r.amount, view: 'ledger', sub: 'card', ref: r.id });
         });
         debt.items.filter((d) => d.payDay >= 1 && d.monthly > 0 && debtBal(d.id) > 0).forEach((d) => {
@@ -7609,6 +7623,8 @@
         });
         salary.jobs.filter((j) => (j.status || 'on') === 'on' && j.payDay >= 1).forEach((j) => {
           const lastNet = (salary.log.filter((l) => l.jid === j.id).sort((a, b) => (a.date < b.date ? 1 : -1))[0] || {}).net || 0;
+          // 수입 "예정"은 아직 오지 않은 월급일만, 그리고 그 달 월급을 이미 기록했으면 뺀다(지난 달·받은 달에 예정이 계속 떠 보이던 것)
+          if (ymdOf(y, m, j.payDay) < todayStr() || salary.log.some((l) => l.jid === j.id && l.date.startsWith(ym))) return;
           add('inc', ymdOf(y, m, j.payDay), { icon: '💵', text: `${j.name} 월급일`, amt: lastNet, view: 'salary', ref: j.id });
         });
       });
@@ -9391,7 +9407,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v150'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v151'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span class="slogan">다달이, 매일의 기록이 모여<br><b>더 나은 생활</b>이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
