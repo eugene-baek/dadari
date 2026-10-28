@@ -372,6 +372,11 @@
   .stat-card { margin-top: 10px; padding: 12px 14px 14px; border-radius: 12px; background: var(--bg); }
   .stat-card .stat-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; width: 100%; padding: 2px 0; border: none; background: none; color: var(--text); font: inherit; font-size: 15px; font-weight: 700; text-align: left; cursor: pointer; }
   .stat-card .stat-head .go { flex: none; color: var(--mc-text); font-size: 13px; font-weight: 700; }
+  .mstat .stat-key { margin-top: 4px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; }
+  .mstat .stat-key b { font-size: clamp(16px, 4.6vw, 18px); font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .mstat .stat-key span { color: var(--text-muted); font-size: 13px; }
+  .mstat .vz-plot { height: 96px; }
+  .mstat h2.section-title { font-size: 15px; }
   .stat-card .stat-key { margin-top: 4px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; }
   .stat-card .stat-key b { font-size: clamp(16px, 4.6vw, 18px); font-weight: 800; white-space: nowrap; font-variant-numeric: tabular-nums; }
   .stat-card .stat-key span { color: var(--text-muted); font-size: 13px; }
@@ -1311,6 +1316,7 @@
       <button type="button" class="mini-btn" id="ins-member-btn">👥 구성원 관리</button>
     </div>
   </section>
+  <section class="card mstat" id="mstat-insurance" hidden></section>
   <div class="ad-slot" id="ad-slot-insurance-2" data-slot="insurance-2" role="complementary" aria-label="광고 자리"><span class="ad-tag">AD</span>광고 배너 자리</div>
 </main>
 
@@ -1331,6 +1337,7 @@
       <button type="button" class="mini-btn" id="aca-member-btn">👥 구성원 관리</button>
     </div>
   </section>
+  <section class="card mstat" id="mstat-academy" hidden></section>
   <div class="ad-slot" id="ad-slot-academy-2" data-slot="academy-2" role="complementary" aria-label="광고 자리"><span class="ad-tag">AD</span>광고 배너 자리</div>
 </main>
 
@@ -1373,6 +1380,7 @@
       <button type="button" class="mini-btn" id="sav-member-btn">👥 구성원 관리</button>
     </div>
   </section>
+  <section class="card mstat" id="mstat-savings" hidden></section>
   <div class="ad-slot" id="ad-slot-savings-2" data-slot="savings-2" role="complementary" aria-label="광고 자리"><span class="ad-tag">AD</span>광고 배너 자리</div>
 </main>
 
@@ -1387,6 +1395,7 @@
       <button type="button" class="mini-btn" id="add-repay-btn">＋ 갚음·받음 기록</button>
     </div>
   </section>
+  <section class="card mstat" id="mstat-debt" hidden></section>
   <div class="ad-slot" id="ad-slot-debt-2" data-slot="debt-2" role="complementary" aria-label="광고 자리"><span class="ad-tag">AD</span>광고 배너 자리</div>
 </main>
 
@@ -1488,6 +1497,7 @@
     <div id="cal-body"></div>
     <div class="cards-actions"><button type="button" class="mini-btn" id="cal-add">＋ 일정 추가</button><button type="button" class="mini-btn" id="cal-member-btn">👥 구성원 관리</button></div>
   </section>
+  <section class="card mstat" id="mstat-calendar" hidden></section>
   <div class="ad-slot" id="ad-slot-calendar-2" data-slot="calendar-2" role="complementary" aria-label="광고 자리"><span class="ad-tag">AD</span>광고 배너 자리</div>
 </main>
 
@@ -1586,6 +1596,7 @@
     <div id="food-body"></div>
     <div class="cards-actions" id="food-actions"></div>
   </section>
+  <section class="card mstat" id="mstat-food" hidden></section>
   <div class="ad-slot" id="ad-slot-food-2" data-slot="food-2" role="complementary" aria-label="광고 자리"><span class="ad-tag">AD</span>광고 배너 자리</div>
 </main>
 
@@ -1599,6 +1610,7 @@
       <button type="button" class="mini-btn" id="rent-member-btn">👥 구성원 관리</button>
     </div>
   </section>
+  <section class="card mstat" id="mstat-rental" hidden></section>
   <div class="ad-slot" id="ad-slot-rental-2" data-slot="rental-2" role="complementary" aria-label="광고 자리"><span class="ad-tag">AD</span>광고 배너 자리</div>
 </main>
 
@@ -1615,6 +1627,7 @@
     <div id="health-body"></div>
     <div class="cards-actions" id="health-actions"></div>
   </section>
+  <section class="card mstat" id="mstat-health" hidden></section>
   <div class="ad-slot" id="ad-slot-health-2" data-slot="health-2" role="complementary" aria-label="광고 자리"><span class="ad-tag">AD</span>광고 배너 자리</div>
 </main>
 
@@ -1634,6 +1647,7 @@
       <button type="button" class="mini-btn" id="add-member-btn">👥 구성원 관리</button>
     </div>
   </section>
+  <section class="card mstat" id="mstat-schedule" hidden></section>
   <div class="ad-slot" id="ad-slot-schedule-2" data-slot="schedule-2" role="complementary" aria-label="광고 자리"><span class="ad-tag">AD</span>광고 배너 자리</div>
 </main>
 
@@ -1791,6 +1805,7 @@
   </section>
 
 
+  <section class="card mstat" id="mstat-ledger" data-sub="plan" hidden></section>
   <div class="ad-slot" id="ad-slot-ledger-2" data-slot="ledger-2" role="complementary" aria-label="광고 자리"><span class="ad-tag">AD</span>광고 배너 자리</div>
 </main>
 
@@ -2129,6 +2144,7 @@
     renderFixed(monthTx);
     renderList(onlyFixed ? monthTx.filter(isFixed) : monthTx);
     if (finReady) renderFin();
+    try { if (!el('view-ledger').hidden) renderMenuStats('ledger'); } catch (e) { /* 아직 안 만들어진 값 */ }
   }
 
   // 월 목표를 일요일 시작 주 단위로 나눈다. 1일이 주 중간이면 첫 주는 짧은 주이고, 목표는 일수에 비례해 배분한다.
@@ -8458,6 +8474,7 @@
 
   function renderTodo() {
     const wrap = el('todo-wrap');
+    if (MENU_STAT_VIEWS.includes(curMenu)) renderMenuStats(curMenu);   // 저장할 때마다(queueTodo) 보고 있는 메뉴의 통계도 새로 그린다
     const items = todoItems();
     if (!el('view-status').hidden) renderStatus();   // 현황 탭을 보고 있으면 같이 갱신한다
     // 확인할 일 배너는 현황 탭에서만 보여 준다(다른 메뉴 화면에서는 숨김)
@@ -8725,7 +8742,9 @@
   }
   // 가로 막대(순위·진행): rows = [{n, w(0~100), t(오른쪽 글)}]
   const hbars = (rows) => rows.map((r) => `<div class="vz-h"><span class="n">${esc(r.n)}</span><span class="t"><i style="width:${Math.max(r.w > 0 ? 3 : 0, Math.min(100, Math.round(r.w)))}%"></i></span><span class="a">${r.t}</span></div>`).join('');
-  function statCardsHtml() {
+  let statParts = {};   // 마지막으로 계산한 메뉴별 통계 {view: {icon,title,key,sub,body}} — 각 메뉴 안의 통계 카드가 이걸 쓴다
+  function statCardsHtml(only) {
+    statParts = {};
     const now = new Date(), today = todayStr(), ym = today.slice(0, 7), signed = (n) => (n < 0 ? '-' : '') + formatWon(Math.abs(n));
     const months = [];
     for (let i = 5; i >= 0; i--) { const d = new Date(now.getFullYear(), now.getMonth() - i, 1); months.push({ ym: monthKey(d), m: d.getMonth() + 1, cur: i === 0 }); }
@@ -8733,6 +8752,8 @@
     const sec = (t) => `<h2 class="section-title" style="margin:12px 0 6px">${t}</h2>`;
     const monthCols = (f, tipOf) => months.map((mo) => { const v = f(mo); return { label: mo.m + '월', a: Math.max(0, v.a), b: v.b, cur: mo.cur, tip: `${mo.m}월 ${tipOf(v)}` }; });
     const card = (view, icon, title, key, sub, body, x = {}) => {
+      statParts[view] = { icon, title, key, sub, body };
+      if (only && view !== only) return '';
       if (tabHidden(view)) return '';
       const head = `<button type="button" class="stat-head" data-sv="${view}"${x.sub ? ` data-ssub="${x.sub}"` : ''}${x.mode ? ` data-smode="${x.mode}"` : ''}><span>${icon} ${title}</span><span class="go">자세히 ›</span></button>`;
       return `<div class="stat-card">${head}${key ? `<div class="stat-key"><b>${key}</b>${sub ? `<span>${sub}</span>` : ''}</div>` : ''}${body || (key ? '' : `<p class="goal-hint" style="margin:6px 0 0">${sub || '기록을 시작하면 통계가 나와요'}</p>`)}</div>`;
@@ -8777,13 +8798,13 @@
     const DAYN = ['일', '월', '화', '수', '목', '금', '토'], dow = now.getDay();
     const sch = schedule.items.length ? card('schedule', '🗓', '시간표', `오늘 ${schedule.items.filter((i) => i.day === dow).length}개`, `일정 ${schedule.items.length}개 · 구성원 ${schedule.members.length}명`, sec('요일별 일정 수') + vbars(DAYN.map((n, d) => ({ label: n, a: schedule.items.filter((i) => i.day === d).length, cur: d === dow, tip: `${n}요일 ${schedule.items.filter((i) => i.day === d).length}개` })), '요일별 시간표 일정 수 막대그래프')) : empty('schedule', '🗓', '시간표', '시간표를 만들면 통계가 나와요');
     const calCols = [];
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 6 && (!only || only === 'calendar'); i++) {   // 달력 계산은 무거워서 캘린더 통계일 때만
       const d = new Date(now.getFullYear(), now.getMonth() + i, 1), f = dstr(d), t = dstr(new Date(d.getFullYear(), d.getMonth() + 1, 0));
       const mp = calRange('diary', f, t).map, seen = new Set();
       Object.values(mp).forEach((arr) => arr.forEach((e) => { if (e.kind === 'mine') seen.add((e.id || e.text) + '|' + (e.occ || '') + '|' + (e.date || '')); }));
       calCols.push({ label: d.getMonth() + 1 + '월', a: seen.size, cur: i === 0, tip: `${d.getMonth() + 1}월 일정 ${seen.size}건` });
     }
-    const calC = calItems.length ? card('calendar', '📅', '캘린더', `이번 달 ${calCols[0].a}건`, `내 일정 · 등록한 일정 ${calItems.length}개`, sec('앞으로 6개월 일정 수') + vbars(calCols, '이번 달부터 6개월 월별 내 일정 수 막대그래프')) : empty('calendar', '📅', '캘린더', '일정을 적으면 통계가 나와요');
+    const calC = calItems.length ? card('calendar', '📅', '캘린더', `이번 달 ${(calCols[0] || {}).a || 0}건`, `내 일정 · 등록한 일정 ${calItems.length}개`, sec('앞으로 6개월 일정 수') + vbars(calCols, '이번 달부터 6개월 월별 내 일정 수 막대그래프')) : empty('calendar', '📅', '캘린더', '일정을 적으면 통계가 나와요');
     const fz = [['기한 지남', (f) => ddOf(f) !== null && ddOf(f) < 0], ['3일 이내', (f) => ddOf(f) !== null && ddOf(f) >= 0 && ddOf(f) <= 3], ['일주일 이내', (f) => ddOf(f) !== null && ddOf(f) > 3 && ddOf(f) <= 7], ['그 이후', (f) => ddOf(f) !== null && ddOf(f) > 7], ['기한 없음', (f) => ddOf(f) === null]].map(([n, fn]) => [n, fridge.filter(fn).length]), fzMax = Math.max(1, ...fz.map((x) => x[1]));
     const soon = fz[0][1] + fz[1][1];
     const food = fridge.length ? card('food', '🍳', '오늘 뭐 먹지', `재료 ${fridge.length}개`, soon ? `소비기한 임박·지남 ${soon}개` : '임박한 재료 없음', sec('소비기한') + hbars(fz.map(([n, c]) => ({ n, w: (c / fzMax) * 100, t: c + '개' }))), { mode: 'fridge' }) : empty('food', '🍳', '오늘 뭐 먹지', '냉장고 재료를 넣으면 통계가 나와요');
@@ -8903,6 +8924,25 @@
       <div data-sub="fixed">${fixedHtml + cardHtml || '<div class="empty-msg">고정으로 나가는 돈이나 등록한 카드가 아직 없어요</div>'}</div>`;
     applySub('status');
   }
+  // 각 메뉴(가계부·저축·부채·렌탈·건강·보험·시간표·학원비·냉장고·캘린더) 맨 아래의 "📊 통계" 카드. 대시보드 통계 탭의 그 메뉴 카드와 같은 숫자·그래프다.
+  // 보고 있는 메뉴만 그리고(setView·renderTodo·가계부는 renderAll에서), 오류가 나도 메뉴 화면은 그대로 둔다.
+  const MENU_STAT_VIEWS = ['ledger', 'savings', 'debt', 'rental', 'health', 'insurance', 'schedule', 'academy', 'food', 'calendar'];
+  function renderMenuStats(v) {
+    const box = document.getElementById('mstat-' + v);
+    if (!box) return;
+    try {
+      if (tabHidden(v)) { box.hidden = true; return; }
+      statCardsHtml(v);
+      const p = statParts[v];
+      if (!p) { box.hidden = true; return; }
+      box.hidden = false;
+      box.innerHTML = `<h2 class="section-title" style="margin:0 0 4px">${p.icon} ${p.title} 통계</h2>${p.key ? `<div class="stat-key"><b>${p.key}</b>${p.sub ? `<span>${p.sub}</span>` : ''}</div>` : ''}${p.body || (p.key ? '' : `<p class="goal-hint" style="margin:6px 0 0">${p.sub || '기록을 시작하면 통계가 나와요'}</p>`)}`;
+    } catch (e) { box.hidden = true; }
+  }
+  document.querySelectorAll('.mstat').forEach((b) => b.addEventListener('click', (e) => {   // 가계부·저축 막대를 누르면 그 달 숫자(대시보드와 같은 stSel)
+    const vm = e.target.closest('[data-vm]');
+    if (vm) { stSel = +vm.dataset.vm; renderMenuStats(b.id.slice(6)); }
+  }));
   el('status-body').addEventListener('toggle', (e) => { const g = e.target.closest && e.target.closest('.stat-group'); if (g) statOpen[g.dataset.sg] = g.open; }, true);
   el('status-body').addEventListener('click', (e) => {
     const vm = e.target.closest('[data-vm]');
@@ -9407,7 +9447,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v151'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v152'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span class="slogan">다달이, 매일의 기록이 모여<br><b>더 나은 생활</b>이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
