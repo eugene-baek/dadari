@@ -542,7 +542,16 @@
   @media (max-width: 360px) { .month-nav .label { font-size: 15px; } .month-nav button { padding: 8px 10px; } }
   body { padding-bottom: 80px; }   /* 떠 있는 메뉴 버튼이 맨 아래 내용을 가리지 않게 */
 
-  .tx-list { display: flex; flex-direction: column; gap: 8px; }
+  .tx-list { display: flex; flex-direction: column; gap: 0; }
+  .list-head .cnt { color: var(--text-muted); font-size: 14px; font-weight: 600; }
+  .list-q { width: 100%; margin: 4px 0 6px; }
+  .list-pick { display: flex; align-items: center; gap: 8px; margin: 8px 0 2px; }
+  .list-pick label { flex: none; margin: 0; font-size: 14px; font-weight: 700; color: var(--text-muted); }
+  .list-pick select { flex: 1; min-width: 0; }
+  .tx-day { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 14px 4px 6px; border-bottom: 1px solid var(--border); font-size: 14.5px; }
+  .tx-day b { font-weight: 800; }
+  .tx-day span { font-size: 13px; color: var(--text-muted); font-variant-numeric: tabular-nums; text-align: right; }
+  .tx-ic { flex: none; width: 36px; height: 36px; margin-right: 10px; border-radius: 50%; background: var(--bg); display: flex; align-items: center; justify-content: center; font-size: 18px; }
   .tx-item {
     display: flex;
     align-items: center;
@@ -1781,10 +1790,11 @@
   </section>
 
   <section class="card" data-sub="list">
-    <div class="list-head">
-      <h2 class="section-title">내역</h2>
-      <label class="chk"><input type="checkbox" id="only-fixed"> 고정만 보기</label>
-    </div>
+    <div class="list-head"><h2 class="section-title">내역</h2><span class="cnt" id="list-count"></span></div>
+    <input type="search" id="list-q" class="list-q" placeholder="🔍 내역 찾기 (메모·분류·금액)" autocomplete="off" enterkeyhint="search">
+    <div class="biz-shops" id="list-filter" data-cap="보기"></div>
+    <div class="list-pick"><label for="list-cat">분류</label><select id="list-cat"></select></div>
+    <p class="goal-hint" id="list-sum" hidden style="margin:8px 0 0"></p>
     <div class="tx-list" id="tx-list"></div>
   </section>
 
@@ -1861,7 +1871,6 @@
   let syncing = false;
   let syncAgain = false;
   let currentType = 'expense';
-  let onlyFixed = false;
   let viewDate = new Date();
   viewDate.setDate(1);   // 29~31일에 ◀▶로 달을 옮기면 없는 날(9/31)이 다음 달로 넘어가 같은 달에 머무르므로 1일로 둔다
   viewDate.setDate(1);
@@ -2085,10 +2094,7 @@
     }
     if (list.length) {
       const sorted = [...list].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
-      html += '<div class="tx-list" style="margin-top:12px">' + sorted.slice(0, 100).map((x) => `<div class="tx-item" data-id="${x.id}">
-          <div class="tx-main"><div class="tx-cat">${escapeHtml(x.category || '')}${x.memo ? ' · ' + escapeHtml(x.memo) : ''}</div>
-          <div class="tx-meta">${x.date.slice(2).replace(/-/g, '.')}${payLabel(x) ? ' · ' + escapeHtml(payLabel(x)) : ''}${isFixed(x) ? ' · 고정' : ''}${flags(x)}${originChip(x)}</div></div>
-          <div class="tx-amt ${x.type}">${x.type === 'income' ? '+' : '-'}${formatWon(x.amount)}</div><div class="tx-actions"><button class="del-btn" title="삭제" aria-label="삭제">🗑</button></div></div>`).join('') + '</div>'
+      html += '<div class="tx-list" style="margin-top:12px">' + sorted.slice(0, 100).map((x) => txRowHtml(x, flags(x), true)).join('') + '</div>'
         + (sorted.length > 100 ? `<p class="goal-hint" style="margin:8px 0 0">최근 100건만 보여 줘요. 합계에는 ${sorted.length}건이 모두 들어 있어요.</p>` : '');
     } else html += '<div class="empty-msg" style="padding:14px 0">조건에 맞는 내역이 없어요</div>';
     el('sq-result').innerHTML = html;
@@ -2145,7 +2151,7 @@
     renderBreakdown(flowTx.filter((t) => t.type === 'expense'));
     renderCards();
     renderFixed(monthTx);
-    renderList(onlyFixed ? monthTx.filter(isFixed) : monthTx);
+    renderList(monthTx);
     if (finReady) renderFin();
     try { if (!el('view-ledger').hidden) renderMenuStats('ledger'); } catch (e) { /* 아직 안 만들어진 값 */ }
   }
@@ -2279,54 +2285,73 @@
     goTo(g.dataset.gv, { sub: g.dataset.gsub || undefined, ref: g.dataset.gref || undefined });
   }, true);
 
+  // 내역을 읽기 쉽게: 날짜별로 묶어 그날 합계를 위에 보이고, 줄마다 분류 아이콘을 달고, 위쪽 "보기" 칩(전체·지출·수입·고정)과 분류 선택으로 좁혀 본다.
+  // 길면 처음 100건만 보이고 "더 보기"로 늘린다. 줄을 누르면 수정창(구분·고정비 표시·삭제가 그 안에 있다). 월별 내역과 검색 결과가 같은 줄 모양(`txRowHtml`)을 쓴다.
+  let listFilter = 'all', listCat = '', listQ = '', listLimit = 100;
+  const TX_ICONS = [[/식비|식사|외식|배달|음식|마트|장보기/, '🍚'], [/카페|커피/, '☕'], [/교통|택시|버스|지하철|주유|차량/, '🚌'], [/주거|공과금|월세|관리비|전기|가스|수도/, '🏠'], [/통신/, '📱'], [/의료|건강|병원|약/, '💊'], [/쇼핑|옷|의류/, '🛍'], [/여가|문화|여행|영화/, '🎬'], [/경조사|선물/, '🎁'], [/교육|학원/, '📚'], [/보험/, '🛡'], [/렌탈|구독/, '🧰'], [/저축/, '🐷'], [/대출|대여/, '🏦'], [/급여|월급/, '💵'], [/부수입|N잡/, '💼'], [/용돈/, '🧧'], [/환급|이자/, '💹']];
+  const txIcon = (cat) => { const c = String(cat || ''), hit = TX_ICONS.find(([re]) => re.test(c)); return hit ? hit[1] : '🧾'; };
+  function txRowHtml(t, flags, withDate) {
+    const meta = [withDate ? t.date.slice(2).replace(/-/g, '.') : '', payLabel(t) ? escapeHtml(payLabel(t)) : '', t.recurId ? '자동' : '', isFixed(t) ? '고정' : ''].filter(Boolean).join(' · ') + (flags || '');
+    return `<div class="tx-item" data-id="${t.id}"><span class="tx-ic" aria-hidden="true">${txIcon(t.category)}</span>
+      <div class="tx-main"><div class="tx-cat">${escapeHtml(t.category || '')}${t.memo ? ' · ' + escapeHtml(t.memo) : ''}</div><div class="tx-meta">${meta.replace(/^ · /, '')}${originChip(t)}</div></div>
+      <div class="tx-amt ${t.type}">${t.type === 'income' ? '+' : '-'}${formatWon(t.amount)}</div>${t.receipt ? '<div class="tx-actions"><button class="rc-btn" title="영수증 보기" aria-label="영수증 보기">📷</button></div>' : ''}</div>`;
+  }
+
   function renderList(monthTx) {
-    const wrap = el('tx-list');
+    const wrap = el('tx-list'), DN = ['일', '월', '화', '수', '목', '금', '토'];
+    const cnt = (f) => monthTx.filter(f).length;
+    el('list-filter').innerHTML = [['all', '전체', monthTx.length], ['expense', '지출', cnt((t) => t.type === 'expense')], ['income', '수입', cnt((t) => t.type === 'income')], ['fixed', '고정', cnt(isFixed)]]
+      .map(([k, n, c]) => `<button type="button" data-lf="${k}" class="${k === listFilter ? 'active' : ''}">${n} ${c}</button>`).join('');
+    const cats = [...new Set(monthTx.map((t) => t.category || '기타'))].sort((a, b) => a.localeCompare(b, 'ko'));
+    if (listCat && !cats.includes(listCat)) listCat = '';
+    el('list-cat').innerHTML = '<option value="">전체</option>' + cats.map((c) => `<option value="${attr(c)}"${c === listCat ? ' selected' : ''}>${escapeHtml(c)}</option>`).join('');
+    const kw = listQ.trim().toLowerCase(), kwNum = kw.replace(/[,원\s]/g, '');
+    const hitQ = (t) => !kw || [t.category, t.memo, payLabel(t)].some((x) => String(x || '').toLowerCase().includes(kw)) || (/^\d+$/.test(kwNum) && String(t.amount).includes(kwNum));
+    const list = monthTx.filter((t) => (listFilter === 'all' || (listFilter === 'fixed' ? isFixed(t) : t.type === listFilter)) && (!listCat || (t.category || '기타') === listCat) && hitQ(t));
+    el('list-count').textContent = monthTx.length ? list.length + '건' : '';
+    const narrowed = kw || listCat || listFilter !== 'all', sm = el('list-sum');
+    sm.hidden = !narrowed || !monthTx.length;
+    if (!sm.hidden) { const f = flowOnly(list); sm.innerHTML = `찾은 <b>${list.length}건</b> · 지출 <b>${formatWon(f.filter((t) => t.type === 'expense').reduce((a, t) => a + t.amount, 0))}</b> · 수입 <b>${formatWon(f.filter((t) => t.type === 'income').reduce((a, t) => a + t.amount, 0))}</b>${kw ? ' <button type="button" class="mini-btn" data-lall style="margin-left:6px">전체 기간에서 찾기 ›</button>' : ''}`; }
     if (monthTx.length === 0) {
       wrap.innerHTML = '<div class="empty-msg">이번 달 기록이 없어요</div>';
       return;
     }
-    const sorted = [...monthTx].sort((a, b) => (a.date < b.date ? 1 : -1));
+    if (!list.length) {
+      wrap.innerHTML = '<div class="empty-msg">조건에 맞는 내역이 없어요<br>위의 “보기”·“분류”를 바꿔 보세요</div>';
+      return;
+    }
     const dupN = {}; monthTx.forEach((x) => { const k = x.type + '|' + x.date + '|' + x.amount; dupN[k] = (dupN[k] || 0) + 1; });
     const flags = (x) => (isPrincipal(x) ? ' · 합계 제외' : '') + (dupN[x.type + '|' + x.date + '|' + x.amount] > 1 ? ' · <span class="tx-dup">같은 날 같은 금액 ' + dupN[x.type + '|' + x.date + '|' + x.amount] + '건</span>' : '');
-    wrap.innerHTML = sorted
-      .map((t) => {
-        const sign = t.type === 'income' ? '+' : '-';
-        const day = t.date.slice(5).replace('-', '/');
-        return `<div class="tx-item" data-id="${t.id}">
-          <div class="tx-main">
-            <div class="tx-cat">${t.category}${t.memo ? ' · ' + escapeHtml(t.memo) : ''}</div>
-            <div class="tx-meta">${day}${payLabel(t) ? ' · ' + escapeHtml(payLabel(t)) : ''}${t.recurId ? ' · 자동' : ''}${isFixed(t) ? ' · 고정' : ''}${flags(t)}${originChip(t)}</div>
-          </div>
-          <div class="tx-amt ${t.type}">${sign}${formatWon(t.amount)}</div>
-          <div class="tx-actions">
-            <button class="fix-btn${isFixed(t) ? ' on' : ''}" title="고정 표시" aria-label="고정 표시">📌</button>
-            ${t.receipt ? '<button class="rc-btn" title="영수증 보기" aria-label="영수증 보기">📷</button>' : ''}
-            <button class="del-btn" title="삭제" aria-label="삭제">🗑</button>
-          </div>
-        </div>`;
-      })
-      .join('');
-
-    wrap.querySelectorAll('.fix-btn').forEach((btn) => {
-      btn.addEventListener('click', (e) => {
-        const t = transactions.find((x) => x.id === e.target.closest('.tx-item').dataset.id);
-        if (!t) return;
-        t.fixed = !isFixed(t);
-        save();
-        renderAll();
-        showToast(t.fixed ? '고정으로 표시했어요' : '고정 표시를 뺐어요');
-      });
-    });
-
-    wrap.querySelectorAll('.rc-btn').forEach((btn) => {
-      btn.addEventListener('click', (e) => showReceipt(e.target.closest('.tx-item').dataset.id));
-    });
-
-    wrap.querySelectorAll('.del-btn').forEach((btn) => {
-      btn.addEventListener('click', (e) => deleteTx(e.target.closest('.tx-item').dataset.id));
-    });
-    wrap.querySelectorAll('.tx-main, .tx-amt').forEach((n) => n.addEventListener('click', (e) => openTxSheet(e.target.closest('.tx-item').dataset.id)));
+    const byDay = {};
+    list.forEach((t) => { (byDay[t.date] = byDay[t.date] || []).push(t); });
+    const days = Object.keys(byDay).sort((a, b) => (a < b ? 1 : -1));
+    let html = '', shown = 0;
+    for (const d of days) {
+      if (shown >= listLimit) break;
+      const items = byDay[d], flow = flowOnly(items), inc = flow.filter((t) => t.type === 'income').reduce((a, t) => a + t.amount, 0), exp = flow.filter((t) => t.type === 'expense').reduce((a, t) => a + t.amount, 0);
+      html += `<div class="tx-day"><b>${d.slice(5).replace('-', '/')} (${DN[parseD(d).getDay()]})</b><span>${[exp ? '지출 ' + formatWon(exp) : '', inc ? '수입 +' + formatWon(inc) : ''].filter(Boolean).join(' · ')}</span></div>` + items.map((t) => txRowHtml(t, flags(t), false)).join('');
+      shown += items.length;
+    }
+    if (shown < list.length) html += `<button type="button" class="mini-btn" data-lmore style="width:100%;margin-top:12px">더 보기 (${list.length - shown}건 남음)</button>`;
+    wrap.innerHTML = html;
   }
+  const renderListNow = () => renderList(transactions.filter((t) => txMonthKey(t) === monthKey(viewDate)));   // 검색·보기 칩은 내역만 다시 그린다(글자를 칠 때마다 전체를 그리지 않게)
+  el('list-filter').addEventListener('click', (e) => { const b = e.target.closest('[data-lf]'); if (b) { listFilter = b.dataset.lf; listLimit = 100; renderListNow(); } });
+  el('list-cat').addEventListener('change', (e) => { listCat = e.target.value; listLimit = 100; renderListNow(); });
+  el('list-q').addEventListener('input', (e) => { listQ = e.target.value; listLimit = 100; renderListNow(); });
+  el('list-sum').addEventListener('click', (e) => {   // 이 달만이 아니라 전체 기간에서 같은 말로 찾기(아래 검색 카드)
+    if (!e.target.closest('[data-lall]')) return;
+    sqApplyPreset('all'); SQ.q = listQ; SQ.type = 'all'; SQ.cat = '';
+    renderSearch();
+    goTo('ledger', { sub: 'list', el: 'search-card' });
+  });
+  el('tx-list').addEventListener('click', (e) => {
+    if (e.target.closest('[data-lmore]')) { listLimit += 100; renderListNow(); return; }
+    const rc = e.target.closest('.rc-btn');
+    if (rc) { showReceipt(rc.closest('.tx-item').dataset.id); return; }
+    const row = e.target.closest('.tx-main, .tx-amt, .tx-ic');
+    if (row) openTxSheet(row.closest('.tx-item').dataset.id);
+  });
 
   // 내역 삭제(월별 내역·검색 결과 공용). 지운 항목은 tomb로 남겨 동기화에서 되살아나지 않게 한다.
   function deleteTx(id) {
@@ -2704,10 +2729,6 @@
         : '');
   }
 
-  el('only-fixed').addEventListener('change', (e) => {
-    onlyFixed = e.target.checked;
-    renderAll();
-  });
 
   // 항목 목록 맨 아래에 합계 줄을 붙인다(항목이 2개 이상일 때). 지출과 수입은 따로 합산한다.
   function recRows(list) {
@@ -9544,7 +9565,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v155'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v156'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span class="slogan">다달이, 매일의 기록이 모여<br><b>더 나은 생활</b>이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
