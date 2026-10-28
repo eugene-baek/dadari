@@ -2248,7 +2248,11 @@
     const only = LST.type === 'income' ? 'income' : LST.type === 'expense' ? 'expense' : '', today = todayStr();
     const sumOf = (arr, type) => arr.filter((t) => t.type === type).reduce((a, t) => a + t.amount, 0);
     const nDays = R.from && R.to ? Math.round((new Date(R.to) - new Date(R.from)) / 86400000) + 1 : 99999;
-    let html = '';
+    // 총금액 막대: 이 기간의 수입·지출 합계를 나란히 비교한다(구분이 지출·수입이면 그것만)
+    const incT = sumOf(f, 'income'), expT = sumOf(f, 'expense'), maxT = Math.max(incT, expT, 1);
+    const totRow = (n, v, c) => `<div class="vz-h"><span class="n">${n}</span><span class="t"><i style="width:${Math.max(v > 0 ? 3 : 0, Math.round((v / maxT) * 100))}%;background:var(${c})"></i></span><span class="a">${formatWon(v)}</span></div>`;
+    let html = `<h2 class="section-title">총금액 · ${R.label}</h2>` + (only !== 'expense' ? totRow('수입', incT, '--c1') : '') + (only !== 'income' ? totRow('지출', expT, '--c2') : '')
+      + (!only ? `<div class="goal-hint" style="margin:4px 0 0">잔액 <b>${incT - expT < 0 ? '-' : ''}${formatWon(Math.abs(incT - expT))}</b></div>` : '');
     if (nDays <= 62) {
       const kind = only || 'expense', cols = [];
       for (let i = 0; i < nDays; i++) { const d = addDays(R.from, i), n = +d.slice(8), v = sumOf(f.filter((t) => t.date === d), kind); cols.push({ label: n === 1 || n % 5 === 0 ? String(n) : '', a: v, cur: d === today, tip: `${d.slice(5).replace('-', '/')} ${formatWon(v)}` }); }
@@ -9556,7 +9560,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v160'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v161'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span class="slogan">다달이, 매일의 기록이 모여<br><b>더 나은 생활</b>이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
