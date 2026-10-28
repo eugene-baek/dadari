@@ -3217,6 +3217,7 @@
       save();
       saveJson(DONE_KEY, [...recurDone]);
     }
+    try { if (applySavAuto()) changed = true; } catch (e) { /* 저축 화면이 아직 준비되기 전이면 다음에 다시 */ }
     return changed;
   }
 
@@ -5874,6 +5875,7 @@
         sub.push(`목표일 ${a.goalDate.slice(2).replace(/-/g, '.')} (${dd >= 0 ? 'D-' + dd : -dd + '일 지남'})`);
         if (left > 0 && dd > 0) sub.push(`월 ${formatWon(Math.ceil(left / Math.max(1, Math.round(dd / 30.4))))}씩 모으면 달성`);
       }
+      if (a.auto && a.monthly > 0) sub.push(`자동이체 매월 ${dayLabel(a.payDay)}`);
       if (a.monthly > 0) { const got = savMonthOf(a.id, ym); sub.push(`이번 달 ${formatWon(got)} / 계획 ${formatWon(a.monthly)}${got >= a.monthly ? ' ✓' : ''}`); }
       const whoTag = conWho === 'all' && ppl.length > 1 ? `<span class="who-tag">${esc(whoName(savWho(a)))}</span>` : '';
       return `<button type="button" class="visit" data-sav="${attr(a.id)}"><div class="v1"><span>${whoTag}${esc(a.name)} <span class="rt" style="font-size:11px;background:var(--mc-soft);color:var(--mc-text);border-radius:99px;padding:1px 7px">${esc(a.kind || '')}</span></span><b>${formatWon(bal)}</b></div>`
@@ -5906,6 +5908,8 @@
       <label>목표일 (선택)</label><input name="goalDate" type="date" value="${val(a && a.goalDate)}">
       <label>월 저축 계획 (선택)</label><input name="monthly" type="number" min="0" inputmode="numeric" value="${val(a && a.monthly ? a.monthly : '')}" placeholder="매달 모으려는 금액">
       <label>매월 저축일 (선택)</label>${dayInput('payDay', a && a.payDay)}
+      <label class="check"><input type="checkbox" name="auto"${a && a.auto ? ' checked' : ''}> 적금 자동이체 — 저축일마다 월 저축 계획만큼 자동 입금하고 가계부에 고정 지출(저축)로 기록</label>
+      <p class="goal-hint" style="margin:2px 0 0">체크하면 월 저축 계획과 매월 저축일이 꼭 필요해요. 오늘 이후의 저축일부터 기록돼요(지난 달은 채우지 않아요).</p>
       ${a ? '' : '<label>지금까지 모은 금액 (선택)</label><input name="start" type="number" min="0" inputmode="numeric" placeholder="이미 모아 둔 돈이 있으면 입력">'}
       <label>메모 (선택)</label><input name="note" maxlength="60" value="${val(a && a.note)}" placeholder="예: 은행·만기일 (계좌번호는 적지 마세요)">
       <div class="sheet-actions"><button type="button" data-cancel>취소</button>${a ? '<button type="button" data-delete data-own-cf>삭제</button>' : ''}<button type="submit">저장</button></div>
@@ -5919,6 +5923,9 @@
         monthly: Math.max(0, parseInt(fd.get('monthly'), 10) || 0), payDay: Math.min(31, Math.max(0, parseInt(fd.get('payDay'), 10) || 0)), note: String(fd.get('note')).trim()
       };
       if (rec.startDate && rec.goalDate && rec.goalDate < rec.startDate) { showToast('목표일이 시작일보다 빨라요'); return false; }
+      rec.auto = fd.get('auto') === 'on';
+      if (rec.auto && !(rec.monthly > 0 && rec.payDay >= 1)) { showToast('자동이체는 월 저축 계획과 매월 저축일을 정해야 해요'); return false; }
+      rec.autoSince = rec.auto ? (a && a.auto && validDate(a.autoSince) ? a.autoSince : todayStr()) : '';
       if (a) {
         Object.assign(a, rec);
         if (rec.startDate) savings.log.forEach((l) => { if (l.sid === a.id && l.start) l.date = rec.startDate; });   // 시작 잔액 기록의 날짜도 시작일로 맞춘다
@@ -5929,6 +5936,7 @@
         if (start > 0) savings.log.push({ id: newId(), sid: acc.id, date: rec.startDate || todayStr(), amount: start, memo: '시작 잔액', start: true });
       }
       saveSav();
+      if (applySavAuto()) renderAll();
       renderSavings();
       showToast(a ? '수정했어요' : '추가했어요');
     });
@@ -5945,6 +5953,36 @@
       renderSavings();
       showToast('삭제했어요');
     });
+  }
+
+  // 적금 자동이체: 저축일이 지나면 월 저축 계획만큼 입금 기록(`sa_통장_월`)과 가계부 고정 지출 "저축"(`sat_통장_월`)을 자동으로 만든다.
+  // 자동이체를 켠 날(`autoSince`) 이후의 저축일부터이고, 달마다 한 번(`autoDone`)이라 지워도 다시 만들지 않는다. 그 달에 직접 적은 입금이 있으면 이중으로 잡지 않게 건너뛴다.
+  function applySavAuto() {
+    const today = todayStr(), now = new Date();
+    let changed = false;
+    savings.accounts.forEach((a) => {
+      if (!a.auto || !(a.monthly > 0) || !(a.payDay >= 1) || !validDate(a.autoSince)) return;
+      if (!Array.isArray(a.autoDone)) a.autoDone = [];
+      let [y, m] = a.autoSince.split('-').map(Number);
+      m -= 1;
+      while (y < now.getFullYear() || (y === now.getFullYear() && m <= now.getMonth())) {
+        const ym = y + '-' + pad2(m + 1), date = ymdOf(y, m, a.payDay);
+        if (date >= a.autoSince && date <= today && !a.autoDone.includes(ym)) {
+          a.autoDone.push(ym);
+          changed = true;
+          if (!savings.log.some((l) => l.sid === a.id && !l.start && l.amount > 0 && l.date.startsWith(ym))) {
+            if (!categories.expense.includes('저축')) { categories.expense.push('저축'); saveJson(CAT_KEY, categories); renderCategoryOptions(); }
+            const txId = 'sat_' + a.id + '_' + ym;
+            transactions.push({ id: txId, type: 'expense', date, category: '저축', amount: a.monthly, memo: `${a.name} 자동이체`, fixed: true });
+            savings.log.push({ id: 'sa_' + a.id + '_' + ym, sid: a.id, date, amount: a.monthly, memo: '자동이체', txId, auto: true });
+          }
+        }
+        m += 1;
+        if (m > 11) { m = 0; y += 1; }
+      }
+    });
+    if (changed) { save(); saveSav(); try { renderSavings(); } catch (e) { /* 아직 안 그려진 화면 */ } }
+    return changed;
   }
 
   function openSavDepositSheet(accId, sign) {
@@ -9005,13 +9043,13 @@
     const rows = rowList.filter((r) => r.h).sort((a, b) => menuOrder.indexOf(a.v) - menuOrder.indexOf(b.v)).map((r) => r.h).join('');
 
     // 매달 고정으로 나가는 돈 (보험·렌탈·학원비는 각 탭 데이터에서, 그 밖의 자동이체는 정기결제 목록에서)
-    const parts = [['보험', insMonthly], ['렌탈·구독', rentMonthly], ['학원비', acaTotal], ['자동이체·기타', otherRecurs]].filter((p) => p[1] > 0);
+    const parts = [['보험', insMonthly], ['렌탈·구독', rentMonthly], ['학원비', acaTotal], ['저축 자동이체', savings.accounts.filter((x) => x.auto && x.monthly > 0 && x.payDay >= 1).reduce((n, x) => n + x.monthly, 0)], ['자동이체·기타', otherRecurs]].filter((p) => p[1] > 0);
     const fixedTotal = sum(parts, (p) => p[1]);
     const maxPart = Math.max(1, ...parts.map((p) => p[1]));
     const fixedHtml = parts.length
       ? `<h2 class="section-title" style="margin:18px 0 8px">매달 고정으로 나가는 돈</h2>
         <div class="ins-sum">월 약 <b>${formatWon(fixedTotal)}</b> · 연 ${formatWon(fixedTotal * 12)}${cardDiscountMonthly() ? `<br>카드 할인으로 매달 약 <b>${formatWon(cardDiscountMonthly())}</b> 덜 나가요 (이미 뺀 금액이에요)` : ''}${inc ? `<br>이번 달 수입 대비 ${Math.round((fixedTotal / inc) * 100)}%` : ''}</div>`
-        + parts.map(([n, v]) => `<div class="bar-row" data-sv="${{ '보험': 'insurance', '렌탈·구독': 'rental', '학원비': 'academy' }[n] || 'ledger'}"${n === '자동이체·기타' ? ' data-ssub="card"' : ''} style="cursor:pointer"><div class="cat-name" style="width:84px">${n}</div><div class="bar-track"><div class="bar-fill" style="width:${Math.max(4, Math.round((v / maxPart) * 100))}%"></div></div><div class="cat-amt" style="width:96px">${formatWon(v)}</div></div>`).join('')
+        + parts.map(([n, v]) => `<div class="bar-row" data-sv="${{ '보험': 'insurance', '렌탈·구독': 'rental', '학원비': 'academy', '저축 자동이체': 'savings' }[n] || 'ledger'}"${n === '자동이체·기타' ? ' data-ssub="card"' : ''} style="cursor:pointer"><div class="cat-name" style="width:84px">${n}</div><div class="bar-track"><div class="bar-fill" style="width:${Math.max(4, Math.round((v / maxPart) * 100))}%"></div></div><div class="cat-amt" style="width:96px">${formatWon(v)}</div></div>`).join('')
       : '';
 
     // 카드별 현황
@@ -9560,7 +9598,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v161'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v162'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span class="slogan">다달이, 매일의 기록이 모여<br><b>더 나은 생활</b>이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
