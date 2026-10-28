@@ -167,6 +167,7 @@
       { id: nid(), title: '팀 회식', date: off(7), time: '18:30', endTime: '21:00', repeat: 'none', alarm: '30m', who: 'me', tab: 'demot2', color: '#2a78d6', memo: '' }
     ]);
     put('dadari_fridge_v1', [['우유', '1L', 'fridge', 2], ['두부', '1모', 'fridge', 1], ['달걀', '10구', 'fridge', 9], ['김치', '1통', 'fridge', 30], ['양파', '3개', 'room', 14], ['밥', '2공기', 'freezer', 20], ['돼지고기', '300g', 'freezer', 25], ['애호박', '1개', 'fridge', 3], ['대파', '1단', 'fridge', 5], ['어묵', '1봉', 'fridge', -1]].map(function (x) { return { id: nid(), name: x[0], qty: x[1], store: x[2], bought: off(-3), expiry: off(x[3]), note: '' }; }));
+    put('dadari_fridgelog_v1', [['두부', '1모', 'tossed', -2], ['시금치', '1단', 'tossed', -9], ['대파', '1단', 'eaten', -4], ['달걀', '10구', 'eaten', -6]].map(function (x) { return { id: nid(), name: x[0], qty: x[1], store: 'fridge', expiry: off(x[3] - 1), date: off(x[3]), how: x[2] }; }));
     put('dadari_goallog_v1', [{ id: nid(), gid: '', text: '10km 완주', date: off(-35), note: '처음으로 쉬지 않고 달렸어요' }, { id: nid(), gid: '', text: '자격증 시험 합격', date: off(-70), note: '' }, { id: nid(), gid: '', text: '월 100만원 저축', date: off(-12), note: '3개월 연속!' }]);
     put('dadari_profile_v1', { show: true, emoji: '🚀', name: '체험', intro: '샘플 데이터로 둘러보는 중이에요', birth: (Y - 34) + '-05-20', goals: [{ id: nid(), text: 'N잡 수입 월 50만원', done: false }, { id: nid(), text: '책 12권 읽기', done: false }, { id: nid(), text: '운동 주 3회', done: false }], updatedAt: new Date().toISOString() });
 
@@ -178,7 +179,7 @@
     s.call(localStorage, P + 'demo_seeded', SEED_V);
   }
   // 샘플 내용을 고치면 SEED_V를 올린다: 이미 체험판을 열어 본 기기도 새 샘플로 다시 채운다(체험 중 입력은 사라진다).
-  var SEED_V = '18';
+  var SEED_V = '19';
   try {
     if (g.call(localStorage, P + 'demo_seeded') !== SEED_V) {
       var olds = [], oi;
@@ -1049,6 +1050,8 @@
   .dose.soon { border-style: dashed; color: var(--text-muted); }
   .vrow { display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border); }
   .vrow .visit { flex: 1; min-width: 0; border-bottom: none; }
+  .vbtns { display: flex; flex-direction: column; gap: 4px; flex-shrink: 0; }
+  .vcheck.toss { border-color: var(--border); color: var(--text-muted); }
   .vcheck { flex-shrink: 0; padding: 7px 10px; border-radius: 99px; border: 1px solid var(--mc-text); background: none; color: var(--mc-text); font-size: 13px; font-weight: 600; cursor: pointer; }
   .who-tag { font-size: 11px; background: var(--mc-soft); color: var(--mc-text); border-radius: 99px; padding: 1px 7px; margin-left: 6px; vertical-align: 1px; }
   .cyc-sum { background: var(--mc-soft); border-radius: 12px; padding: 12px 14px; font-size: 14px; line-height: 1.7; }
@@ -2420,7 +2423,7 @@
 
   el('export-btn').addEventListener('click', () => {
     // 예전 백업은 내역 배열만 있었다. 지금은 카드·자동이체·월 목표까지 한 파일에 담고, 불러올 때 두 형식을 모두 받는다.
-    const backup = { app: 'dadari', version: 2, transactions, categories, cards, recurs, recurDone: [...recurDone], goal, schedule, health, insurance, rentals, academies, biz, fridge, calendar: calItems, calTabs, savings, debt, side, salary, fit, profile, goalLog };
+    const backup = { app: 'dadari', version: 2, transactions, categories, cards, recurs, recurDone: [...recurDone], goal, schedule, health, insurance, rentals, academies, biz, fridge, fridgeLog, calendar: calItems, calTabs, savings, debt, side, salary, fit, profile, goalLog };
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -2528,9 +2531,11 @@
             saveAcademies();
             renderAcademy();
           }
-          if (Array.isArray(data.fridge)) {
+          if (Array.isArray(data.fridge) || Array.isArray(data.fridgeLog)) {
             mergeById(fridge, data.fridge, (f) => typeof f.name === 'string' && f.name);
+            mergeById(fridgeLog, data.fridgeLog, (l) => typeof l.name === 'string' && l.name && validDate(l.date) && (l.how === 'eaten' || l.how === 'tossed'));
             saveFridge();
+            saveFridgeLog();
             renderFood();
           }
           if (data.profile && typeof data.profile === 'object' && String(data.profile.updatedAt || '') > String(profile.updatedAt || '')) {
@@ -5422,6 +5427,20 @@
   let foodMode = 'fridge';
   let foodPick = null;
   const saveFridge = () => saveJson(FRIDGE_KEY, fridge);
+  // 냉장고에서 뺀 재료의 기록: {id, name, qty, store, expiry(소비기한), date(뺀 날), how 'eaten'(다 먹음)|'tossed'(버림)}. 버린 양을 한눈에 보려고 남긴다.
+  const FRIDGELOG_KEY = 'dadari_fridgelog_v1';
+  let fridgeLog = loadJson(FRIDGELOG_KEY, []);
+  if (!Array.isArray(fridgeLog)) fridgeLog = [];
+  fridgeLog = fridgeLog.filter((l) => l && l.id && l.name && validDate(l.date));
+  const saveFridgeLog = () => saveJson(FRIDGELOG_KEY, fridgeLog);
+  // 재료를 냉장고에서 뺀다(how: 'eaten' | 'tossed'). 기록을 남기고 재료는 지운다(tomb).
+  function fridgeOut(f, how) {
+    fridgeLog.push({ id: newId(), name: f.name, qty: f.qty || '', store: f.store || 'fridge', expiry: f.expiry || '', date: todayStr(), how });
+    tomb(f.id);
+    fridge = fridge.filter((x) => x.id !== f.id);
+    saveFridge();
+    saveFridgeLog();
+  }
   const STORES = [['fridge', '🧊 냉장'], ['freezer', '❄️ 냉동'], ['room', '🧺 실온']];
   const STAPLES = '소금·설탕·간장·식용유·참기름·후추·고춧가루·다진마늘·깨·고추장·된장·식초';
 
@@ -5605,19 +5624,34 @@
     el('food-body').innerHTML = foodMode === 'fridge' ? fridgeHtml() : menuHtml();
   }
 
+  // 냉장고·메뉴 추천은 항목이 많아지면 길어져서 묶음(임박·보관 위치별·추천 종류별)마다 접고 펼 수 있다. 접힌 묶음은 이 기기의 localStorage(`dadari_foodfold_v1`)에만 기억한다(동기화·백업 제외).
+  const FOODFOLD_KEY = 'dadari_foodfold_v1';
+  const foodFold = () => { try { return JSON.parse(localStorage.getItem(FOODFOLD_KEY)) || {}; } catch (e) { return {}; } };
+  const foodFoldSave = (o) => { try { localStorage.setItem(FOODFOLD_KEY, JSON.stringify(o)); } catch (e) { /* 못 기억해도 이번에는 바뀐다 */ } };
+  const foldSec = (key, title, inner, defFold) => { const st = foodFold()[key], f = st === undefined ? !!defFold : st === 1; return `<button type="button" class="h-sec vx-head" data-ffold="${attr(key)}" aria-expanded="${!f}"><span>${title}</span><span class="vx-arrow">${f ? '▼' : '▲'}</span></button>${f ? '' : inner}`; };
+  const foldAllBar = (n) => (n >= 2 ? '<div class="cards-actions" style="margin:8px 0 0"><button type="button" class="mini-btn" data-fall="1">모두 접기</button><button type="button" class="mini-btn" data-fall="0">모두 펼치기</button></div>' : '');
+
   function fridgeHtml() {
     if (!fridge.length) return '<div class="empty-msg">냉장고가 비어 있어요<br>“＋ 재료 추가”나 “＋ 여러 개 한 번에”로 재료를 넣으면<br>“오늘 뭐 먹지?”에서 메뉴를 추천해 드려요</div>';
     const soon = fridge.filter((f) => { const d = ddOf(f); return d !== null && d <= 3; }).sort((a, b) => ddOf(a) - ddOf(b));
     const expired = soon.filter((f) => ddOf(f) < 0).length;
     let html = `<div class="ins-sum">재료 <b>${fridge.length}개</b> · 소비기한 임박(3일 이내) <b>${soon.length - expired}개</b>${expired ? ` · 기한 지남 <b style="color:var(--expense)">${expired}개</b>` : ''}</div>`;
     const row = (f) => `<div class="vrow"><button type="button" class="visit" data-fr="${f.id}"><div class="v1"><span>${esc(f.name)}${f.qty ? ` <small style="color:var(--text-muted)">${esc(f.qty)}</small>` : ''}${ddChip(ddOf(f))}</span><span style="font-size:12px;color:var(--text-muted)">${validDate(f.expiry) ? f.expiry.slice(2).replace(/-/g, '.') : ''}</span></div>
-      ${f.note ? `<div class="v2">${esc(f.note)}</div>` : ''}</button><button type="button" class="vcheck" data-fdone="${f.id}" aria-label="다 먹음">다 먹음</button></div>`;
-    if (soon.length) html += `<div class="h-sec">🚨 소비기한 임박 · ${soon.length}개</div>` + soon.map(row).join('');
+      ${f.note ? `<div class="v2">${esc(f.note)}</div>` : ''}</button><div class="vbtns"><button type="button" class="vcheck" data-fdone="${f.id}" aria-label="다 먹음">다 먹음</button><button type="button" class="vcheck toss" data-ftoss="${f.id}" aria-label="버림">버림</button></div></div>`;
+    let nSec = 0;
+    if (soon.length) { html += foldSec('soon', `🚨 소비기한 임박 · ${soon.length}개`, soon.map(row).join('')); nSec++; }
     STORES.forEach(([k, label]) => {
       const list = fridge.filter((f) => f.store === k && !soon.includes(f)).sort((a, b) => (ddOf(a) === null ? 9999 : ddOf(a)) - (ddOf(b) === null ? 9999 : ddOf(b)) || a.name.localeCompare(b.name));
-      if (list.length) html += `<div class="h-sec">${label} · ${list.length}개</div>` + list.map(row).join('');
+      if (list.length) { html += foldSec('st:' + k, `${label} · ${list.length}개`, list.map(row).join('')); nSec++; }
     });
-    return html;
+    // 최근 처리한 재료(먹음·버림): 이번 달 요약 + 최근 기록(기본은 접힘)
+    const ymNow = todayStr().slice(0, 7), mLog = fridgeLog.filter((l) => l.date.startsWith(ymNow)), tossedN = mLog.filter((l) => l.how === 'tossed').length;
+    if (fridgeLog.length) {
+      const recent = [...fridgeLog].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0)).slice(0, 20);
+      html += foldSec('log', `🗑 먹거나 버린 재료 · 이번 달 먹음 ${mLog.length - tossedN} · 버림 ${tossedN}`, recent.map((l) => `<div class="fx-row"><span>${mdOf(l.date)} <em>${esc(l.name)}</em>${l.qty ? ` <small style="color:var(--text-muted)">${esc(l.qty)}</small>` : ''} · ${l.how === 'tossed' ? '<b style="color:var(--expense)">버림</b>' : '먹음'}</span><button type="button" class="icon-btn" data-flogdel="${attr(l.id)}" aria-label="기록 지우기">✕</button></div>`).join('') + (fridgeLog.length > 20 ? `<p class="goal-hint">최근 20건만 보여요 (전체 ${fridgeLog.length}건)</p>` : ''), true);
+      nSec++;
+    }
+    return html.replace('</div>', (tossedN ? `<br>이번 달 버린 재료 <b style="color:var(--expense)">${tossedN}개</b></div>` : '</div>') + foldAllBar(nSec));
   }
 
   function menuHtml() {
@@ -5628,11 +5662,11 @@
     const urgent = ready.filter((r) => r.urgent > 0).slice(0, 5);
     let html = `<p class="cyc-note" style="margin:0 0 10px">냉장고 재료 ${fridge.length}개 기준이에요. 기본 양념(${STAPLES})은 있다고 가정해요.</p>`;
     if (foodPick) html += `<div class="pick"><div class="h-sec" style="margin:0 0 6px">🎲 오늘은 이거 어때요?</div>${rcpHtml(foodPick)}</div>`;
-    if (urgent.length) html += `<div class="h-sec">🚨 기한 임박 재료로 만들기</div>` + urgent.map(rcpHtml).join('');
-    html += `<div class="h-sec">✅ 지금 바로 만들 수 있어요${ready.length ? ' · ' + ready.length + '개' : ''}</div>`;
-    html += ready.length ? ready.slice(0, 12).map(rcpHtml).join('') : '<div class="empty-msg" style="padding:14px 0">지금 재료만으로 만들 수 있는 메뉴가 아직 없어요</div>';
-    if (almost.length) html += `<div class="h-sec">🛒 재료 1~2개만 더 있으면${' · ' + almost.length + '개'}</div>` + almost.slice(0, 8).map(rcpHtml).join('');
-    return html;
+    let nSec = 1;
+    if (urgent.length) { html += foldSec('m:urgent', `🚨 기한 임박 재료로 만들기 · ${urgent.length}개`, urgent.map(rcpHtml).join('')); nSec++; }
+    html += foldSec('m:ready', `✅ 지금 바로 만들 수 있어요${ready.length ? ' · ' + ready.length + '개' : ''}`, ready.length ? ready.slice(0, 12).map(rcpHtml).join('') : '<div class="empty-msg" style="padding:14px 0">지금 재료만으로 만들 수 있는 메뉴가 아직 없어요</div>');
+    if (almost.length) { html += foldSec('m:almost', `🛒 재료 1~2개만 더 있으면 · ${almost.length}개`, almost.slice(0, 8).map(rcpHtml).join('')); nSec++; }
+    return html.replace('</p>', '</p>' + foldAllBar(nSec));
   }
 
   function pickMenu() {
@@ -5718,12 +5752,28 @@
     else if (b.dataset.fa === 'pick') { pickMenu(); renderFood(); }
   });
   el('food-body').addEventListener('click', (e) => {
+    const fh = e.target.closest('[data-ffold]');
+    if (fh) { const o = foodFold(), k = fh.dataset.ffold, cur = fh.getAttribute('aria-expanded') === 'false'; o[k] = cur ? 0 : 1; foodFoldSave(o); renderFood(); return; }
+    const fa = e.target.closest('[data-fall]');
+    if (fa) { const o = foodFold(); el('food-body').querySelectorAll('[data-ffold]').forEach((h) => { o[h.dataset.ffold] = fa.dataset.fall === '1' ? 1 : 0; }); foodFoldSave(o); renderFood(); return; }
     const dish = e.target.closest('[data-dish]');
     if (dish) { openDishSheet(dish.dataset.dish); return; }
     const done = e.target.closest('[data-fdone]');
     if (done) {
       const f = fridge.find((x) => x.id === done.dataset.fdone);
-      if (f) { tomb(f.id); fridge = fridge.filter((x) => x.id !== f.id); saveFridge(); foodPick = null; renderFood(); showToast(`${f.name} 다 먹었어요`); }
+      if (f) { fridgeOut(f, 'eaten'); foodPick = null; renderFood(); showToast(`${f.name} 다 먹었어요`); }
+      return;
+    }
+    const toss = e.target.closest('[data-ftoss]');
+    if (toss) {
+      const f = fridge.find((x) => x.id === toss.dataset.ftoss);
+      if (f) { fridgeOut(f, 'tossed'); foodPick = null; renderFood(); showToast(`${f.name} 버린 걸로 기록했어요`); }
+      return;
+    }
+    const ld = e.target.closest('[data-flogdel]');
+    if (ld) {
+      const l = fridgeLog.find((x) => x.id === ld.dataset.flogdel);
+      if (l) { tomb(l.id); fridgeLog = fridgeLog.filter((x) => x.id !== l.id); saveFridgeLog(); renderFood(); showToast('기록을 지웠어요'); }
       return;
     }
     const row = e.target.closest('[data-fr]');
@@ -8807,7 +8857,7 @@
     const calC = calItems.length ? card('calendar', '📅', '캘린더', `이번 달 ${(calCols[0] || {}).a || 0}건`, `내 일정 · 등록한 일정 ${calItems.length}개`, sec('앞으로 6개월 일정 수') + vbars(calCols, '이번 달부터 6개월 월별 내 일정 수 막대그래프')) : empty('calendar', '📅', '캘린더', '일정을 적으면 통계가 나와요');
     const fz = [['기한 지남', (f) => ddOf(f) !== null && ddOf(f) < 0], ['3일 이내', (f) => ddOf(f) !== null && ddOf(f) >= 0 && ddOf(f) <= 3], ['일주일 이내', (f) => ddOf(f) !== null && ddOf(f) > 3 && ddOf(f) <= 7], ['그 이후', (f) => ddOf(f) !== null && ddOf(f) > 7], ['기한 없음', (f) => ddOf(f) === null]].map(([n, fn]) => [n, fridge.filter(fn).length]), fzMax = Math.max(1, ...fz.map((x) => x[1]));
     const soon = fz[0][1] + fz[1][1];
-    const food = fridge.length ? card('food', '🍳', '오늘 뭐 먹지', `재료 ${fridge.length}개`, soon ? `소비기한 임박·지남 ${soon}개` : '임박한 재료 없음', sec('소비기한') + hbars(fz.map(([n, c]) => ({ n, w: (c / fzMax) * 100, t: c + '개' }))), { mode: 'fridge' }) : empty('food', '🍳', '오늘 뭐 먹지', '냉장고 재료를 넣으면 통계가 나와요');
+    const food = fridge.length ? card('food', '🍳', '오늘 뭐 먹지', `재료 ${fridge.length}개`, (soon ? `소비기한 임박·지남 ${soon}개` : '임박한 재료 없음') + (() => { const t = fridgeLog.filter((l) => l.how === 'tossed' && l.date.startsWith(ym)).length; return t ? ` · 이번 달 버림 ${t}개` : ''; })(), sec('소비기한') + hbars(fz.map(([n, c]) => ({ n, w: (c / fzMax) * 100, t: c + '개' }))), { mode: 'fridge' }) : empty('food', '🍳', '오늘 뭐 먹지', '냉장고 재료를 넣으면 통계가 나와요');
 
     return group('money', '💰 돈', [ledger, sav, dbt, sal, sideC, ceo]) + group('fixed', '🔁 고정비', [ins, rent, aca]) + group('life', '🌿 생활', [hlt, fitC, sch, calC, food]);
   }
@@ -8970,7 +9020,7 @@
   const defaultCats = () => ({ expense: [...CATEGORIES.expense], income: [...CATEGORIES.income] });
   const sameCats = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   const hasData = () => transactions.length || cards.length || recurs.length || schedule.members.length
-    || health.visits.length || health.periods.length || health.vaccines.length || health.meds.length || insurance.length || rentals.length || academies.length || biz.entries.length || biz.shops.length > 1 || biz.shops.some((s) => s.target > 0 || s.id !== 'bz_main') || fridge.length || calItems.length || savings.accounts.length || side.jobs.length || salary.jobs.length || fit.log.length || fit.weights.length || fit.meals.length || profile.name || profile.intro || profile.goals.length || goal > 0 || !sameCats(categories, defaultCats());
+    || health.visits.length || health.periods.length || health.vaccines.length || health.meds.length || insurance.length || rentals.length || academies.length || biz.entries.length || biz.shops.length > 1 || biz.shops.some((s) => s.target > 0 || s.id !== 'bz_main') || fridge.length || fridgeLog.length || calItems.length || savings.accounts.length || side.jobs.length || salary.jobs.length || fit.log.length || fit.weights.length || fit.meals.length || profile.name || profile.intro || profile.goals.length || goal > 0 || !sameCats(categories, defaultCats());
 
   function markDirty() {
     if (applying) return;
@@ -8986,7 +9036,7 @@
 
   const snapshot = () => ({
     app: 'dadari', version: 3, updatedAt: new Date().toISOString(),
-    transactions, categories, cards, recurs, recurDone: [...recurDone], goal, schedule, health, insurance, rentals, academies, biz, fridge, calendar: calItems, calTabs, savings, debt, side, salary, fit, profile, goalLog, tombs: [...tombs]
+    transactions, categories, cards, recurs, recurDone: [...recurDone], goal, schedule, health, insurance, rentals, academies, biz, fridge, fridgeLog, calendar: calItems, calTabs, savings, debt, side, salary, fit, profile, goalLog, tombs: [...tombs]
   });
 
   // 두 기기가 따로 고친 내용을 합친다. 같은 id가 양쪽에 있으면 이 기기 것을 쓰고, 지운 항목(tombs)은 되살리지 않는다.
@@ -9013,6 +9063,7 @@
       rentals: union(local.rentals, remote.rentals),
       academies: union(local.academies, remote.academies),
       fridge: union(local.fridge, remote.fridge),
+      fridgeLog: union(local.fridgeLog, remote.fridgeLog),
       calendar: union(local.calendar, remote.calendar),
       calTabs: union(local.calTabs, remote.calTabs),
       goalLog: union(local.goalLog, remote.goalLog),
@@ -9069,6 +9120,7 @@
       if (Array.isArray(s.rentals)) rentals = s.rentals;
       if (Array.isArray(s.academies)) academies = s.academies;
       if (Array.isArray(s.fridge)) fridge = s.fridge;
+      if (Array.isArray(s.fridgeLog)) fridgeLog = s.fridgeLog.filter((l) => l && l.id && l.name && validDate(l.date));
       if (Array.isArray(s.calendar)) calItems = s.calendar;
       if (Array.isArray(s.calTabs)) calTabs = s.calTabs;
       if (Array.isArray(s.goalLog)) goalLog = s.goalLog;
@@ -9094,6 +9146,7 @@
       saveAcademies();
       saveBiz();
       saveFridge();
+      saveFridgeLog();
       saveCal();
       saveCalTabs();
       saveGoalLog();
@@ -9447,7 +9500,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v152'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v153'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span class="slogan">다달이, 매일의 기록이 모여<br><b>더 나은 생활</b>이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
