@@ -542,6 +542,14 @@
   @media (max-width: 360px) { .month-nav .label { font-size: 15px; } .month-nav button { padding: 8px 10px; } }
   body { padding-bottom: 80px; }   /* 떠 있는 메뉴 버튼이 맨 아래 내용을 가리지 않게 */
 
+  .med-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); gap: 8px; margin-bottom: 6px; }
+  .med-card { background: var(--bg); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .med-card.done { background: var(--mc-soft); }
+  .med-card .mc-name { font-size: 15px; font-weight: 700; overflow-wrap: anywhere; }
+  .med-card .mc-sub { font-size: 13px; color: var(--text-muted); overflow-wrap: anywhere; }
+  .med-card .med-slots { display: flex; flex-wrap: wrap; gap: 6px; }
+  .med-card .mc-foot { font-size: 13px; color: var(--text-muted); margin-top: auto; }
+  .med-card.done .mc-foot { color: var(--mc-text); font-weight: 700; }
   .tx-list { display: flex; flex-direction: column; gap: 0; }
   .list-head .cnt { color: var(--text-muted); font-size: 14px; font-weight: 600; }
   .list-q { width: 100%; margin: 4px 0 6px; }
@@ -3303,7 +3311,7 @@
   function goTo(view, o = {}) {
     o = o || {};
     if (o.sub && SUBS[view]) setSubTab(view, o.sub);
-    if (view === 'health') { if (o.mode) healthMode = o.mode; healthWho = 'all'; }
+    if (view === 'health') { if (o.mode) healthMode = o.mode; healthWho = 'all'; vxAllOpen = false; }
     if (view === 'food' && o.mode) foodMode = o.mode;
     if (o.ref) conWho = 'all';   // 구성원 칩이 그 항목을 가리지 않게
     const toDate = (S) => { const d = dparse(o.date); S.sel = o.date; S.y = d.getFullYear(); S.m = d.getMonth(); };
@@ -4202,6 +4210,7 @@
   }
 
   // 표준 접종 일정은 구성원마다 화살표(▲▼)로 접었다 펼 수 있다. 기본은 접힘이고, 펼친 구성원만 이 기기의 localStorage(`dadari_vxopen_v1`)에 기억한다.
+  let vxAllOpen = false;   // 표준 접종 일정 전체 묶음: 접종 탭에 들어올 때마다 접힌 상태로 시작한다(저장하지 않는다)
   const VXFOLD_KEY = 'dadari_vxopen_v1';
   const vxFold = () => { try { return JSON.parse(localStorage.getItem(VXFOLD_KEY)) || {}; } catch (e) { return {}; } };
   function standardHtml(today) {
@@ -4211,7 +4220,7 @@
     if (healthWho === 'me') return '<div class="cyc-note" style="margin:0 0 6px">국가 표준 접종일정은 어린이·청소년 기준이라서, 생년월일을 입력한 구성원에게 표시돼요.</div>';
     if (!members.length) return '';
     const stLabel = { done: '완료', planned: '예정', due: '시기 도래·기록 없음', soon: '곧 시기' };
-    let anyOpen = false;
+    let anyOpen = false, dueTotal = 0;
     members.forEach((m) => {
       if (!validDate(m.birth)) {
         html += `<div class="vx-hint"><span>${escapeHtml(m.name)}: 생년월일을 입력하면 나이에 맞는 표준 접종을 보여 드려요</span><button type="button" class="vcheck" data-birth="${m.id}">입력</button></div>`;
@@ -4228,7 +4237,8 @@
             `<button type="button" class="dose ${d.st}" data-vstd="${m.id}|${r.vi}|${d.n}" aria-label="${stLabel[d.st]}">${d.st === 'done' ? '✓ ' : ''}${r.x.doses.length > 1 ? d.n + '차 ' : ''}${d.label}</button>`).join('')}</div>
           ${r.x.note && r.doses.some((d) => d.st !== 'done' && d.st !== 'later') ? `<div class="vx-note">${escapeHtml(r.x.note)}</div>` : ''}</div>`).join('');
       const flu = s.flu ? `<div class="vx"><div class="vx-name">인플루엔자(독감)</div><div class="vx-doses"><button type="button" class="dose ${s.flu}" data-vstd="${m.id}|flu|1">${s.flu === 'done' ? '✓ 최근 1년 내 접종' : s.flu === 'planned' ? '독감 접종 예정' : '매년 접종 대상'}</button></div>${s.flu !== 'done' ? '<div class="vx-note">국가 지원은 생후 6개월~만 14세(2026~2027절기, 접종 기간 2026.9.21~2027.4.30)예요. 처음 맞거나 접종력을 모르는 생후 6개월~9세 미만은 2회 지원해요.</div>' : ''}</div>` : '';
-      const fold = !opened[m.id], due = s.rows.reduce((n, r) => n + r.doses.filter((d) => d.st === 'due').length, 0);
+      const fold = opened[m.id] === 0, due = s.rows.reduce((n, r) => n + r.doses.filter((d) => d.st === 'due').length, 0);   // 바깥 묶음을 열면 구성원은 기본 펼침(직접 접은 사람만 접힘)
+      dueTotal += due;
       anyOpen = anyOpen || !fold;
       html += `<button type="button" class="h-sec vx-head" data-vxfold="${attr(m.id)}" aria-expanded="${!fold}"><span>${escapeHtml(m.name)} · ${ageText(s.age)} · 표준 접종 일정${fold && due ? `<span class="vx-due">시기 도래 ${due}</span>` : ''}</span><span class="vx-arrow">${fold ? '▼' : '▲'}</span></button>${fold ? '' : lines + flu}`;
     });
@@ -4236,7 +4246,10 @@
       html += '<div class="cyc-legend" style="justify-content:flex-start"><span><i style="background:var(--income)"></i>완료</span><span><i style="background:var(--mc-text)"></i>예정</span><span><i style="background:var(--expense)"></i>시기 도래·기록 없음</span><span><i style="border:1px dashed var(--text-muted)"></i>곧</span></div>'
         + '<p class="cyc-note">칸을 누르면 기록할 수 있어요. 이미 맞은 접종은 “완료”로 기록해 주세요. 질병관리청 국가예방접종 표준일정(어린이) 기준이며, 혼합백신(5가·6가 등)은 포함된 백신을 각각 기록해 주세요. 일정은 바뀔 수 있으니 소아과·보건소 안내를 따르세요.</p>';
     }
-    return html;
+    if (!html) return '';
+    // 표준 접종 일정 전체가 하나의 묶음: 접종 탭을 열면 접힌 상태로 시작하고, 누르면 구성원별 일정이 펼쳐진다(이 기기에만 기억)
+    const allOpen = vxAllOpen;
+    return `<button type="button" class="h-sec vx-head" data-vxall aria-expanded="${allOpen}"><span>📅 표준 접종 일정${dueTotal ? ` <span class="vx-due">시기 도래 ${dueTotal}</span>` : ''}</span><span class="vx-arrow">${allOpen ? '▲' : '▼'}</span></button>${allOpen ? html : ''}`;
   }
 
   function renderVaccines() {
@@ -4369,11 +4382,13 @@
 
     const daily = active.filter((m) => (m.times || []).length);
     let html = '<div class="h-sec">오늘 복용</div>';
-    html += daily.length ? daily.map((m) => {
-      const taken = (m.taken && m.taken[today]) || [];
-      return `<div class="med-row"><div class="med-name">${title(m)}</div><div class="med-slots">${m.times.map((t) =>
-        `<button type="button" class="slot${taken.includes(t) ? ' on' : ''}" data-take="${m.id}" data-slot="${t}">${taken.includes(t) ? '✓ ' : ''}${slotName(t)}</button>`).join('')}</div></div>`;
-    }).join('') : '<div class="empty-msg" style="padding:14px 0">오늘 챙길 약이 없어요</div>';
+    // 오늘 복용은 약마다 카드 한 장: 이름·용량·사람, 복용 시간 버튼(눌러서 먹음 표시), 아래에 "오늘 n/m번" (모두 먹으면 초록 카드)
+    const totalSlots = daily.reduce((n, m) => n + m.times.length, 0), doneSlots = daily.reduce((n, m) => n + m.times.filter((t) => ((m.taken && m.taken[today]) || []).includes(t)).length, 0);
+    html += daily.length ? `<p class="goal-hint" style="margin:6px 0 8px">오늘 먹은 약 <b>${doneSlots}/${totalSlots}번</b>${doneSlots === totalSlots ? ' · 모두 챙겼어요 ✓' : ''}</p><div class="med-grid">` + daily.map((m) => {
+      const taken = (m.taken && m.taken[today]) || [], n = m.times.filter((t) => taken.includes(t)).length, all = n === m.times.length;
+      return `<div class="med-card${all ? ' done' : ''}"><div class="mc-name">${escapeHtml(m.name || '')}${tag(m)}</div>${m.dose || m.note ? `<div class="mc-sub">${[m.dose, m.note].filter(Boolean).map(escapeHtml).join(' · ')}</div>` : ''}<div class="med-slots">${m.times.map((t) =>
+        `<button type="button" class="slot${taken.includes(t) ? ' on' : ''}" data-take="${m.id}" data-slot="${t}">${taken.includes(t) ? '✓ ' : ''}${slotName(t)}</button>`).join('')}</div><div class="mc-foot">${all ? '✓ 모두 먹었어요' : `오늘 ${n}/${m.times.length}번`}</div></div>`;
+    }).join('') + '</div>' : '<div class="empty-msg" style="padding:14px 0">오늘 챙길 약이 없어요</div>';
 
     const row = (m) => `<button type="button" class="visit" data-med="${m.id}"><div class="v1"><span>${title(m)}</span><span>${timesOf(m)}</span></div>
       <div class="v2">${[range(m), refill(m), m.place].filter(Boolean).map((x, i) => (i === 1 ? x : escapeHtml(x))).join(' · ')}${m.note ? ' · ' + escapeHtml(m.note) : ''}</div></button>`;
@@ -4531,7 +4546,7 @@
 
   el('health-modes').addEventListener('click', (e) => {
     const b = e.target.closest('button[data-hm]');
-    if (b) { healthMode = b.dataset.hm; renderHealth(); }
+    if (b) { healthMode = b.dataset.hm; vxAllOpen = false; renderHealth(); }
   });
   el('health-who').addEventListener('click', (e) => {
     const b = e.target.closest('button[data-who]');
@@ -4556,10 +4571,15 @@
       if (v) { v.claim = 'done'; v.claimDate = todayStr(); saveHealth(); renderHealth(); showToast('실비 청구 완료로 표시했어요 (청구일은 오늘)'); }
       return;
     }
+    if (e.target.closest('[data-vxall]')) {
+      vxAllOpen = !vxAllOpen;
+      renderHealth();
+      return;
+    }
     const vxf = e.target.closest('[data-vxfold]');
     if (vxf) {
       const o = vxFold(), id = vxf.dataset.vxfold;
-      if (o[id]) delete o[id]; else o[id] = 1;
+      if (o[id] === 0) delete o[id]; else o[id] = 0;   // 0 = 직접 접음
       try { localStorage.setItem(VXFOLD_KEY, JSON.stringify(o)); } catch (err) { /* 기억하지 못해도 이번에는 적용된다 */ }
       renderHealth();
       return;
@@ -9811,7 +9831,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v174'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v175'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span class="slogan">다달이, 매일의 기록이 모여<br><b>더 나은 생활</b>이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
