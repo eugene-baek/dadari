@@ -548,19 +548,18 @@
   .list-pick { display: flex; align-items: center; gap: 8px; margin: 8px 0 2px; }
   .list-pick label { flex: none; margin: 0; font-size: 14px; font-weight: 700; color: var(--text-muted); }
   .list-pick select { flex: 1; min-width: 0; }
-  .tx-day { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 14px 4px 6px; border-bottom: 1px solid var(--border); font-size: 14.5px; }
+  .tx-day { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 10px 4px 3px; border-bottom: 1px solid var(--border); font-size: 14.5px; }
   .tx-day b { font-weight: 800; }
   .tx-day span { font-size: 13px; color: var(--text-muted); font-variant-numeric: tabular-nums; text-align: right; }
-  .tx-ic { flex: none; width: 36px; height: 36px; margin-right: 10px; border-radius: 50%; background: var(--bg); display: flex; align-items: center; justify-content: center; font-size: 18px; }
   .tx-item {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 10px 4px;
+    padding: 7px 4px;
     border-bottom: 1px solid var(--border);
   }
   .tx-item:last-child { border-bottom: none; }
-  .tx-main { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+  .tx-main { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
   .tx-main, .tx-amt { cursor: pointer; }
   .tx-cat { font-size: 15px; font-weight: 600; }
   .tx-meta { font-size: 13px; color: var(--text-muted); }
@@ -2288,11 +2287,9 @@
   // 내역을 읽기 쉽게: 날짜별로 묶어 그날 합계를 위에 보이고, 줄마다 분류 아이콘을 달고, 위쪽 "보기" 칩(전체·지출·수입·고정)과 분류 선택으로 좁혀 본다.
   // 길면 처음 100건만 보이고 "더 보기"로 늘린다. 줄을 누르면 수정창(구분·고정비 표시·삭제가 그 안에 있다). 월별 내역과 검색 결과가 같은 줄 모양(`txRowHtml`)을 쓴다.
   let listFilter = 'all', listCat = '', listQ = '', listLimit = 100;
-  const TX_ICONS = [[/식비|식사|외식|배달|음식|마트|장보기/, '🍚'], [/카페|커피/, '☕'], [/교통|택시|버스|지하철|주유|차량/, '🚌'], [/주거|공과금|월세|관리비|전기|가스|수도/, '🏠'], [/통신/, '📱'], [/의료|건강|병원|약/, '💊'], [/쇼핑|옷|의류/, '🛍'], [/여가|문화|여행|영화/, '🎬'], [/경조사|선물/, '🎁'], [/교육|학원/, '📚'], [/보험/, '🛡'], [/렌탈|구독/, '🧰'], [/저축/, '🐷'], [/대출|대여/, '🏦'], [/급여|월급/, '💵'], [/부수입|N잡/, '💼'], [/용돈/, '🧧'], [/환급|이자/, '💹']];
-  const txIcon = (cat) => { const c = String(cat || ''), hit = TX_ICONS.find(([re]) => re.test(c)); return hit ? hit[1] : '🧾'; };
   function txRowHtml(t, flags, withDate) {
     const meta = [withDate ? t.date.slice(2).replace(/-/g, '.') : '', payLabel(t) ? escapeHtml(payLabel(t)) : '', t.recurId ? '자동' : '', isFixed(t) ? '고정' : ''].filter(Boolean).join(' · ') + (flags || '');
-    return `<div class="tx-item" data-id="${t.id}"><span class="tx-ic" aria-hidden="true">${txIcon(t.category)}</span>
+    return `<div class="tx-item" data-id="${t.id}">
       <div class="tx-main"><div class="tx-cat">${escapeHtml(t.category || '')}${t.memo ? ' · ' + escapeHtml(t.memo) : ''}</div><div class="tx-meta">${meta.replace(/^ · /, '')}${originChip(t)}</div></div>
       <div class="tx-amt ${t.type}">${t.type === 'income' ? '+' : '-'}${formatWon(t.amount)}</div>${t.receipt ? '<div class="tx-actions"><button class="rc-btn" title="영수증 보기" aria-label="영수증 보기">📷</button></div>' : ''}</div>`;
   }
@@ -2349,7 +2346,7 @@
     if (e.target.closest('[data-lmore]')) { listLimit += 100; renderListNow(); return; }
     const rc = e.target.closest('.rc-btn');
     if (rc) { showReceipt(rc.closest('.tx-item').dataset.id); return; }
-    const row = e.target.closest('.tx-main, .tx-amt, .tx-ic');
+    const row = e.target.closest('.tx-main, .tx-amt');
     if (row) openTxSheet(row.closest('.tx-item').dataset.id);
   });
 
@@ -9565,7 +9562,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v156'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v157'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span class="slogan">다달이, 매일의 기록이 모여<br><b>더 나은 생활</b>이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
