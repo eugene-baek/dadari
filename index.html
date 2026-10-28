@@ -7243,7 +7243,13 @@
     const listHtml = `<h2 class="section-title" style="margin:4px 0 4px">이번 선택 주 기록${list.length ? ' · ' + list.length + '건' : ''}</h2>`
       + (list.length ? list.map((l) => `<button type="button" class="visit" data-fl="${attr(l.id)}"><div class="v1"><span>${l.date.slice(5).replace('-', '/')} · ${esc(fitName(l.type))}${ppl.length > 1 && conWho === 'all' ? ' · ' + esc(whoName(fitWho(l))) : ''}</span><b>${l.min ? fmtMin(+l.min) : (l.km ? l.km + 'km' : l.steps ? (+l.steps).toLocaleString('ko-KR') + '스텝' : l.floors ? l.floors + '층' : '')}</b></div><div class="v2">${[l.steps ? (+l.steps).toLocaleString('ko-KR') + '스텝' : '', l.floors ? l.floors + '층' : '', l.km ? l.km + 'km' : '', (() => { const e = fitEst(l); return e.kcal ? (e.est ? '약 ' + e.kcal + 'kcal(예상)' : e.kcal + 'kcal') : ''; })(), l.memo || ''].filter(Boolean).map(esc).join(' · ')}</div></button>`).join('')
         : '<div class="empty-msg" style="padding:12px 0">이 주 운동 기록이 없어요<br>아래 “＋ 운동 기록”으로 직접 적어 보세요</div>');
-    return `<div data-sub="log">${listHtml}${weightHtml}</div><div data-sub="meal">${mealHtml()}</div><div data-sub="stats">${html}</div>`;
+    // 이 주 하루별 운동 시간 막대(식단 탭의 하루별 그래프처럼 "운동 기록" 탭 맨 아래에 둔다)
+    const dn = ['일', '월', '화', '수', '목', '금', '토'], todayS = todayStr();
+    const dayCols = dn.map((n, i) => { const d = addDays(fitWeek, i), sm = fitSum(scope.filter((l) => l.date === d)); return { label: n, a: sm.min, cur: d === todayS, tip: `${n} ${sm.min ? fmtMin(sm.min) : '운동 없음'}${sm.n ? ' · ' + sm.n + '회' : ''}${sm.kcal ? ' · ' + sm.kcal.toLocaleString('ko-KR') + 'kcal' : ''}`, n: sm.n, kcal: sm.kcal }; });
+    const activeDays = dayCols.filter((c) => c.n > 0).length;
+    const chartHtml = dayCols.some((c) => c.a) ? `<h2 class="section-title" style="margin:18px 0 6px">이 주 하루별 운동 시간</h2>` + vbars(dayCols, '이 주 하루별 운동 시간 막대그래프')
+      + `<div class="ins-sum" style="margin-top:8px">운동한 날 <b>${activeDays}일</b> · 합계 <b>${fmtMin(sum.min)}</b>${activeDays ? ` · 하루 평균 <b>${fmtMin(Math.round(sum.min / activeDays))}</b>` : ''}${sum.kcal ? ` · 소모 <b>${sum.kcal.toLocaleString('ko-KR')}kcal</b>` : ''}</div>` : '';
+    return `<div data-sub="log">${listHtml}${weightHtml}${chartHtml}</div><div data-sub="meal">${mealHtml()}</div><div data-sub="stats">${html}</div>`;
   }
 
   function renderFit() {
@@ -9385,7 +9391,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v149'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v150'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span class="slogan">다달이, 매일의 기록이 모여<br><b>더 나은 생활</b>이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
