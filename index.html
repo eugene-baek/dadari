@@ -6057,6 +6057,7 @@
       <h3>${esc(a.name)}</h3>
       <div class="ins-sum">모은 금액 <b>${formatWon(savBal(a.id))}</b>${a.goal > 0 ? ` / 목표 ${formatWon(a.goal)}` : ''}</div>
       <div class="sheet-actions" style="margin:10px 0"><button type="button" data-sa="dep">＋ 입금</button><button type="button" data-sa="wd">－ 출금</button><button type="button" data-sa="edit">✏️ 수정</button></div>
+      ${a.monthly > 0 ? (() => { const dep = savings.log.filter((l) => l.sid === a.id && !l.start && l.amount > 0); return `<div class="ins-sum" style="margin:0 0 10px">입금 기록 <b>${dep.length}번</b> · 월 ${formatWon(a.monthly)} 기준<br><span style="font-size:13px;color:var(--text-muted)">은행에 찍힌 횟수와 다르면 아래에 은행 기준 횟수를 적어 맞춰요(모자란 만큼 월 저축 계획 금액으로 더해요).</span><div style="display:flex;gap:8px;margin-top:8px"><input type="number" id="sa-match-n" min="0" inputmode="numeric" placeholder="은행 기준 입금 횟수" style="flex:1;min-width:0"><button type="button" class="mini-btn" data-sa="match" style="flex:none">횟수 맞추기</button></div></div>`; })() : ''}
       ${a.auto && a.monthly > 0 && a.payDay >= 1 ? '<div class="sheet-actions" style="margin:0 0 10px"><button type="button" data-sa="recalc">🔄 시작일부터 자동 입금 다시 계산</button></div><p class="goal-hint" style="margin:0 0 8px">' + (validDate(a.startDate) ? '시작일 ' + a.startDate.slice(2).replace(/-/g, '.') + ' 이후 저축일마다 월 ' + formatWon(a.monthly) + '을 입금한 것으로 계산해요. 이미 적은 달은 건너뛰어요.' : '시작일이 없어서 자동이체를 켠 날부터만 계산해요. 수정에서 시작일을 넣어 주세요.') + '</p>' : ''}
       ${logs.length ? '<div class="h-sec">기록</div>' + logs.slice(0, 30).map((l) => `<div class="cal-tx"><span>${l.date.slice(2).replace(/-/g, '.')}${l.memo ? ' · ' + esc(l.memo) : ''}</span><span><b style="color:var(--${l.amount > 0 ? 'income' : 'expense'})">${signWon(l.amount)}</b> <button type="button" class="del-btn" data-ld="${attr(l.id)}" aria-label="기록 삭제">🗑</button></span></div>`).join('') + (logs.length > 30 ? `<p class="goal-hint">최근 30건만 보여요 (전체 ${logs.length}건)</p>` : '') : '<div class="empty-msg" style="padding:12px 0">아직 입금 기록이 없어요</div>'}
       <div class="sheet-actions"><button type="button" data-cancel>닫기</button></div>
@@ -6064,6 +6065,19 @@
     sheetBody.querySelector('[data-sa=dep]').addEventListener('click', () => { closeSheet(); openSavDepositSheet(a.id, 1); });
     sheetBody.querySelector('[data-sa=wd]').addEventListener('click', () => { closeSheet(); openSavDepositSheet(a.id, -1); });
     sheetBody.querySelector('[data-sa=edit]').addEventListener('click', () => { closeSheet(); openSavAccountSheet(a); });
+    const mt = sheetBody.querySelector('[data-sa=match]');
+    if (mt) mt.addEventListener('click', () => {
+      const n = parseInt(sheetBody.querySelector('#sa-match-n').value, 10), dep = savings.log.filter((l) => l.sid === a.id && !l.start && l.amount > 0).length;
+      if (!(n >= 0)) { showToast('은행 기준 입금 횟수를 적어 주세요'); return; }
+      if (n < dep) { showToast(`앱에는 ${dep}번이 기록돼 있어요. ${n}번보다 많은 만큼 아래 기록에서 지워 주세요`); return; }
+      if (n === dep) { showToast('이미 같아요'); return; }
+      const d = validDate(a.startDate) ? a.startDate : todayStr();
+      for (let i = 0; i < n - dep; i++) savings.log.push({ id: newId(), sid: a.id, date: d, amount: a.monthly, memo: '횟수 맞춤 (은행 기준)' });
+      saveSav();
+      renderSavings();
+      closeSheet();
+      showToast(`${n - dep}번, ${formatWon((n - dep) * a.monthly)}을 더해 은행과 맞췄어요`);
+    });
     const rc = sheetBody.querySelector('[data-sa=recalc]');
     if (rc) rc.addEventListener('click', () => {
       // 시작일(없으면 켠 날)부터 다시 훑는다: 입금이 이미 있는 달만 "한 일"로 남기고 나머지 달은 채운다
@@ -9685,7 +9699,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v166'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v167'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span class="slogan">다달이, 매일의 기록이 모여<br><b>더 나은 생활</b>이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
