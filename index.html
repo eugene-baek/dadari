@@ -2980,8 +2980,19 @@
     sheetBody.innerHTML = html;
     sheet.hidden = false;
     const f = sheetBody.querySelector('form');
+    // 저장이 "안 눌리는" 것처럼 보이던 문제를 막는다: 브라우저 기본 검사는 일부 폰에서 안내 없이 저장만 막고, 숨겨진 칸이 틀려도 말없이 막는다.
+    // 그래서 직접 검사한다 — 눈에 보이는 칸이 틀렸으면 그 칸으로 가서 무엇이 문제인지 알려 주고, 숨겨진 칸은 무시한다. 소수·큰 수가 "단위 불일치"로 막히지 않게 숫자 칸은 step을 풀어 둔다.
+    f.noValidate = true;
+    f.querySelectorAll('input[type=number]:not([step])').forEach((n) => { n.step = 'any'; });
     f.addEventListener('submit', (e) => {
       e.preventDefault();
+      const bad = [...f.querySelectorAll(':invalid')].find((x) => x.offsetParent !== null);
+      if (bad) {
+        const lab = (bad.closest('label') || (bad.previousElementSibling && bad.previousElementSibling.tagName === 'LABEL' ? bad.previousElementSibling : null) || f.querySelector(`label[for="${bad.id}"]`)), nm = lab ? lab.textContent.replace(/[*\s]+/g, ' ').trim().slice(0, 24) : '입력 칸';
+        try { bad.scrollIntoView({ block: 'center' }); bad.focus(); } catch (err) { /* 못 가도 안내는 한다 */ }
+        showToast(`${nm}: ${bad.validity.valueMissing ? '꼭 입력해 주세요' : bad.validationMessage || '값을 확인해 주세요'}`);
+        return;
+      }
       const seq = toastSeq;
       if (onSubmit(new FormData(f)) !== false) {
         if (toastSeq === seq) showToast('저장했어요');   // 저장 뒤에는 늘 안내가 나오게(각 화면이 따로 안내를 안 띄운 경우)
@@ -5924,7 +5935,17 @@
       };
       if (rec.startDate && rec.goalDate && rec.goalDate < rec.startDate) { showToast('목표일이 시작일보다 빨라요'); return false; }
       rec.auto = fd.get('auto') === 'on';
-      if (rec.auto && !(rec.monthly > 0 && rec.payDay >= 1)) { showToast('자동이체는 월 저축 계획과 매월 저축일을 정해야 해요'); return false; }
+      if (rec.auto) {
+        // 저축일을 안 골랐으면 시작일의 날짜로 정해 준다(저장이 막혀 "안 눌리는" 것처럼 보이지 않게). 월 저축 계획이 없을 때만 막고 그 칸으로 데려간다.
+        if (!(rec.payDay >= 1) && rec.startDate) { rec.payDay = Math.min(31, +rec.startDate.slice(8, 10)); showToast(`매월 저축일을 시작일 날짜(${rec.payDay}일)로 정했어요`); }
+        const miss = !(rec.monthly > 0) ? 'monthly' : !(rec.payDay >= 1) ? 'payDay' : '';
+        if (miss) {
+          const t = sheetBody.querySelector(`[name=${miss}]`);
+          if (t) { t.scrollIntoView({ block: 'center' }); t.focus(); }
+          showToast(miss === 'monthly' ? '자동이체는 “월 저축 계획”(매달 입금할 금액)을 적어야 해요' : '자동이체는 “매월 저축일”을 골라야 해요');
+          return false;
+        }
+      }
       rec.autoSince = rec.auto ? (a && a.auto && validDate(a.autoSince) ? a.autoSince : todayStr()) : '';
       if (a) {
         Object.assign(a, rec);
@@ -9598,7 +9619,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v162'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v163'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span class="slogan">다달이, 매일의 기록이 모여<br><b>더 나은 생활</b>이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
