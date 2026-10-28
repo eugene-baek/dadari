@@ -5862,6 +5862,25 @@
   const savMonthOf = (id, ym) => savings.log.filter((l) => l.sid === id && l.amount > 0 && !l.start && l.date.startsWith(ym)).reduce((a, l) => a + l.amount, 0);
   const signWon = (n) => (n < 0 ? '-' : '+') + formatWon(Math.abs(n));
 
+  // 이자(단리): 입금한 날부터 오늘까지 입금액 × 연 이율 × 경과일/365를 합한다(출금은 빼고, 이자에 붙는 이자는 계산하지 않는다 — 은행 계산과 조금 다를 수 있는 대략값).
+  // 만기 예상: 목표일(만기일)이 있으면, 남은 저축일마다 월 저축 계획만큼 더 넣는다고 보고 목표일까지의 원금·이자·합계를 어림한다. 세후는 일반과세 15.4% 기준이다.
+  const SAV_TAX = 0.154;
+  // 종류별로 다르게: 적금·예금·청약·비상금·목표 저축·기타는 "적용이율/이자"(은행이 정한 이율), 투자·연금은 정해진 이율이 없어서 "예상 수익률/수익"으로 부르고 세금(15.4%)은 따로 계산하지 않는다(상품마다 달라서).
+  const savReturnKind = (kind) => ['투자', '연금'].includes(kind);
+  const savWord = (a) => (savReturnKind(a.kind) ? { rate: '예상 수익률', gain: '수익', tax: false } : { rate: '적용이율', gain: '이자', tax: true });
+  const savInterest = (a, until) => { const r = (+a.rate || 0) / 100; return r ? savings.log.filter((l) => l.sid === a.id && l.date <= until).reduce((t, l) => t + l.amount * r * Math.max(0, diffDays(until, l.date)) / 365, 0) : 0; };
+  function savMaturity(a) {
+    const today = todayStr(), r = (+a.rate || 0) / 100;
+    if (!r || !validDate(a.goalDate) || a.goalDate <= today) return null;
+    const fut = [];
+    if (a.monthly > 0 && a.payDay >= 1) {
+      let y = +today.slice(0, 4), m = +today.slice(5, 7) - 1;
+      for (let i = 0; i < 600; i++) { const d = ymdOf(y, m, a.payDay); if (d > a.goalDate) break; if (d > today) fut.push(d); m++; if (m > 11) { m = 0; y++; } }
+    }
+    const bal = savBal(a.id), futSum = fut.length * a.monthly, interest = savInterest(a, a.goalDate) + fut.reduce((t, d) => t + a.monthly * r * diffDays(a.goalDate, d) / 365, 0);
+    return { n: fut.length, principal: bal + futSum, interest: Math.round(interest), total: Math.round(bal + futSum + interest) };
+  }
+
   function savingsHtml() {
     if (!savings.accounts.length) return '<div class="empty-msg">등록한 저축 통장·목표가 없어요<br>아래 “＋ 저축 통장·목표”로 적금·비상금·목표 저축을 만들고<br>입금할 때마다 기록하면 모인 금액이 보여요</div>';
     const today = todayStr(), ym = today.slice(0, 7), yr = today.slice(0, 4);
@@ -5875,7 +5894,7 @@
     const by = (keyOf, names) => names.map((n) => { const v = list.filter((a) => keyOf(a) === n.id).reduce((s, a) => s + savBal(a.id), 0); return v ? `${esc(n.name)} ${formatWon(v)}` : ''; }).filter(Boolean).join(' · ');
     const perWho = conWho === 'all' && ppl.length > 1 ? by(savWho, ppl) : '';
     const perKind = savKind === 'all' ? by((a) => a.kind || '기타', SAV_KINDS.map((k) => ({ id: k, name: k }))) : '';
-    let html = `<div class="ins-sum">모은 돈 <b>${formatWon(total)}</b> · 통장·목표 ${list.length}개<br>이번 달 <b class="inc">${signWon(net(ym))}</b> · 올해 <b class="inc">${signWon(net(yr))}</b>${goalSum ? `<br>목표 합계 ${formatWon(goalSum)} 중 ${Math.round((goalHave / goalSum) * 100)}% 달성` : ''}${perWho ? '<br>' + perWho : ''}${perKind ? '<br>' + perKind : ''}</div>`;
+    let html = `<div class="ins-sum">모은 돈 <b>${formatWon(total)}</b> · 통장·목표 ${list.length}개<br>이번 달 <b class="inc">${signWon(net(ym))}</b> · 올해 <b class="inc">${signWon(net(yr))}</b>${list.some((x) => x.rate > 0 && !savReturnKind(x.kind)) ? `<br>지금까지 이자 약 <b class="inc">${formatWon(Math.round(list.filter((x) => !savReturnKind(x.kind)).reduce((t, x) => t + savInterest(x, today), 0)))}</b> <small style="color:var(--text-muted)">(단리 대략값)</small>` : ''}${list.some((x) => x.rate > 0 && savReturnKind(x.kind)) ? `<br>투자·연금 예상 수익 약 <b class="inc">${formatWon(Math.round(list.filter((x) => savReturnKind(x.kind)).reduce((t, x) => t + savInterest(x, today), 0)))}</b> <small style="color:var(--text-muted)">(예상 수익률 기준)</small>` : ''}${goalSum ? `<br>목표 합계 ${formatWon(goalSum)} 중 ${Math.round((goalHave / goalSum) * 100)}% 달성` : ''}${perWho ? '<br>' + perWho : ''}${perKind ? '<br>' + perKind : ''}</div>`;
     html += [...list].sort(nameSort((a) => a.name)).map((a) => {
       const bal = savBal(a.id), left = Math.max(0, a.goal - bal), pct = a.goal > 0 ? Math.round((bal / a.goal) * 100) : 0;
       const sub = [];
@@ -5886,6 +5905,7 @@
         sub.push(`목표일 ${a.goalDate.slice(2).replace(/-/g, '.')} (${dd >= 0 ? 'D-' + dd : -dd + '일 지남'})`);
         if (left > 0 && dd > 0) sub.push(`월 ${formatWon(Math.ceil(left / Math.max(1, Math.round(dd / 30.4))))}씩 모으면 달성`);
       }
+      if (a.rate > 0) sub.push(`${savReturnKind(a.kind) ? '예상 수익률 ' : ''}연 ${a.rate}% · ${savWord(a).gain} 약 ${formatWon(Math.round(savInterest(a, today)))}`);
       if (a.auto && a.monthly > 0) sub.push(`자동이체 매월 ${dayLabel(a.payDay)}`);
       if (a.monthly > 0) { const got = savMonthOf(a.id, ym); sub.push(`이번 달 ${formatWon(got)} / 계획 ${formatWon(a.monthly)}${got >= a.monthly ? ' ✓' : ''}`); }
       const whoTag = conWho === 'all' && ppl.length > 1 ? `<span class="who-tag">${esc(whoName(savWho(a)))}</span>` : '';
@@ -5920,6 +5940,7 @@
       <label>목표 금액 (선택)</label><input name="goal" type="number" min="0" inputmode="numeric" value="${val(a && a.goal ? a.goal : '')}" placeholder="0이면 목표 없음">
       <label>목표일 (선택)</label><input name="goalDate" type="date" value="${val(a && a.goalDate)}">
       <label>월 저축 계획 (선택)</label><input name="monthly" type="number" min="0" inputmode="numeric" value="${val(a && a.monthly ? a.monthly : '')}" placeholder="매달 모으려는 금액">
+      <label id="sav-rate-lbl">${a && savReturnKind(a.kind) ? '예상 수익률' : '적용이율'} (연 %, 선택)</label><input name="rate" type="number" min="0" step="0.01" inputmode="decimal" value="${val(a && a.rate ? a.rate : '')}" placeholder="예: 3.5 (이자·수익을 어림해 보여 줘요)">
       <label>매월 저축일 (선택)</label>${dayInput('payDay', a && a.payDay)}
       <label class="check"><input type="checkbox" name="auto"${a && a.auto ? ' checked' : ''}> 적금 자동이체 — 저축일마다 월 저축 계획만큼 자동 입금하고 가계부에 고정 지출(저축)로 기록</label>
       <p class="goal-hint" style="margin:2px 0 0">체크하면 월 저축 계획과 매월 저축일이 꼭 필요해요. 시작일을 적으면 그날부터 지금까지 지난 저축일만큼 통장 금액을 자동으로 계산해 넣어요(가계부에는 오늘 이후 저축일부터 기록돼요).</p>
@@ -5933,6 +5954,7 @@
         who: String(fd.get('who')), name, kind: String(fd.get('kind')), goal: Math.max(0, parseInt(fd.get('goal'), 10) || 0),
         startDate: validDate(String(fd.get('startDate'))) ? String(fd.get('startDate')) : '',
         goalDate: validDate(String(fd.get('goalDate'))) ? String(fd.get('goalDate')) : '',
+        rate: Math.max(0, Math.round((parseFloat(fd.get('rate')) || 0) * 100) / 100),
         monthly: Math.max(0, parseInt(fd.get('monthly'), 10) || 0), payDay: Math.min(31, Math.max(0, parseInt(fd.get('payDay'), 10) || 0)), note: String(fd.get('note')).trim()
       };
       if (rec.startDate && rec.goalDate && rec.goalDate < rec.startDate) { showToast('목표일이 시작일보다 빨라요'); return false; }
@@ -5967,6 +5989,8 @@
       renderSavings();
       showToast(added.length > 1 ? `시작일부터 지금까지 ${added.length}번, ${formatWon(added.reduce((x, l) => x + l.amount, 0))}을 자동으로 계산해 넣었어요` : a ? '수정했어요' : '추가했어요');
     });
+    const kindSel = sheetBody.querySelector('select[name=kind]');
+    if (kindSel) kindSel.addEventListener('change', () => { sheetBody.querySelector('#sav-rate-lbl').textContent = (savReturnKind(kindSel.value) ? '예상 수익률' : '적용이율') + ' (연 %, 선택)'; });
     const del = sheetBody.querySelector('[data-delete]');
     if (del) del.addEventListener('click', () => {
       const logs = savings.log.filter((l) => l.sid === a.id);
@@ -6057,6 +6081,7 @@
       <h3>${esc(a.name)}</h3>
       <div class="ins-sum">모은 금액 <b>${formatWon(savBal(a.id))}</b>${a.goal > 0 ? ` / 목표 ${formatWon(a.goal)}` : ''}</div>
       <div class="sheet-actions" style="margin:10px 0"><button type="button" data-sa="dep">＋ 입금</button><button type="button" data-sa="wd">－ 출금</button><button type="button" data-sa="edit">✏️ 수정</button></div>
+      ${a.rate > 0 ? (() => { const iv = Math.round(savInterest(a, todayStr())), mt = savMaturity(a); const w = savWord(a); return `<div class="ins-sum" style="margin:0 0 10px">${w.rate} <b>연 ${a.rate}%</b> <small style="color:var(--text-muted)">(${a.kind || '저축'} · 단리 대략값${w.tax ? '' : ' · 실제 수익은 달라요'})</small><br>지금까지 ${w.gain} <b>약 ${formatWon(iv)}</b>${w.tax ? ` · 세후 약 ${formatWon(Math.round(iv * (1 - SAV_TAX)))} <small style="color:var(--text-muted)">(일반과세 15.4%)</small>` : ''}${mt ? `<br>목표일(${a.goalDate.slice(2).replace(/-/g, '.')}) 예상: 원금 ${formatWon(mt.principal)}${mt.n ? ` (남은 ${mt.n}번 입금 포함)` : ''} + ${w.gain} ${formatWon(mt.interest)} = <b>${formatWon(mt.total)}</b>` : (validDate(a.goalDate) ? '' : '<br><small style="color:var(--text-muted)">목표일(만기일)을 넣으면 그때 예상 금액도 보여 줘요</small>')}</div>`; })() : ''}
       ${a.monthly > 0 ? (() => { const dep = savings.log.filter((l) => l.sid === a.id && !l.start && l.amount > 0); return `<div class="ins-sum" style="margin:0 0 10px">입금 기록 <b>${dep.length}번</b> · 월 ${formatWon(a.monthly)} 기준<br><span style="font-size:13px;color:var(--text-muted)">은행에 찍힌 횟수와 다르면 아래에 은행 기준 횟수를 적어 맞춰요(모자란 만큼 월 저축 계획 금액으로 더해요).</span><div style="display:flex;gap:8px;margin-top:8px"><input type="number" id="sa-match-n" min="0" inputmode="numeric" placeholder="은행 기준 입금 횟수" style="flex:1;min-width:0"><button type="button" class="mini-btn" data-sa="match" style="flex:none">횟수 맞추기</button></div></div>`; })() : ''}
       ${a.auto && a.monthly > 0 && a.payDay >= 1 ? '<div class="sheet-actions" style="margin:0 0 10px"><button type="button" data-sa="recalc">🔄 시작일부터 자동 입금 다시 계산</button></div><p class="goal-hint" style="margin:0 0 8px">' + (validDate(a.startDate) ? '시작일 ' + a.startDate.slice(2).replace(/-/g, '.') + ' 이후 저축일마다 월 ' + formatWon(a.monthly) + '을 입금한 것으로 계산해요. 이미 적은 달은 건너뛰어요.' : '시작일이 없어서 자동이체를 켠 날부터만 계산해요. 수정에서 시작일을 넣어 주세요.') + '</p>' : ''}
       ${logs.length ? '<div class="h-sec">기록</div>' + logs.slice(0, 30).map((l) => `<div class="cal-tx"><span>${l.date.slice(2).replace(/-/g, '.')}${l.memo ? ' · ' + esc(l.memo) : ''}</span><span><b style="color:var(--${l.amount > 0 ? 'income' : 'expense'})">${signWon(l.amount)}</b> <button type="button" class="del-btn" data-ld="${attr(l.id)}" aria-label="기록 삭제">🗑</button></span></div>`).join('') + (logs.length > 30 ? `<p class="goal-hint">최근 30건만 보여요 (전체 ${logs.length}건)</p>` : '') : '<div class="empty-msg" style="padding:12px 0">아직 입금 기록이 없어요</div>'}
@@ -9699,7 +9724,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v167'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v168'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span class="slogan">다달이, 매일의 기록이 모여<br><b>더 나은 생활</b>이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
