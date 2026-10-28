@@ -5863,6 +5863,7 @@
     html += [...list].sort(nameSort((a) => a.name)).map((a) => {
       const bal = savBal(a.id), left = Math.max(0, a.goal - bal), pct = a.goal > 0 ? Math.round((bal / a.goal) * 100) : 0;
       const sub = [];
+      if (validDate(a.startDate)) { const mo = Math.max(0, monthsBetween(a.startDate, today)); sub.push(`시작 ${a.startDate.slice(2).replace(/-/g, '.')}${mo >= 1 ? ' (' + mo + '개월째)' : ''}`); }
       if (a.goal > 0) sub.push(left > 0 ? `목표 ${formatWon(a.goal)} · 남은 ${formatWon(left)}` : `목표 ${formatWon(a.goal)} 달성 🎉`);
       if (validDate(a.goalDate)) {
         const dd = diffDays(a.goalDate, today);
@@ -5896,6 +5897,7 @@
       <label>누구 저축인가요</label><select name="who">${people().map((x) => `<option value="${attr(x.id)}"${x.id === who ? ' selected' : ''}>${esc(x.name)}</option>`).join('')}</select>
       <label>이름</label><input name="name" required maxlength="30" placeholder="예: 비상금, 여행 적금, 아이 학자금" value="${val(a && a.name)}" autocomplete="off">
       <label>종류</label><select name="kind">${(a && a.kind && !SAV_KINDS.includes(a.kind) ? [...SAV_KINDS, a.kind] : SAV_KINDS).map((k) => `<option${k === (a ? a.kind : savKind !== 'all' ? savKind : '적금') ? ' selected' : ''}>${esc(k)}</option>`).join('')}</select>
+      <label>시작일 (선택 · 이 통장·목표를 시작한 날)</label><input name="startDate" type="date" value="${val(a ? a.startDate : todayStr())}">
       <label>목표 금액 (선택)</label><input name="goal" type="number" min="0" inputmode="numeric" value="${val(a && a.goal ? a.goal : '')}" placeholder="0이면 목표 없음">
       <label>목표일 (선택)</label><input name="goalDate" type="date" value="${val(a && a.goalDate)}">
       <label>월 저축 계획 (선택)</label><input name="monthly" type="number" min="0" inputmode="numeric" value="${val(a && a.monthly ? a.monthly : '')}" placeholder="매달 모으려는 금액">
@@ -5908,15 +5910,19 @@
       if (!name) { showToast('이름을 입력해 주세요'); return false; }
       const rec = {
         who: String(fd.get('who')), name, kind: String(fd.get('kind')), goal: Math.max(0, parseInt(fd.get('goal'), 10) || 0),
+        startDate: validDate(String(fd.get('startDate'))) ? String(fd.get('startDate')) : '',
         goalDate: validDate(String(fd.get('goalDate'))) ? String(fd.get('goalDate')) : '',
         monthly: Math.max(0, parseInt(fd.get('monthly'), 10) || 0), payDay: Math.min(31, Math.max(0, parseInt(fd.get('payDay'), 10) || 0)), note: String(fd.get('note')).trim()
       };
-      if (a) Object.assign(a, rec);
-      else {
+      if (rec.startDate && rec.goalDate && rec.goalDate < rec.startDate) { showToast('목표일이 시작일보다 빨라요'); return false; }
+      if (a) {
+        Object.assign(a, rec);
+        if (rec.startDate) savings.log.forEach((l) => { if (l.sid === a.id && l.start) l.date = rec.startDate; });   // 시작 잔액 기록의 날짜도 시작일로 맞춘다
+      } else {
         const acc = { id: newId(), ...rec };
         savings.accounts.push(acc);
         const start = Math.max(0, parseInt(fd.get('start'), 10) || 0);
-        if (start > 0) savings.log.push({ id: newId(), sid: acc.id, date: todayStr(), amount: start, memo: '시작 잔액', start: true });
+        if (start > 0) savings.log.push({ id: newId(), sid: acc.id, date: rec.startDate || todayStr(), amount: start, memo: '시작 잔액', start: true });
       }
       saveSav();
       renderSavings();
@@ -9550,7 +9556,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v159'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v160'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span class="slogan">다달이, 매일의 기록이 모여<br><b>더 나은 생활</b>이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
