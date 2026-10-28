@@ -548,6 +548,7 @@
   .med-card .mc-name { font-size: 15px; font-weight: 700; overflow-wrap: anywhere; }
   .med-card .mc-sub { font-size: 13px; color: var(--text-muted); overflow-wrap: anywhere; }
   .med-card .med-slots { display: flex; flex-wrap: wrap; gap: 6px; }
+  .med-card .mc-eff { font-size: 13px; color: var(--text); line-height: 1.45; overflow-wrap: anywhere; }
   .med-card .mc-foot { font-size: 13px; color: var(--text-muted); margin-top: auto; }
   .med-card.done .mc-foot { color: var(--mc-text); font-weight: 700; }
   .tx-list { display: flex; flex-direction: column; gap: 0; }
@@ -4359,6 +4360,50 @@
   const slotName = (k) => (SLOTS.find((s) => s[0] === k) || [k, k])[1];
   const medActive = (m, today) => !(validDate(m.start) && m.start > today) && !(validDate(m.end) && m.end < today);
 
+  // 약 효능(참고용): 흔한 약·영양제의 **일반적인 효능** 한 줄. 약 이름(상품명·성분명)에 아래 말이 들어 있으면 보여 준다. 용량·복용법은 넣지 않는다(의사·약사 안내를 따른다).
+  // 앱 안 목록이라 인터넷·외부 서버를 쓰지 않는다. 처방약은 일부 성분만 있다. 늘릴 때는 식약처 의약품 정보(e약은요)로 확인한 말만 쓴다.
+  const MED_INFO = [
+    [['타이레놀', '아세트아미노펜', '세토펜', '어린이 타이레놀'], '해열·진통 (발열, 두통, 치통, 생리통 등)', '같은 성분(아세트아미노펜)이 들어 있는 감기약과 겹치지 않게 주의해요.'],
+    [['이부프로펜', '부루펜', '애드빌', '맥시부펜', '덱시부프로펜'], '해열·진통·소염 (소염진통제)', '위장 장애가 있을 수 있어 보통 식후에 먹어요.'],
+    [['나프록센', '탁센'], '해열·진통·소염 (생리통, 근육통, 관절통 등)', ''],
+    [['아스피린'], '해열·진통·소염. 처방받은 저용량은 혈전 예방에 쓰기도 해요', '어린이·청소년은 의사 상담 없이 먹이지 마세요.'],
+    [['판콜', '콜대원', '화이투벤', '판피린', '종합감기', '감기약'], '감기 증상 완화 (콧물, 코막힘, 기침, 발열, 몸살)', ''],
+    [['지르텍', '세티리진', '클래리틴', '로라타딘', '알레그라', '펙소페나딘', '씨잘', '레보세티리진'], '알레르기 증상 완화 (콧물, 재채기, 두드러기, 가려움) · 항히스타민제', '졸음이 올 수 있어요.'],
+    [['몬테루카스트', '싱귤레어'], '천식·알레르기 비염 증상 완화', ''],
+    [['암브록솔', '뮤코펙트', '뮤코라제', '아세틸시스테인'], '가래 배출을 돕는 약 (거담)', ''],
+    [['훼스탈', '베아제', '닥터베아제', '활명수', '소화제'], '소화불량·식체 완화 (소화 효소·소화 돕는 약)', ''],
+    [['겔포스', '개비스콘', '알마겔', '제산제'], '속쓰림·위산 과다 완화 (제산제)', ''],
+    [['오메프라졸', '에소메프라졸', '란소프라졸', '넥시움', '판토프라졸'], '위산 분비를 줄여 위·십이지장 궤양, 역류성 식도염 치료 (위산 억제제)', '처방받은 기간과 방법대로 먹어요.'],
+    [['스멕타'], '설사 증상 완화', ''],
+    [['로페라미드', '로페린'], '설사 증상 완화 (지사제)', '열이나 피가 섞인 설사는 의사 상담이 필요해요.'],
+    [['둘코락스', '비사코딜', '마그밀', '변비약'], '변비 완화 (하제)', ''],
+    [['아목시실린', '오구멘틴', '세파클러', '항생제'], '세균 감염 치료 (항생제). 바이러스 감기에는 효과가 없어요', '처방받은 기간 끝까지 먹어야 해요.'],
+    [['암로디핀', '발사르탄', '로사르탄', '혈압약'], '고혈압 치료 (혈압 조절)', ''],
+    [['메트포르민', '당뇨약'], '제2형 당뇨병 혈당 조절', ''],
+    [['아토르바스타틴', '로수바스타틴', '심바스타틴', '리피토', '크레스토', '고지혈증'], '혈중 콜레스테롤 낮춤 (스타틴, 고지혈증 치료)', ''],
+    [['레보티록신', '씬지로이드'], '갑상선 호르몬 보충 (갑상선 기능 저하증)', ''],
+    [['오메가3', '오메가-3', '오메가 3'], '혈중 중성지방 개선, 혈행 개선에 도움 (건강기능식품)', ''],
+    [['비타민D', '비타민 D', '비타민디'], '칼슘 흡수와 뼈 건강에 도움 (건강기능식품)', ''],
+    [['비타민C', '비타민 C', '비타민씨', '비타민c'], '항산화, 결합조직 형성, 철 흡수에 도움 (건강기능식품)', ''],
+    [['종합비타민', '멀티비타민', '센트룸', '비타민'], '비타민·미네랄 영양 보충 (건강기능식품)', ''],
+    [['철분', '페로미아', '헤모큐'], '철분 보충 (빈혈 예방)', '변이 검게 나올 수 있어요.'],
+    [['칼슘'], '뼈와 치아 건강에 도움 (칼슘 보충)', ''],
+    [['마그네슘'], '신경·근육 기능, 에너지 대사에 도움 (마그네슘 보충)', ''],
+    [['유산균', '프로바이오틱스', '락토핏', '락토바실러스'], '장 건강·배변 활동에 도움 (건강기능식품)', ''],
+    [['루테인'], '노화로 줄어드는 황반색소 밀도 유지에 도움 (눈 건강, 건강기능식품)', ''],
+    [['밀크씨슬', '실리마린'], '간 건강에 도움 (건강기능식품)', ''],
+    [['홍삼'], '면역력 증진, 피로 개선에 도움 (건강기능식품)', ''],
+    [['인공눈물', '히알루론산 점안'], '건조한 눈의 불편감 완화', ''],
+    [['후시딘', '마데카솔'], '상처 연고 (후시딘: 항생연고로 상처 감염 예방, 마데카솔: 상처 회복을 도와요)', '']
+  ];
+  const medInfo = (name) => {
+    const n = String(name || '').replace(/\s+/g, '').toLowerCase();
+    if (n.length < 2) return null;
+    let hit = null;
+    MED_INFO.forEach(([names, eff, note]) => names.forEach((a) => { const k = a.replace(/\s+/g, '').toLowerCase(); if (k.length >= 2 && n.includes(k) && (!hit || k.length > hit.len)) hit = { len: k.length, eff, note }; }));
+    return hit;
+  };
+  const medEff = (m) => m.eff || (medInfo(m.name) || {}).eff || '';   // 직접 적은 효능이 있으면 그것이 먼저
   function renderMeds() {
     const ppl = people();
     if (healthWho !== 'all' && !ppl.some((p) => p.id === healthWho)) healthWho = 'all';
@@ -4386,17 +4431,17 @@
     const totalSlots = daily.reduce((n, m) => n + m.times.length, 0), doneSlots = daily.reduce((n, m) => n + m.times.filter((t) => ((m.taken && m.taken[today]) || []).includes(t)).length, 0);
     html += daily.length ? `<p class="goal-hint" style="margin:6px 0 8px">오늘 먹은 약 <b>${doneSlots}/${totalSlots}번</b>${doneSlots === totalSlots ? ' · 모두 챙겼어요 ✓' : ''}</p><div class="med-grid">` + daily.map((m) => {
       const taken = (m.taken && m.taken[today]) || [], n = m.times.filter((t) => taken.includes(t)).length, all = n === m.times.length;
-      return `<div class="med-card${all ? ' done' : ''}"><div class="mc-name">${escapeHtml(m.name || '')}${tag(m)}</div>${m.dose || m.note ? `<div class="mc-sub">${[m.dose, m.note].filter(Boolean).map(escapeHtml).join(' · ')}</div>` : ''}<div class="med-slots">${m.times.map((t) =>
+      return `<div class="med-card${all ? ' done' : ''}"><div class="mc-name">${escapeHtml(m.name || '')}${tag(m)}</div>${m.dose || m.note ? `<div class="mc-sub">${[m.dose, m.note].filter(Boolean).map(escapeHtml).join(' · ')}</div>` : ''}${medEff(m) ? `<div class="mc-eff">💡 ${escapeHtml(medEff(m))}</div>` : ''}<div class="med-slots">${m.times.map((t) =>
         `<button type="button" class="slot${taken.includes(t) ? ' on' : ''}" data-take="${m.id}" data-slot="${t}">${taken.includes(t) ? '✓ ' : ''}${slotName(t)}</button>`).join('')}</div><div class="mc-foot">${all ? '✓ 모두 먹었어요' : `오늘 ${n}/${m.times.length}번`}</div></div>`;
     }).join('') + '</div>' : '<div class="empty-msg" style="padding:14px 0">오늘 챙길 약이 없어요</div>';
 
     const row = (m) => `<button type="button" class="visit" data-med="${m.id}"><div class="v1"><span>${title(m)}</span><span>${timesOf(m)}</span></div>
-      <div class="v2">${[range(m), refill(m), m.place].filter(Boolean).map((x, i) => (i === 1 ? x : escapeHtml(x))).join(' · ')}${m.note ? ' · ' + escapeHtml(m.note) : ''}</div></button>`;
+      <div class="v2">${[range(m), refill(m), m.place].filter(Boolean).map((x, i) => (i === 1 ? x : escapeHtml(x))).join(' · ')}${m.note ? ' · ' + escapeHtml(m.note) : ''}</div>${medEff(m) ? `<div class="v2">💡 ${escapeHtml(medEff(m))}</div>` : ''}</button>`;
     html += `<div class="h-sec">복용 중인 약${active.length ? ` · ${active.length}개` : ''}</div>`;
     html += active.length ? active.map(row).join('') : '<div class="empty-msg" style="padding:14px 0">복용 중인 약이 없어요<br>아래 “＋ 약 추가”로 기록하세요</div>';
     if (upcoming.length) html += `<div class="h-sec">복용 예정인 약 · ${upcoming.length}개</div>` + upcoming.map(row).join('');
     if (ended.length) html += `<div class="h-sec">복용이 끝난 약 · ${ended.length}개</div>` + ended.map(row).join('');
-    html += '<p class="cyc-note">용량과 복용법은 의사·약사의 안내를 따르세요. 이 기록은 챙겨 먹는 것을 돕는 메모예요.</p>';
+    html += '<p class="cyc-note">용량과 복용법은 의사·약사의 안내를 따르세요. 효능은 일반적인 참고 설명이라 사람에 따라 다를 수 있고, 이 기록은 챙겨 먹는 것을 돕는 메모예요.</p>';
     el('health-body').innerHTML = html;
   }
 
@@ -4409,7 +4454,9 @@
       <h3>${m ? '약 수정' : '약 추가'}</h3>
       <label>누구</label><select name="who">${whoOpts}</select>
       <label>약 이름</label><input name="name" required maxlength="40" placeholder="예: 타이레놀, 비타민D" value="${val(m && m.name)}" autocomplete="off">
+      <p class="goal-hint" id="med-eff" style="margin:2px 0 0"></p>
       <label>용량 (선택)</label><input name="dose" maxlength="20" placeholder="예: 1정, 5ml" value="${val(m && m.dose)}">
+      <label>효능·먹는 이유 (선택 · 비워 두면 약 이름으로 자동 안내)</label><input name="eff" maxlength="60" placeholder="예: 해열·진통, 알레르기 비염" value="${val(m && m.eff)}">
       <label>복용 시간 (필요할 때만 먹는 약은 비워 두세요)</label>
       <div class="days-check">${slots}</div>
       <label>복용 시작일 (선택)</label><input name="start" type="date" value="${val(m ? m.start : todayStr())}">
@@ -4423,7 +4470,7 @@
       if (!name) { showToast('약 이름을 입력해 주세요'); return false; }
       const date = (k) => (validDate(String(fd.get(k))) ? String(fd.get(k)) : '');
       const rec = {
-        who: String(fd.get('who')), name, dose: String(fd.get('dose')).trim(), times: fd.getAll('times'),
+        who: String(fd.get('who')), name, dose: String(fd.get('dose')).trim(), eff: String(fd.get('eff') || '').trim(), times: fd.getAll('times'),
         start: date('start'), end: date('end'), refill: date('refill'), place: String(fd.get('place')).trim(), note: String(fd.get('note')).trim()
       };
       if (rec.start && rec.end && rec.end < rec.start) { showToast('종료일이 시작일보다 빨라요'); return false; }
@@ -4432,6 +4479,11 @@
       renderHealth();
       showToast(m ? '수정했어요' : '추가했어요');
     });
+    // 약 이름을 칠 때 일반적인 효능을 바로 보여 준다(앱 안 목록, 외부로 보내지 않는다)
+    const medNm = sheetBody.querySelector('[name=name]'), medHint = sheetBody.querySelector('#med-eff');
+    const medShow = () => { const f = medInfo(medNm.value), q = medNm.value.trim(), link = q.length >= 2 ? `<br><a href="https://search.naver.com/search.naver?query=${encodeURIComponent(q + ' 효능')}" target="_blank" rel="noopener noreferrer" style="font-size:13px">🔎 인터넷에서 더 찾아보기 ›</a> <small style="color:var(--text-muted)">(눌렀을 때만 약 이름이 검색 사이트로 가요)</small>` : ''; medHint.innerHTML = (f ? `💡 <b>${escapeHtml(f.eff)}</b>${f.note ? `<br>${escapeHtml(f.note)}` : ''}<br><small style="color:var(--text-muted)">일반적인 참고 설명이에요. 의사·약사 안내를 따르세요.</small>` : (q.length >= 2 ? '<small style="color:var(--text-muted)">목록에 없는 약이에요. 아래 “효능·먹는 이유”에 직접 적어 둘 수 있어요.</small>' : '')) + link; };
+    medNm.addEventListener('input', medShow);
+    medShow();
     const del = sheetBody.querySelector('[data-delete]');
     if (del) {
       del.addEventListener('click', () => {
@@ -9831,7 +9883,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v175'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v176'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span class="slogan">다달이, 매일의 기록이 모여<br><b>더 나은 생활</b>이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
