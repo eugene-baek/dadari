@@ -4116,23 +4116,23 @@
     return m ? `${+m[1] + 1}차` : '다음 접종';
   };
 
-  // 표준 접종일정: 질병관리청 국가예방접종 표준일정(어린이, 질병관리청 페이지 2025-12-16 확인, 지자체 게시본 2026-01-05 수정본과 대조).
+  // 표준 접종일정: 질병관리청 국가예방접종 표준일정(어린이, 질병관리청 페이지 2025-12-16 확인, 지자체 게시본 2026-01-05·2026-06-18 수정본과 대조, 인플루엔자는 질병관리청 2026~2027절기 안내 2026-10-28 확인).
   // [차수, 접종 시작 월령, 표시 문구]. 일정은 바뀔 수 있으니 실제 접종은 소아과·보건소와 확인한다.
   const VAX = [
     { name: 'B형간염', re: /B형간염|HepB/i, doses: [[1, 0, '출생 시'], [2, 1, '1개월'], [3, 6, '6개월']] },
-    { name: 'BCG(결핵)', short: 'BCG(결핵)', re: /BCG|결핵/i, doses: [[1, 0, '4주 이내']] },
+    { name: 'BCG(결핵)', short: 'BCG(결핵)', re: /BCG|결핵/i, note: '국가 지원은 피내용(생후 59개월까지, 3개월 이상은 투베르쿨린 검사 음성일 때)이에요. 경피용은 전액 본인 부담이에요.', doses: [[1, 0, '4주 이내']] },
     { name: 'DTaP(디프테리아·파상풍·백일해)', short: 'DTaP', re: /DTaP|디프테리아/i, doses: [[1, 2, '2개월'], [2, 4, '4개월'], [3, 6, '6개월'], [4, 15, '15~18개월'], [5, 48, '4~6세']] },
     { name: '폴리오(IPV)', short: '폴리오(IPV)', re: /IPV|폴리오/i, doses: [[1, 2, '2개월'], [2, 4, '4개월'], [3, 6, '6~18개월'], [4, 48, '4~6세']] },
-    { name: 'Hib', re: /Hib/i, doses: [[1, 2, '2개월'], [2, 4, '4개월'], [3, 6, '6개월'], [4, 12, '12~15개월']] },
-    { name: '폐렴구균(PCV)', re: /PCV|폐렴구균/i, doses: [[1, 2, '2개월'], [2, 4, '4개월'], [3, 6, '6개월'], [4, 12, '12~15개월']] },
-    { name: '로타바이러스', re: /로타|RV/i, doses: [[1, 2, '2개월'], [2, 4, '4개월'], [3, 6, '6개월(제품에 따라)']] },
+    { name: 'Hib', re: /Hib/i, note: '국가 지원은 생후 59개월까지예요. DTaP·폴리오와 묶은 혼합백신(5가·6가)으로 맞기도 해요.', doses: [[1, 2, '2개월'], [2, 4, '4개월'], [3, 6, '6개월'], [4, 12, '12~15개월']] },
+    { name: '폐렴구균(PCV)', re: /PCV|폐렴구균/i, note: '국가 지원은 생후 59개월까지예요.', doses: [[1, 2, '2개월'], [2, 4, '4개월'], [3, 6, '6개월'], [4, 12, '12~15개월']] },
+    { name: '로타바이러스', re: /로타|RV/i, note: '1차는 생후 14주 6일까지, 2·3차는 생후 8개월까지 맞아야 국가 지원돼요. 로타릭스는 2회, 로타텍은 3회예요.', doses: [[1, 2, '2개월'], [2, 4, '4개월'], [3, 6, '6개월(제품에 따라)']] },
     { name: 'MMR(홍역·유행성이하선염·풍진)', short: 'MMR', re: /MMR|홍역/i, doses: [[1, 12, '12~15개월'], [2, 48, '4~6세']] },
     { name: '수두', re: /수두|VAR/i, doses: [[1, 12, '12~15개월']] },
-    { name: 'A형간염', re: /A형간염|HepA/i, doses: [[1, 12, '12~35개월'], [2, 18, '1차 후 6개월 이상']] },
+    { name: 'A형간염', re: /A형간염|HepA/i, doses: [[1, 12, '12~23개월'], [2, 18, '1차 후 6개월 이상']] },
     { name: '일본뇌염', re: /일본뇌염|JE/i, note: '불활성화 백신 기준 5회예요. 생백신은 2회라서 맞은 백신 종류에 따라 달라요.',
       doses: [[1, 12, '12~23개월'], [2, 13, '1차 후 1개월'], [3, 24, '24~35개월'], [4, 72, '6세'], [5, 144, '12세']] },
     { name: 'Tdap/Td', re: /Tdap|\bTd\b/i, doses: [[1, 132, '11~12세']] },
-    { name: 'HPV', re: /HPV|유두종/i, note: '국가 지원은 12~17세 여아 대상이에요. 횟수는 의료진 안내를 따르세요.', doses: [[1, 144, '12세(여아)']] }
+    { name: 'HPV', re: /HPV|유두종/i, note: '국가 지원은 12~17세 여아 대상이에요(9가는 전액 본인 부담). 횟수는 의료진 안내를 따르세요.', doses: [[1, 144, '12세(여아)']] }
   ];
   const monthsBetween = (birth, ref) => {
     const b = parseD(birth), r = parseD(ref);
@@ -4167,7 +4167,7 @@
     // 인플루엔자: 매년 접종(생후 6개월~12세). 최근 1년 안의 접종 기록이 있으면 완료로 본다.
     const flu = mine.filter((v) => /인플루엔자|독감/.test(v.name || '') && v.done && diffDays(today, v.date) >= 0 && diffDays(today, v.date) <= 365);
     const fluPlanned = mine.find((v) => /인플루엔자|독감/.test(v.name || '') && !v.done) || null;
-    return { age, rows, flu: age >= 6 && age < 156 ? (flu.length ? 'done' : fluPlanned ? 'planned' : 'due') : null, fluRec: fluPlanned };
+    return { age, rows, flu: age >= 6 && age < 180 ? (flu.length ? 'done' : fluPlanned ? 'planned' : 'due') : null, fluRec: fluPlanned };
   }
 
   // 표준 접종 일정은 구성원마다 화살표(▲▼)로 접었다 펼 수 있다. 기본은 접힘이고, 펼친 구성원만 이 기기의 localStorage(`dadari_vxopen_v1`)에 기억한다.
@@ -4196,7 +4196,7 @@
           <div class="vx-doses">${r.doses.filter((d) => d.st !== 'later').map((d) =>
             `<button type="button" class="dose ${d.st}" data-vstd="${m.id}|${r.vi}|${d.n}" aria-label="${stLabel[d.st]}">${d.st === 'done' ? '✓ ' : ''}${r.x.doses.length > 1 ? d.n + '차 ' : ''}${d.label}</button>`).join('')}</div>
           ${r.x.note && r.doses.some((d) => d.st !== 'done' && d.st !== 'later') ? `<div class="vx-note">${escapeHtml(r.x.note)}</div>` : ''}</div>`).join('');
-      const flu = s.flu ? `<div class="vx"><div class="vx-name">인플루엔자(독감)</div><div class="vx-doses"><button type="button" class="dose ${s.flu}" data-vstd="${m.id}|flu|1">${s.flu === 'done' ? '✓ 최근 1년 내 접종' : s.flu === 'planned' ? '독감 접종 예정' : '매년 접종 대상'}</button></div></div>` : '';
+      const flu = s.flu ? `<div class="vx"><div class="vx-name">인플루엔자(독감)</div><div class="vx-doses"><button type="button" class="dose ${s.flu}" data-vstd="${m.id}|flu|1">${s.flu === 'done' ? '✓ 최근 1년 내 접종' : s.flu === 'planned' ? '독감 접종 예정' : '매년 접종 대상'}</button></div>${s.flu !== 'done' ? '<div class="vx-note">국가 지원은 생후 6개월~만 14세(2026~2027절기, 접종 기간 2026.9.21~2027.4.30)예요. 처음 맞거나 접종력을 모르는 생후 6개월~9세 미만은 2회 지원해요.</div>' : ''}</div>` : '';
       const fold = !opened[m.id], due = s.rows.reduce((n, r) => n + r.doses.filter((d) => d.st === 'due').length, 0);
       anyOpen = anyOpen || !fold;
       html += `<button type="button" class="h-sec vx-head" data-vxfold="${attr(m.id)}" aria-expanded="${!fold}"><span>${escapeHtml(m.name)} · ${ageText(s.age)} · 표준 접종 일정${fold && due ? `<span class="vx-due">시기 도래 ${due}</span>` : ''}</span><span class="vx-arrow">${fold ? '▼' : '▲'}</span></button>${fold ? '' : lines + flu}`;
@@ -9500,7 +9500,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v153'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v154'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span class="slogan">다달이, 매일의 기록이 모여<br><b>더 나은 생활</b>이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
