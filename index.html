@@ -6230,6 +6230,20 @@
   const debtRepaid = (id) => debt.log.filter((l) => l.did === id).reduce((a, l) => a + (+l.principal || 0), 0);
   const debtPaidInt = (id) => debt.log.filter((l) => l.did === id).reduce((a, l) => a + (+l.interest || 0), 0);
   const debtBal = (id) => { const d = debt.items.find((x) => x.id === id); return d ? Math.max(0, d.amount - debtRepaid(id)) : 0; };
+  // 이자 금액: 이율(%)을 넣으면 남은 잔액 기준으로 월·연 이자를 어림하고(잔액 × 연 이율 ÷ 12), 매달 내는 이자 금액만 넣었으면 그 금액으로 연 이자·연 환산 이율을 보여 준다. 매달 금액을 직접 적었으면 그 값이 우선이다.
+  function debtIntEst(d) {
+    const bal = debtBal(d.id) || d.amount, r = +d.rate || 0, m = +d.monthlyInt || 0;
+    if (m > 0) return { monthly: m, yearly: m * 12, eff: bal ? ((m * 12) / bal) * 100 : 0, fromRate: false };
+    if (r > 0) return { monthly: (bal * r) / 1200, yearly: (bal * r) / 100, eff: r, fromRate: true };
+    return { monthly: 0, yearly: 0, eff: 0, fromRate: false };
+  }
+  const debtIntTxt = (d) => {
+    const e = debtIntEst(d), parts = [];
+    if (d.rate > 0) parts.push('연 ' + d.rate + '%');
+    if (e.monthly > 0) parts.push((e.fromRate ? '월 약 ' : '월 ') + formatWon(Math.round(e.monthly)));
+    if (e.yearly > 0) parts.push((e.fromRate ? '연 약 ' : '연 ') + formatWon(Math.round(e.yearly)) + (!(d.rate > 0) && e.eff > 0 ? ` (연 환산 ${Math.round(e.eff * 10) / 10}%)` : ''));
+    return parts.join(' · ');
+  };
   let debtDirSel = 'all';   // 화면 필터: all | borrow | lend
   function debtCat(kind, name) { if (!categories[kind].includes(name)) { categories[kind].push(name); saveJson(CAT_KEY, categories); renderCategoryOptions(); } }
   function debtTx(dir, part, date, amount, memo) {
@@ -6246,20 +6260,22 @@
     const today = todayStr(), want = debtDirSel === 'all' ? ['borrow', 'lend'] : [debtDirSel];
     const list = debt.items.filter((d) => want.includes(debtDirOf(d)));
     if (!list.length) return '<div class="empty-msg">이 구분에는 등록한 항목이 없어요</div>';
-    const row = (label, val, strong) => `<div class="fx-row"><span>${label}</span><b${strong ? ' style="font-size:16px"' : ''}>${val}</b></div>`;
-    const sums = (dir) => { const l = list.filter((d) => debtDirOf(d) === dir); const total = l.reduce((a, d) => a + d.amount, 0), repaid = l.reduce((a, d) => a + debtRepaid(d.id), 0); return { n: l.length, total, repaid, left: l.reduce((a, d) => a + debtBal(d.id), 0), interest: l.reduce((a, d) => a + debtPaidInt(d.id), 0) }; };
+    const sums = (dir) => { const l = list.filter((d) => debtDirOf(d) === dir); const total = l.reduce((a, d) => a + d.amount, 0), repaid = l.reduce((a, d) => a + debtRepaid(d.id), 0); return { n: l.length, total, repaid, mInt: l.reduce((a, d) => a + (debtBal(d.id) > 0 ? debtIntEst(d).monthly : 0), 0), left: l.reduce((a, d) => a + debtBal(d.id), 0), interest: l.reduce((a, d) => a + debtPaidInt(d.id), 0) }; };
+    // 요약은 저축과 같은 카드(칸) 레이아웃: 방향(빌린 돈·빌려준 돈)마다 3칸(합계·갚은/돌려받은 원금·남은/받을 잔액) + 필요한 칸(이자·상환율), 둘 다 있으면 받을 돈·갚을 돈·차액 3칸
+    const tile = (label, val, cls, sub) => `<div class="summary-item ${cls || 'balance'}"><div class="lbl">${label}</div><div class="val">${val}</div>${sub ? `<div class="lbl" style="margin:2px 0 0;font-size:12px">${sub}</div>` : ''}</div>`;
     let html = '';
     want.forEach((dir) => {
       const t = DEBT_TXT[dir], x = sums(dir);
       if (!x.n) return;
       const pctAll = x.total ? Math.round((x.repaid / x.total) * 100) : 0;
-      html += `${want.length > 1 ? `<div class="h-sec">${t.title}</div>` : ''}<div class="ins-sum" style="padding:6px 14px">${row(t.sum1, formatWon(x.total))}${row(t.sum2, formatWon(x.repaid))}${row(t.left, formatWon(x.left), true)}${x.interest ? row(t.sum3, formatWon(x.interest)) : ''}</div>
-        <div class="bar" style="margin:8px 0 0"><i class="${pctAll >= 100 ? '' : pctAll < 30 ? 'near' : ''}" style="width:${Math.min(100, pctAll)}%"></i></div><p class="goal-hint" style="margin:4px 0 8px">${t.pct} ${pctAll}%</p>`;
+      const extra = [x.interest ? tile(t.sum3, formatWon(x.interest), dir === 'lend' ? 'income' : '') : '', x.mInt > 0 ? tile(dir === 'lend' ? '매달 받는 이자' : '매달 내는 이자', '약 ' + formatWon(Math.round(x.mInt)), dir === 'lend' ? 'income' : '', '예상 · 남은 잔액 기준') : '', tile(t.pct, pctAll + '%', '', `${formatWon(x.repaid)} / ${formatWon(x.total)}`)].filter(Boolean);
+      html += `${want.length > 1 ? `<div class="h-sec">${t.title} · ${x.n}건</div>` : ''}<div class="summary-grid">${tile(t.sum1, formatWon(x.total))}${tile(t.sum2, formatWon(x.repaid))}${tile(t.left, formatWon(x.left))}</div><div class="summary-grid" style="margin-top:8px">${extra.join('')}</div>
+        <div class="bar" style="margin:10px 0 12px"><i class="${pctAll >= 100 ? '' : pctAll < 30 ? 'near' : ''}" style="width:${Math.min(100, pctAll)}%"></i></div>`;
     });
-    if (want.length > 1) { const b = sums('borrow'), l = sums('lend'); if (b.n && l.n) html += `<div class="ins-sum" style="margin-top:8px">받을 돈 <b>${formatWon(l.left)}</b> − 갚을 돈 <b>${formatWon(b.left)}</b> = <b>${l.left - b.left < 0 ? '-' : ''}${formatWon(Math.abs(l.left - b.left))}</b></div>`; }
+    if (want.length > 1) { const b = sums('borrow'), l = sums('lend'); if (b.n && l.n) html += `<div class="h-sec">받을 돈 − 갚을 돈</div><div class="summary-grid">${tile('받을 돈', formatWon(l.left), 'income')}${tile('갚을 돈', formatWon(b.left))}${tile('차액', (l.left - b.left < 0 ? '-' : '') + formatWon(Math.abs(l.left - b.left)), l.left - b.left < 0 ? 'expense' : 'income')}</div>`; }
     const card = (d) => {
       const dir = debtDirOf(d), t = DEBT_TXT[dir], bal = debtBal(d.id), pct = d.amount ? Math.round(((d.amount - bal) / d.amount) * 100) : 0, sub = [`${dir === 'lend' ? '빌려준' : '빌린'} ${formatWon(d.amount)}`, `${dir === 'lend' ? '회수' : '상환'} ${pct}%`];
-      if (d.rate > 0 || d.monthlyInt > 0) sub.push(`${dir === 'lend' ? '받는' : '내는'} 이자 ${[d.rate > 0 ? '연 ' + d.rate + '%' : '', d.monthlyInt > 0 ? '월 ' + formatWon(d.monthlyInt) : ''].filter(Boolean).join(' · ')}`);
+      if (d.rate > 0 || d.monthlyInt > 0) sub.push(`${dir === 'lend' ? '받는' : '내는'} 이자 ${debtIntTxt(d)}`);
       if (!validDate(d.due) && bal > 0) sub.push(t.dueTbdShort);
       if (validDate(d.due)) { const dd = diffDays(d.due, today); sub.push(bal > 0 ? `${dir === 'lend' ? '받을 날' : '만기'} ${d.due.slice(2).replace(/-/g, '.')} (${dd >= 0 ? 'D-' + dd : -dd + '일 지남'})` : d.due.slice(2).replace(/-/g, '.')); }
       if (d.monthly > 0 && bal > 0) sub.push(`월 ${formatWon(d.monthly)}${d.payDay >= 1 ? ' · 매월 ' + (d.payDay >= 31 ? '말일' : d.payDay + '일') : ''}`);
@@ -6332,6 +6348,16 @@
       renderDebt();
       showToast(d ? '수정했어요' : '추가했어요');
     });
+    // 이율·매달 이자를 적으면 이자 금액을 바로 보여 준다
+    const iForm = sheetBody.querySelector('form'), iHint = document.createElement('p');
+    iHint.className = 'goal-hint'; iHint.style.margin = '2px 0 0';
+    iForm.querySelector('[name=monthlyInt]').insertAdjacentElement('afterend', iHint);
+    const iCalc = () => {
+      const amt = parseFloat(iForm.querySelector('[name=amount]').value) || 0, r = parseFloat(iForm.querySelector('[name=rate]').value) || 0, m = parseFloat(iForm.querySelector('[name=monthlyInt]').value) || 0;
+      iHint.textContent = !amt ? '' : m > 0 ? `매달 ${formatWon(m)} → 연 ${formatWon(m * 12)} (연 환산 ${Math.round(((m * 12) / amt) * 1000) / 10}%)` : r > 0 ? `연 ${r}% → 월 약 ${formatWon(Math.round((amt * r) / 1200))} · 연 약 ${formatWon(Math.round((amt * r) / 100))} (금액 ${formatWon(amt)} 기준)` : '';
+    };
+    ['amount', 'rate', 'monthlyInt'].forEach((n) => iForm.querySelector(`[name=${n}]`).addEventListener('input', iCalc));
+    iCalc();
     const tbdBox = sheetBody.querySelector('[name=dueTbd]'), dueIn = sheetBody.querySelector('[name=due]');
     tbdBox.addEventListener('change', () => { dueIn.disabled = tbdBox.checked; if (tbdBox.checked) dueIn.value = ''; else if (!dueIn.value) dueIn.focus(); });
     const del = sheetBody.querySelector('[data-delete]');
@@ -6414,7 +6440,7 @@
     openSheet(`<form>
       <h3>${esc(d.name)}</h3>
       <div class="ins-sum">${t.left} <b>${formatWon(bal)}</b> / ${dir === 'lend' ? '빌려준' : '빌린'} ${formatWon(d.amount)}<br>${t.sum2} ${formatWon(debtRepaid(d.id))} · ${dir === 'lend' ? '받은' : '낸'} 이자 ${formatWon(debtPaidInt(d.id))}
-        ${d.usage ? `<br>사용처 ${esc(d.usage)}` : ''}${d.rate > 0 || d.monthlyInt > 0 ? `<br>${dir === 'lend' ? '받는' : '내는'} 이자 ${[d.rate > 0 ? '연 ' + d.rate + '%' : '', d.monthlyInt > 0 ? '월 ' + formatWon(d.monthlyInt) : ''].filter(Boolean).join(' · ')}` : ''}<br>${validDate(d.due) ? `${dir === 'lend' ? '받기로 한 날' : '갚을 날'} ${d.due.slice(2).replace(/-/g, '.')}` : t.dueTbdShort}</div>
+        ${d.usage ? `<br>사용처 ${esc(d.usage)}` : ''}${d.rate > 0 || d.monthlyInt > 0 ? `<br>${dir === 'lend' ? '받는' : '내는'} 이자 ${debtIntTxt(d)} <small style="color:var(--text-muted)">(남은 잔액 기준)</small>` : ''}<br>${validDate(d.due) ? `${dir === 'lend' ? '받기로 한 날' : '갚을 날'} ${d.due.slice(2).replace(/-/g, '.')}` : t.dueTbdShort}</div>
       <div class="sheet-actions" style="margin:10px 0"><button type="button" data-da="repay">＋ ${t.repayHead}</button><button type="button" data-da="edit">✏️ 수정</button></div>
       ${logs.length ? `<div class="h-sec">${t.repayHead}</div>` + logs.slice(0, 30).map((l) => `<button type="button" class="visit" data-dl="${attr(l.id)}"><div class="v1"><span>${l.date.slice(2).replace(/-/g, '.')}${l.memo ? ' · ' + esc(l.memo) : ''}</span><b>${formatWon((+l.principal || 0) + (+l.interest || 0))}</b></div><div class="v2">원금 ${formatWon(+l.principal || 0)}${l.interest ? ' · 이자 ' + formatWon(+l.interest) : ''}</div></button>`).join('') : `<div class="empty-msg" style="padding:12px 0">${t.empty}</div>`}
       <div class="sheet-actions"><button type="button" data-cancel>닫기</button></div>
@@ -9785,7 +9811,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v173'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v174'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span class="slogan">다달이, 매일의 기록이 모여<br><b>더 나은 생활</b>이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
