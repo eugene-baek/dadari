@@ -548,6 +548,13 @@
   .list-pick { display: flex; align-items: center; gap: 8px; margin: 8px 0 2px; }
   .list-pick label { flex: none; margin: 0; font-size: 14px; font-weight: 700; color: var(--text-muted); }
   .list-pick select { flex: 1; min-width: 0; }
+  .tx-list .tx-item { align-items: baseline; gap: 8px; padding: 6px 2px; }
+  .tx-list .tx-d { flex: none; width: 42px; font-size: 13px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+  .tx-list .tx-main { display: block; flex: 1; min-width: 0; }
+  .tx-list .tx-cat { font-size: 14.5px; font-weight: 400; }
+  .tx-list .tx-meta { font-size: 12.5px; color: var(--text-muted); }
+  .tx-list .tx-amt { flex: none; font-size: 14.5px; font-weight: 400; text-align: right; }
+  .tx-list .tx-actions { margin-left: 4px; }
   .tx-day { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 10px 4px 3px; border-bottom: 1px solid var(--border); font-size: 14.5px; }
   .tx-day b { font-weight: 800; }
   .tx-day span { font-size: 13px; color: var(--text-muted); font-variant-numeric: tabular-nums; text-align: right; }
@@ -2093,7 +2100,7 @@
     }
     if (list.length) {
       const sorted = [...list].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
-      html += '<div class="tx-list" style="margin-top:12px">' + sorted.slice(0, 100).map((x) => txRowHtml(x, flags(x), true)).join('') + '</div>'
+      html += '<div class="tx-list" style="margin-top:12px">' + sorted.slice(0, 100).map((x) => txRowHtml(x, flags(x), x.date.slice(2).replace(/-/g, '.'))).join('') + '</div>'
         + (sorted.length > 100 ? `<p class="goal-hint" style="margin:8px 0 0">최근 100건만 보여 줘요. 합계에는 ${sorted.length}건이 모두 들어 있어요.</p>` : '');
     } else html += '<div class="empty-msg" style="padding:14px 0">조건에 맞는 내역이 없어요</div>';
     el('sq-result').innerHTML = html;
@@ -2287,15 +2294,16 @@
   // 내역을 읽기 쉽게: 날짜별로 묶어 그날 합계를 위에 보이고, 줄마다 분류 아이콘을 달고, 위쪽 "보기" 칩(전체·지출·수입·고정)과 분류 선택으로 좁혀 본다.
   // 길면 처음 100건만 보이고 "더 보기"로 늘린다. 줄을 누르면 수정창(구분·고정비 표시·삭제가 그 안에 있다). 월별 내역과 검색 결과가 같은 줄 모양(`txRowHtml`)을 쓴다.
   let listFilter = 'all', listCat = '', listQ = '', listLimit = 100;
-  function txRowHtml(t, flags, withDate) {
-    const meta = [withDate ? t.date.slice(2).replace(/-/g, '.') : '', payLabel(t) ? escapeHtml(payLabel(t)) : '', t.recurId ? '자동' : '', isFixed(t) ? '고정' : ''].filter(Boolean).join(' · ') + (flags || '');
-    return `<div class="tx-item" data-id="${t.id}">
-      <div class="tx-main"><div class="tx-cat">${escapeHtml(t.category || '')}${t.memo ? ' · ' + escapeHtml(t.memo) : ''}</div><div class="tx-meta">${meta.replace(/^ · /, '')}${originChip(t)}</div></div>
+  // 내역 한 줄(가계부 명세처럼 일반 글씨): 날짜 | 분류 · 메모 + (결제수단·자동·고정) | 금액. 날짜는 건 단위로 넘기고(같은 날 둘째 줄부터는 비움).
+  function txRowHtml(t, flags, dateText) {
+    const meta = [payLabel(t) ? escapeHtml(payLabel(t)) : '', t.recurId ? '자동' : '', isFixed(t) ? '고정' : ''].filter(Boolean).join(' · ') + (flags || '');
+    return `<div class="tx-item" data-id="${t.id}"><span class="tx-d">${dateText || ''}</span>
+      <div class="tx-main"><span class="tx-cat">${escapeHtml(t.category || '')}${t.memo ? ' · ' + escapeHtml(t.memo) : ''}</span>${meta.replace(/^ · /, '') ? ` <span class="tx-meta">${meta.replace(/^ · /, '')}</span>` : ''}${originChip(t)}</div>
       <div class="tx-amt ${t.type}">${t.type === 'income' ? '+' : '-'}${formatWon(t.amount)}</div>${t.receipt ? '<div class="tx-actions"><button class="rc-btn" title="영수증 보기" aria-label="영수증 보기">📷</button></div>' : ''}</div>`;
   }
 
   function renderList(monthTx) {
-    const wrap = el('tx-list'), DN = ['일', '월', '화', '수', '목', '금', '토'];
+    const wrap = el('tx-list');
     const cnt = (f) => monthTx.filter(f).length;
     el('list-filter').innerHTML = [['all', '전체', monthTx.length], ['expense', '지출', cnt((t) => t.type === 'expense')], ['income', '수입', cnt((t) => t.type === 'income')], ['fixed', '고정', cnt(isFixed)]]
       .map(([k, n, c]) => `<button type="button" data-lf="${k}" class="${k === listFilter ? 'active' : ''}">${n} ${c}</button>`).join('');
@@ -2325,9 +2333,8 @@
     let html = '', shown = 0;
     for (const d of days) {
       if (shown >= listLimit) break;
-      const items = byDay[d], flow = flowOnly(items), inc = flow.filter((t) => t.type === 'income').reduce((a, t) => a + t.amount, 0), exp = flow.filter((t) => t.type === 'expense').reduce((a, t) => a + t.amount, 0);
-      html += `<div class="tx-day"><b>${d.slice(5).replace('-', '/')} (${DN[parseD(d).getDay()]})</b><span>${[exp ? '지출 ' + formatWon(exp) : '', inc ? '수입 +' + formatWon(inc) : ''].filter(Boolean).join(' · ')}</span></div>` + items.map((t) => txRowHtml(t, flags(t), false)).join('');
-      shown += items.length;
+      byDay[d].forEach((t, i) => { html += txRowHtml(t, flags(t), i === 0 ? d.slice(5).replace('-', '/') : ''); });
+      shown += byDay[d].length;
     }
     if (shown < list.length) html += `<button type="button" class="mini-btn" data-lmore style="width:100%;margin-top:12px">더 보기 (${list.length - shown}건 남음)</button>`;
     wrap.innerHTML = html;
@@ -9562,7 +9569,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v157'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v158'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span class="slogan">다달이, 매일의 기록이 모여<br><b>더 나은 생활</b>이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
