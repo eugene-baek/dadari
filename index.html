@@ -5890,14 +5890,16 @@
     const net = (pre) => savings.log.filter((l) => ids.has(l.sid) && !l.start && l.date.startsWith(pre)).reduce((a, l) => a + l.amount, 0);
     const goals = list.filter((a) => a.goal > 0);
     const goalSum = goals.reduce((a, x) => a + x.goal, 0), goalHave = goals.reduce((a, x) => a + Math.min(savBal(x.id), x.goal), 0);
-    // 요약은 항목마다 "라벨 ··· 값" 한 줄로 나눠 읽기 쉽게 하고, 구성원별·종류별은 따로 묶어 보여 준다(종류가 하나뿐이면 합계와 같아서 생략)
-    const row = (label, val, cls, strong) => `<div class="fx-row"><span>${label}</span><b${cls ? ` class="${cls}"` : ''}${strong ? ' style="font-size:16px"' : ''}>${val}</b></div>`;
+    // 요약은 카드(칸)로: 위쪽 큰 칸 3개(모은 돈·이번 달·올해), 있으면 이자·수익·목표 달성 칸, 구성원별·종류별은 이름 + 금액 칸(종류가 하나뿐이면 합계와 같아서 생략)
+    const tile = (label, val, cls, sub) => `<div class="summary-item ${cls || 'balance'}"><div class="lbl">${label}</div><div class="val">${val}</div>${sub ? `<div class="lbl" style="margin:2px 0 0;font-size:12px">${sub}</div>` : ''}</div>`;
     const grp = (keyOf, names) => names.map((n) => ({ n: n.name, v: list.filter((a) => keyOf(a) === n.id).reduce((s, a) => s + savBal(a.id), 0) })).filter((x) => x.v);
     const whoG = conWho === 'all' && ppl.length > 1 ? grp(savWho, ppl) : [], kindG = savKind === 'all' ? grp((a) => a.kind || '기타', SAV_KINDS.map((k) => ({ id: k, name: k }))) : [];
     const intr = list.filter((x) => x.rate > 0 && !savReturnKind(x.kind)).reduce((t, x) => t + savInterest(x, today), 0), gain = list.filter((x) => x.rate > 0 && savReturnKind(x.kind)).reduce((t, x) => t + savInterest(x, today), 0);
-    let html = `<div class="ins-sum" style="padding:6px 14px">${row(`모은 돈 <small style="color:var(--text-muted);font-weight:400">· 통장·목표 ${list.length}개</small>`, formatWon(total), '', true)}${row('이번 달', signWon(net(ym)), 'inc')}${row('올해', signWon(net(yr)), 'inc')}${intr > 0 ? row('지금까지 이자 <small style="color:var(--text-muted);font-weight:400">(단리 대략값)</small>', '약 ' + formatWon(Math.round(intr)), 'inc') : ''}${gain > 0 ? row('투자·연금 예상 수익', '약 ' + formatWon(Math.round(gain)), 'inc') : ''}${goalSum ? row('목표 달성', `${Math.round((goalHave / goalSum) * 100)}% <small style="color:var(--text-muted);font-weight:400">${formatWon(goalHave)} / ${formatWon(goalSum)}</small>`) : ''}</div>`;
-    if (whoG.length) html += `<div class="h-sec">구성원별 모은 돈</div><div class="ins-sum" style="padding:6px 14px">${whoG.map((x) => row(esc(x.n), formatWon(x.v))).join('')}</div>`;
-    if (kindG.length > 1) html += `<div class="h-sec">종류별 모은 돈</div><div class="ins-sum" style="padding:6px 14px">${kindG.map((x) => row(esc(x.n), formatWon(x.v))).join('')}</div>`;
+    const extra = [intr > 0 ? tile('지금까지 이자', '약 ' + formatWon(Math.round(intr)), 'income', '단리 대략값') : '', gain > 0 ? tile('예상 수익', '약 ' + formatWon(Math.round(gain)), 'income', '투자·연금') : '', goalSum ? tile('목표 달성', Math.round((goalHave / goalSum) * 100) + '%', '', `${formatWon(goalHave)} / ${formatWon(goalSum)}`) : ''].filter(Boolean);
+    let html = `<div class="summary-grid">${tile('모은 돈', formatWon(total), '', `통장·목표 ${list.length}개`)}${tile('이번 달', signWon(net(ym)), 'income')}${tile('올해', signWon(net(yr)), 'income')}</div>`;
+    if (extra.length) html += `<div class="summary-grid" style="margin-top:8px">${extra.join('')}</div>`;
+    if (whoG.length) html += `<div class="h-sec">구성원별 모은 돈</div><div class="summary-grid">${whoG.map((x) => tile(esc(x.n), formatWon(x.v))).join('')}</div>`;
+    if (kindG.length > 1) html += `<div class="h-sec">종류별 모은 돈</div><div class="summary-grid">${kindG.map((x) => tile(esc(x.n), formatWon(x.v))).join('')}</div>`;
     html += [...list].sort(nameSort((a) => a.name)).map((a) => {
       const bal = savBal(a.id), left = Math.max(0, a.goal - bal), pct = a.goal > 0 ? Math.round((bal / a.goal) * 100) : 0;
       const sub = [];
@@ -9729,7 +9731,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v170'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v171'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span class="slogan">다달이, 매일의 기록이 모여<br><b>더 나은 생활</b>이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
