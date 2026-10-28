@@ -6005,9 +6005,11 @@
       const ledgerFrom = rec.auto ? (a && a.auto && validDate(a.autoLedgerFrom) ? a.autoLedgerFrom : todayStr()) : '';
       rec.autoLedgerFrom = ledgerFrom;
       rec.autoSince = rec.auto ? (rec.startDate && rec.startDate < ledgerFrom ? rec.startDate : ledgerFrom) : '';
+      let removed = 0;
       if (a) {
         Object.assign(a, rec);
         if (rec.startDate) savings.log.forEach((l) => { if (l.sid === a.id && l.start) l.date = rec.startDate; });   // 시작 잔액 기록의 날짜도 시작일로 맞춘다
+        if (a.auto) removed = savTrimAuto(a);   // 시작일을 뒤로 미뤘다면 그 앞의 자동 입금은 걷어 낸다
       } else {
         const acc = { id: newId(), ...rec };
         savings.accounts.push(acc);
@@ -6019,7 +6021,7 @@
       if (applySavAuto()) renderAll();
       const added = savings.log.slice(n0);
       renderSavings();
-      showToast(added.length > 1 ? `시작일부터 지금까지 ${added.length}번, ${formatWon(added.reduce((x, l) => x + l.amount, 0))}을 자동으로 계산해 넣었어요` : a ? '수정했어요' : '추가했어요');
+      showToast(removed ? `시작일에 맞춰 자동 입금을 다시 계산했어요 (정리 ${removed}번${added.length ? `, 추가 ${added.length}번 ${formatWon(added.reduce((x, l) => x + l.amount, 0))}` : ''})` : added.length > 1 ? `시작일부터 지금까지 ${added.length}번, ${formatWon(added.reduce((x, l) => x + l.amount, 0))}을 자동으로 계산해 넣었어요` : a ? '수정했어요' : '추가했어요');
     });
     const freqSel = sheetBody.querySelector('select[name=freq]');
     const freqSync = () => { const wk = freqSel.value === 'week'; sheetBody.querySelector('#sav-day-wrap').hidden = wk; sheetBody.querySelector('#sav-wd-wrap').hidden = !wk; sheetBody.querySelector('#sav-amt-lbl').textContent = wk ? '한 번(매주) 저축액 (선택)' : '월 저축 계획 (선택)'; };
@@ -6044,6 +6046,18 @@
 
   // 적금 자동이체: 저축일이 지나면 월 저축 계획만큼 입금 기록(`sa_통장_월`)과 가계부 고정 지출 "저축"(`sat_통장_월`)을 자동으로 만든다.
   // 자동이체를 켠 날(`autoSince`) 이후의 저축일부터이고, 달마다 한 번(`autoDone`)이라 지워도 다시 만들지 않는다. 그 달에 직접 적은 입금이 있으면 이중으로 잡지 않게 건너뛴다.
+  // 시작일을 고치면(특히 뒤로 미루면) 새 시작일보다 앞선 "자동으로 계산해 넣은 입금"(`auto:true`)과 그 가계부 지출은 걷어 낸다. 직접 적은 입금은 건드리지 않는다.
+  function savTrimAuto(a) {
+    if (!validDate(a.startDate)) return 0;
+    const gone = savings.log.filter((l) => l.sid === a.id && l.auto && l.date < a.startDate);
+    gone.forEach((l) => { tomb(l.id); if (l.txId) { tomb(l.txId); transactions = transactions.filter((t) => t.id !== l.txId); } });
+    if (gone.length) savings.log = savings.log.filter((l) => !gone.includes(l));
+    // "한 일" 표시는 남아 있는 자동 입금 기록에서 다시 만든다(지운 날짜의 표시가 남아 다시 채워지지 않는 일을 막는다)
+    const pre = 'sa_' + a.id + '_';
+    a.autoDone = savings.log.filter((l) => l.sid === a.id && l.auto && String(l.id).startsWith(pre)).map((l) => String(l.id).slice(pre.length));
+    if (gone.length) save();
+    return gone.length;
+  }
   function applySavAuto() {
     const today = todayStr(), now = new Date();
     let changed = false;
@@ -6154,14 +6168,14 @@
       // 시작일(없으면 켠 날)부터 다시 훑는다: 입금이 이미 있는 달만 "한 일"로 남기고 나머지 달은 채운다
       a.autoSince = validDate(a.startDate) && a.startDate < (a.autoLedgerFrom || todayStr()) ? a.startDate : (a.autoLedgerFrom || todayStr());
       a.autoDone = [...new Set(savings.log.filter((l) => l.sid === a.id && !l.start && l.amount > 0).map((l) => l.date.slice(0, 7)))];
-      const n0 = savings.log.length;
+      const removed = savTrimAuto(a), n0 = savings.log.length;
       applySavAuto();
       const added = savings.log.slice(n0);
       saveSav();
       renderAll();
       renderSavings();
       closeSheet();
-      showToast(added.length ? `${added.length}번, ${formatWon(added.reduce((x, l) => x + l.amount, 0))}을 자동으로 계산해 넣었어요` : '더 채울 달이 없어요 (이미 모두 기록돼 있어요)');
+      showToast(removed && !added.length ? `시작일보다 앞선 자동 입금 ${removed}번을 정리했어요` : added.length ? `${added.length}번, ${formatWon(added.reduce((x, l) => x + l.amount, 0))}을 자동으로 계산해 넣었어요` : '더 채울 달이 없어요 (이미 모두 기록돼 있어요)');
     });
     sheetBody.querySelectorAll('[data-ld]').forEach((b) => b.addEventListener('click', () => {
       const l = savings.log.find((x) => x.id === b.dataset.ld);
@@ -9771,7 +9785,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v172'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v173'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span class="slogan">다달이, 매일의 기록이 모여<br><b>더 나은 생활</b>이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
