@@ -5920,7 +5920,7 @@
       <label>월 저축 계획 (선택)</label><input name="monthly" type="number" min="0" inputmode="numeric" value="${val(a && a.monthly ? a.monthly : '')}" placeholder="매달 모으려는 금액">
       <label>매월 저축일 (선택)</label>${dayInput('payDay', a && a.payDay)}
       <label class="check"><input type="checkbox" name="auto"${a && a.auto ? ' checked' : ''}> 적금 자동이체 — 저축일마다 월 저축 계획만큼 자동 입금하고 가계부에 고정 지출(저축)로 기록</label>
-      <p class="goal-hint" style="margin:2px 0 0">체크하면 월 저축 계획과 매월 저축일이 꼭 필요해요. 오늘 이후의 저축일부터 기록돼요(지난 달은 채우지 않아요).</p>
+      <p class="goal-hint" style="margin:2px 0 0">체크하면 월 저축 계획과 매월 저축일이 꼭 필요해요. 시작일을 적으면 그날부터 지금까지 지난 저축일만큼 통장 금액을 자동으로 계산해 넣어요(가계부에는 오늘 이후 저축일부터 기록돼요).</p>
       ${a ? '' : '<label>지금까지 모은 금액 (선택)</label><input name="start" type="number" min="0" inputmode="numeric" placeholder="이미 모아 둔 돈이 있으면 입력">'}
       <label>메모 (선택)</label><input name="note" maxlength="60" value="${val(a && a.note)}" placeholder="예: 은행·만기일 (계좌번호는 적지 마세요)">
       <div class="sheet-actions"><button type="button" data-cancel>취소</button>${a ? '<button type="button" data-delete data-own-cf>삭제</button>' : ''}<button type="submit">저장</button></div>
@@ -5946,7 +5946,9 @@
           return false;
         }
       }
-      rec.autoSince = rec.auto ? (a && a.auto && validDate(a.autoSince) ? a.autoSince : todayStr()) : '';
+      const ledgerFrom = rec.auto ? (a && a.auto && validDate(a.autoLedgerFrom) ? a.autoLedgerFrom : todayStr()) : '';
+      rec.autoLedgerFrom = ledgerFrom;
+      rec.autoSince = rec.auto ? (rec.startDate && rec.startDate < ledgerFrom ? rec.startDate : ledgerFrom) : '';
       if (a) {
         Object.assign(a, rec);
         if (rec.startDate) savings.log.forEach((l) => { if (l.sid === a.id && l.start) l.date = rec.startDate; });   // 시작 잔액 기록의 날짜도 시작일로 맞춘다
@@ -5957,9 +5959,11 @@
         if (start > 0) savings.log.push({ id: newId(), sid: acc.id, date: rec.startDate || todayStr(), amount: start, memo: '시작 잔액', start: true });
       }
       saveSav();
+      const n0 = savings.log.length;
       if (applySavAuto()) renderAll();
+      const added = savings.log.slice(n0);
       renderSavings();
-      showToast(a ? '수정했어요' : '추가했어요');
+      showToast(added.length > 1 ? `시작일부터 지금까지 ${added.length}번, ${formatWon(added.reduce((x, l) => x + l.amount, 0))}을 자동으로 계산해 넣었어요` : a ? '수정했어요' : '추가했어요');
     });
     const del = sheetBody.querySelector('[data-delete]');
     if (del) del.addEventListener('click', () => {
@@ -5984,6 +5988,9 @@
     savings.accounts.forEach((a) => {
       if (!a.auto || !(a.monthly > 0) || !(a.payDay >= 1) || !validDate(a.autoSince)) return;
       if (!Array.isArray(a.autoDone)) a.autoDone = [];
+      // 가계부에는 자동이체를 켠 날(autoLedgerFrom) 이후만 기록하고(지난 달 가계부는 이미 적었을 수 있어 건드리지 않는다), 통장 금액은 시작일부터 지금까지 저축일마다 계산해 채운다.
+      if (!validDate(a.autoLedgerFrom)) { a.autoLedgerFrom = a.autoSince; changed = true; }
+      if (validDate(a.startDate) && a.startDate < a.autoSince) { a.autoSince = a.startDate; changed = true; }
       let [y, m] = a.autoSince.split('-').map(Number);
       m -= 1;
       while (y < now.getFullYear() || (y === now.getFullYear() && m <= now.getMonth())) {
@@ -5992,10 +5999,12 @@
           a.autoDone.push(ym);
           changed = true;
           if (!savings.log.some((l) => l.sid === a.id && !l.start && l.amount > 0 && l.date.startsWith(ym))) {
-            if (!categories.expense.includes('저축')) { categories.expense.push('저축'); saveJson(CAT_KEY, categories); renderCategoryOptions(); }
-            const txId = 'sat_' + a.id + '_' + ym;
-            transactions.push({ id: txId, type: 'expense', date, category: '저축', amount: a.monthly, memo: `${a.name} 자동이체`, fixed: true });
-            savings.log.push({ id: 'sa_' + a.id + '_' + ym, sid: a.id, date, amount: a.monthly, memo: '자동이체', txId, auto: true });
+            const inLedger = date >= a.autoLedgerFrom, txId = inLedger ? 'sat_' + a.id + '_' + ym : '';
+            if (inLedger) {
+              if (!categories.expense.includes('저축')) { categories.expense.push('저축'); saveJson(CAT_KEY, categories); renderCategoryOptions(); }
+              transactions.push({ id: txId, type: 'expense', date, category: '저축', amount: a.monthly, memo: `${a.name} 자동이체`, fixed: true });
+            }
+            savings.log.push({ id: 'sa_' + a.id + '_' + ym, sid: a.id, date, amount: a.monthly, memo: inLedger ? '자동이체' : '자동이체 (시작일부터 계산)', txId, auto: true });
           }
         }
         m += 1;
@@ -9658,7 +9667,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v164'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v165'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span class="slogan">다달이, 매일의 기록이 모여<br><b>더 나은 생활</b>이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
