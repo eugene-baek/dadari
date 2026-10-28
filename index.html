@@ -545,9 +545,14 @@
   .med-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); gap: 8px; margin-bottom: 6px; }
   .med-card { background: var(--bg); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
   .med-card.done { background: var(--mc-soft); }
-  .med-card .mc-name { font-size: 15px; font-weight: 700; overflow-wrap: anywhere; }
+  .med-card .mc-who { font-size: 17px; font-weight: 800; color: var(--mc-text); line-height: 1.2; }
+  .med-card .mc-name { font-size: 14.5px; font-weight: 600; overflow-wrap: anywhere; }
   .med-card .mc-sub { font-size: 13px; color: var(--text-muted); overflow-wrap: anywhere; }
   .med-card .med-slots { display: flex; flex-wrap: wrap; gap: 6px; }
+  .med-in { display: flex; flex-direction: column; gap: 6px; padding: 8px 0 10px; border-bottom: 1px solid var(--border); }
+  .med-in .mi-top { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; align-items: center; }
+  .med-in .med-hint:empty { display: none; }
+  .med-in .med-hint { margin: 0; }
   .med-card .mc-eff { font-size: 13px; color: var(--text); line-height: 1.45; overflow-wrap: anywhere; }
   .med-card .mc-foot { font-size: 13px; color: var(--text-muted); margin-top: auto; }
   .med-card.done .mc-foot { color: var(--mc-text); font-weight: 700; }
@@ -4412,7 +4417,7 @@
     const list = health.meds.filter((m) => whoPick(healthWho, m.who));
     const today = todayStr();
     const tag = (m) => (healthWho === 'all' && ppl.length > 1 ? `<span class="who-tag">${escapeHtml(whoName(m.who))}</span>` : '');
-    const title = (m) => escapeHtml(m.name || '') + (m.dose ? ' ' + escapeHtml(m.dose) : '') + tag(m);
+    const title = (m) => tag(m) + escapeHtml(m.name || '') + (m.dose ? ' ' + escapeHtml(m.dose) : '');
     const byMed = nameSort((m) => m.name);
     const active = list.filter((m) => medActive(m, today)).sort(byMed);
     const ended = list.filter((m) => validDate(m.end) && m.end < today).sort(byMed);
@@ -4431,12 +4436,12 @@
     const totalSlots = daily.reduce((n, m) => n + m.times.length, 0), doneSlots = daily.reduce((n, m) => n + m.times.filter((t) => ((m.taken && m.taken[today]) || []).includes(t)).length, 0);
     html += daily.length ? `<p class="goal-hint" style="margin:6px 0 8px">오늘 먹은 약 <b>${doneSlots}/${totalSlots}번</b>${doneSlots === totalSlots ? ' · 모두 챙겼어요 ✓' : ''}</p><div class="med-grid">` + daily.map((m) => {
       const taken = (m.taken && m.taken[today]) || [], n = m.times.filter((t) => taken.includes(t)).length, all = n === m.times.length;
-      return `<div class="med-card${all ? ' done' : ''}"><div class="mc-name">${escapeHtml(m.name || '')}${tag(m)}</div>${m.dose || m.note ? `<div class="mc-sub">${[m.dose, m.note].filter(Boolean).map(escapeHtml).join(' · ')}</div>` : ''}${medEff(m) ? `<div class="mc-eff">💡 ${escapeHtml(medEff(m))}</div>` : ''}<div class="med-slots">${m.times.map((t) =>
+      return `<div class="med-card${all ? ' done' : ''}">${healthWho === 'all' && ppl.length > 1 ? `<div class="mc-who">${escapeHtml(whoName(m.who))}</div>` : ''}<div class="mc-name">${escapeHtml(m.name || '')}</div>${m.dose || m.note || m.hospital ? `<div class="mc-sub">${[m.dose, m.hospital ? '🏥 ' + m.hospital : '', m.note].filter(Boolean).map(escapeHtml).join(' · ')}</div>` : ''}${medEff(m) ? `<div class="mc-eff">💡 ${escapeHtml(medEff(m))}</div>` : ''}<div class="med-slots">${m.times.map((t) =>
         `<button type="button" class="slot${taken.includes(t) ? ' on' : ''}" data-take="${m.id}" data-slot="${t}">${taken.includes(t) ? '✓ ' : ''}${slotName(t)}</button>`).join('')}</div><div class="mc-foot">${all ? '✓ 모두 먹었어요' : `오늘 ${n}/${m.times.length}번`}</div></div>`;
     }).join('') + '</div>' : '<div class="empty-msg" style="padding:14px 0">오늘 챙길 약이 없어요</div>';
 
     const row = (m) => `<button type="button" class="visit" data-med="${m.id}"><div class="v1"><span>${title(m)}</span><span>${timesOf(m)}</span></div>
-      <div class="v2">${[range(m), refill(m), m.place].filter(Boolean).map((x, i) => (i === 1 ? x : escapeHtml(x))).join(' · ')}${m.note ? ' · ' + escapeHtml(m.note) : ''}</div>${medEff(m) ? `<div class="v2">💡 ${escapeHtml(medEff(m))}</div>` : ''}</button>`;
+      <div class="v2">${[escapeHtml(range(m)), refill(m), m.hospital ? '🏥 ' + escapeHtml(m.hospital) : '', escapeHtml(m.place || '')].filter(Boolean).join(' · ')}${m.note ? ' · ' + escapeHtml(m.note) : ''}</div>${medEff(m) ? `<div class="v2">💡 ${escapeHtml(medEff(m))}</div>` : ''}</button>`;
     html += `<div class="h-sec">복용 중인 약${active.length ? ` · ${active.length}개` : ''}</div>`;
     html += active.length ? active.map(row).join('') : '<div class="empty-msg" style="padding:14px 0">복용 중인 약이 없어요<br>아래 “＋ 약 추가”로 기록하세요</div>';
     if (upcoming.length) html += `<div class="h-sec">복용 예정인 약 · ${upcoming.length}개</div>` + upcoming.map(row).join('');
@@ -4450,40 +4455,53 @@
     const whoOpts = people().map((p) => `<option value="${attr(p.id)}"${p.id === who ? ' selected' : ''}>${escapeHtml(p.name)}</option>`).join('');
     const val = (x) => attr(x == null ? '' : String(x));
     const slots = SLOTS.map(([k, n]) => `<label class="d"><input type="checkbox" name="times" value="${k}"${m && (m.times || []).includes(k) ? ' checked' : ''}>${n}</label>`).join('');
+    const splitNames = m ? String(m.name || '').split(/[,，、\n]+/).map((x) => x.trim()).filter(Boolean) : [];
+    // 약은 한 줄에 한 가지씩: 새로 추가할 때는 "＋ 약 더하기"로 여러 가지를 한 번에(약마다 따로 기록되고 따로 체크한다), 복용 시간·기간·병원은 함께 쓴다
+    const rowHtml = (it, removable) => `<div class="med-in"><div class="mi-top"><input data-f="name" maxlength="40" placeholder="약 이름 (예: 에프람정 10mg)" value="${val(it.name)}" autocomplete="off">${removable ? '<button type="button" class="icon-btn" data-rmmed aria-label="이 약 지우기">✕</button>' : ''}</div><input data-f="dose" maxlength="20" placeholder="용량 (선택, 예: 1정, 5ml)" value="${val(it.dose)}"><input data-f="eff" maxlength="60" placeholder="효능·먹는 이유 (선택 · 비우면 약 이름으로 자동 안내)" value="${val(it.eff)}"><div class="med-hint goal-hint"></div></div>`;
     openSheet(`<form>
       <h3>${m ? '약 수정' : '약 추가'}</h3>
       <label>누구</label><select name="who">${whoOpts}</select>
-      <label>약 이름</label><input name="name" required maxlength="40" placeholder="예: 타이레놀, 비타민D" value="${val(m && m.name)}" autocomplete="off">
-      <p class="goal-hint" id="med-eff" style="margin:2px 0 0"></p>
-      <label>용량 (선택)</label><input name="dose" maxlength="20" placeholder="예: 1정, 5ml" value="${val(m && m.dose)}">
-      <label>효능·먹는 이유 (선택 · 비워 두면 약 이름으로 자동 안내)</label><input name="eff" maxlength="60" placeholder="예: 해열·진통, 알레르기 비염" value="${val(m && m.eff)}">
+      <label>${m ? '약' : '약 (한 가지씩 따로 적어요)'}</label>
+      <div id="med-rows"></div>
+      ${m ? (splitNames.length > 1 ? '<p class="goal-hint" style="margin:6px 0 0">약 이름에 약이 여러 개 적혀 있어요.</p><button type="button" class="mini-btn" id="med-split" style="width:100%;margin-top:4px">🔀 ' + splitNames.length + '가지로 따로 나누기</button>' : '') : '<button type="button" class="mini-btn" id="med-add" style="width:100%;margin-top:8px">＋ 약 더하기 (이 복용 시간·기간을 같이 쓰는 약)</button>'}
       <label>복용 시간 (필요할 때만 먹는 약은 비워 두세요)</label>
       <div class="days-check">${slots}</div>
       <label>복용 시작일 (선택)</label><input name="start" type="date" value="${val(m ? m.start : todayStr())}">
       <label>복용 종료일 (선택, 계속 먹으면 비워 두세요)</label><input name="end" type="date" value="${val(m && m.end)}">
       <label>다음 처방 · 소진 예정일 (선택)</label><input name="refill" type="date" value="${val(m && m.refill)}">
-      <label>병원 · 증상 (선택)</label><input name="place" maxlength="30" placeholder="예: 우리소아과, 알레르기" value="${val(m && m.place)}">
+      <label>처방 병원 (선택)</label><input name="hospital" maxlength="30" placeholder="예: OO병원, OO의원 (처방받은 곳)" value="${val(m && m.hospital)}" autocomplete="off">
+      <label>증상 · 먹는 이유 (선택)</label><input name="place" maxlength="30" placeholder="예: 알레르기, 불면" value="${val(m && m.place)}">
       <label>메모 (선택)</label><input name="note" maxlength="80" placeholder="예: 식후 30분" value="${val(m && m.note)}">
       <div class="sheet-actions"><button type="button" data-cancel>취소</button>${m ? '<button type="button" data-delete>삭제</button>' : ''}<button type="submit">저장</button></div>
     </form>`, (fd) => {
-      const name = String(fd.get('name')).trim();
-      if (!name) { showToast('약 이름을 입력해 주세요'); return false; }
+      const rows = [...sheetBody.querySelectorAll('.med-in')].map((r) => ({ name: r.querySelector('[data-f=name]').value.trim(), dose: r.querySelector('[data-f=dose]').value.trim(), eff: r.querySelector('[data-f=eff]').value.trim() })).filter((x) => x.name);
+      if (!rows.length) { showToast('약 이름을 입력해 주세요'); const f0 = sheetBody.querySelector('[data-f=name]'); if (f0) f0.focus(); return false; }
       const date = (k) => (validDate(String(fd.get(k))) ? String(fd.get(k)) : '');
-      const rec = {
-        who: String(fd.get('who')), name, dose: String(fd.get('dose')).trim(), eff: String(fd.get('eff') || '').trim(), times: fd.getAll('times'),
-        start: date('start'), end: date('end'), refill: date('refill'), place: String(fd.get('place')).trim(), note: String(fd.get('note')).trim()
-      };
-      if (rec.start && rec.end && rec.end < rec.start) { showToast('종료일이 시작일보다 빨라요'); return false; }
-      if (m) Object.assign(m, rec); else health.meds.push({ id: newId(), taken: {}, ...rec });
+      const base = { who: String(fd.get('who')), times: fd.getAll('times'), start: date('start'), end: date('end'), refill: date('refill'), hospital: String(fd.get('hospital') || '').trim(), place: String(fd.get('place')).trim(), note: String(fd.get('note')).trim() };
+      if (base.start && base.end && base.end < base.start) { showToast('종료일이 시작일보다 빨라요'); return false; }
+      if (m) Object.assign(m, base, rows[0]); else rows.forEach((r) => health.meds.push({ id: newId(), taken: {}, ...base, ...r }));
       saveHealth();
       renderHealth();
-      showToast(m ? '수정했어요' : '추가했어요');
+      showToast(m ? '수정했어요' : rows.length > 1 ? `약 ${rows.length}가지를 따로 추가했어요` : '추가했어요');
     });
+    const box = sheetBody.querySelector('#med-rows');
     // 약 이름을 칠 때 일반적인 효능을 바로 보여 준다(앱 안 목록, 외부로 보내지 않는다)
-    const medNm = sheetBody.querySelector('[name=name]'), medHint = sheetBody.querySelector('#med-eff');
-    const medShow = () => { const f = medInfo(medNm.value), q = medNm.value.trim(), link = q.length >= 2 ? `<br><a href="https://search.naver.com/search.naver?query=${encodeURIComponent(q + ' 효능')}" target="_blank" rel="noopener noreferrer" style="font-size:13px">🔎 인터넷에서 더 찾아보기 ›</a> <small style="color:var(--text-muted)">(눌렀을 때만 약 이름이 검색 사이트로 가요)</small>` : ''; medHint.innerHTML = (f ? `💡 <b>${escapeHtml(f.eff)}</b>${f.note ? `<br>${escapeHtml(f.note)}` : ''}<br><small style="color:var(--text-muted)">일반적인 참고 설명이에요. 의사·약사 안내를 따르세요.</small>` : (q.length >= 2 ? '<small style="color:var(--text-muted)">목록에 없는 약이에요. 아래 “효능·먹는 이유”에 직접 적어 둘 수 있어요.</small>' : '')) + link; };
-    medNm.addEventListener('input', medShow);
-    medShow();
+    const showHint = (row) => {
+      const nm = row.querySelector('[data-f=name]').value, q = nm.trim(), f = medInfo(nm), h = row.querySelector('.med-hint');
+      const link = q.length >= 2 ? `<br><a href="https://search.naver.com/search.naver?query=${encodeURIComponent(q + ' 효능')}" target="_blank" rel="noopener noreferrer" style="font-size:13px">🔎 인터넷에서 더 찾아보기 ›</a> <small style="color:var(--text-muted)">(눌렀을 때만 약 이름이 검색 사이트로 가요)</small>` : '';
+      h.innerHTML = (f ? `💡 <b>${escapeHtml(f.eff)}</b>${f.note ? `<br>${escapeHtml(f.note)}` : ''}<br><small style="color:var(--text-muted)">일반적인 참고 설명이에요. 의사·약사 안내를 따르세요.</small>` : (q.length >= 2 ? '<small style="color:var(--text-muted)">목록에 없는 약이에요. 위 “효능·먹는 이유”에 직접 적어 둘 수 있어요.</small>' : '')) + link;
+    };
+    const addRow = (it, removable, focus) => { box.insertAdjacentHTML('beforeend', rowHtml(it, removable)); const r = box.lastElementChild; showHint(r); if (focus) r.querySelector('[data-f=name]').focus(); };
+    addRow(m ? { name: splitNames.length > 1 ? splitNames[0] : m.name, dose: m.dose, eff: m.eff } : { name: '', dose: '', eff: '' }, false, false);
+    box.addEventListener('input', (e) => { if (e.target.dataset.f === 'name') showHint(e.target.closest('.med-in')); });
+    box.addEventListener('click', (e) => { const rm = e.target.closest('[data-rmmed]'); if (rm) rm.closest('.med-in').remove(); });
+    const add = sheetBody.querySelector('#med-add');
+    if (add) add.addEventListener('click', () => addRow({ name: '', dose: '', eff: '' }, true, true));
+    const sp = sheetBody.querySelector('#med-split');
+    if (sp) sp.addEventListener('click', () => {   // 쉼표로 적은 약을 약마다 따로 기록으로 나눈다(복용 시간·기간·병원은 그대로 복사, 용량은 모두 같은 값이니 필요하면 고친다)
+      splitNames.forEach((nm, i) => { if (i === 0) m.name = nm; else health.meds.push({ ...JSON.parse(JSON.stringify(m)), id: newId(), name: nm, taken: {} }); });
+      saveHealth(); closeSheet(); renderHealth(); showToast(`${splitNames.length}가지로 나눴어요. 약마다 용량을 확인해 주세요`);
+    });
     const del = sheetBody.querySelector('[data-delete]');
     if (del) {
       del.addEventListener('click', () => {
@@ -9883,7 +9901,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v176'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v177'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span class="slogan">다달이, 매일의 기록이 모여<br><b>더 나은 생활</b>이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
