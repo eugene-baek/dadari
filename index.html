@@ -1748,6 +1748,11 @@
     </div>
   </section>
 
+  <section class="card" id="prepaid-card" data-sub="sum" hidden>
+    <h2 class="section-title">🎟 바우처·상품권<span class="fx-sum" id="prepaid-sum"></span></h2>
+    <div id="prepaid-list"></div>
+  </section>
+
   <section class="card" id="fixed-card" data-sub="sum">
     <h2 class="section-title">이번 달 고정 수입·지출<span class="fx-sum" id="fixed-sum"></span></h2>
     <div id="fixed-list"></div>
@@ -2173,6 +2178,7 @@
     renderWeeks(flowTx.filter((t) => t.type === 'expense'));
     renderBreakdown(flowTx.filter((t) => t.type === 'expense'));
     try { renderPattern(); } catch (e) { /* 아직 안 만들어진 값 */ }
+    try { renderPrepaidSummary(); } catch (e) { /* 아직 안 만들어진 값 */ }
     renderCards();
     renderFixed(monthTx);
     renderList();
@@ -2767,6 +2773,38 @@
       if (live.length) soon = { date: live[0].exp, amount: live.filter((l) => l.exp === live[0].exp).reduce((a, l) => a + l.rem, 0) };
     }
     return { has, dep, used, expired, left, hasPeriod, soon };
+  }
+  // 요약(가계부·대시보드)에 보이는 바우처·상품권 한 줄: 이름·종류 / 유효기간 줄 / 남은 금액. 누르면 그 카드 상세로 간다(attrs).
+  function prepaidValidTxt(c, pp) {
+    const t0 = todayStr(), d = (x) => x.slice(2).replace(/-/g, '.'), parts = [];
+    if (!pp.hasPeriod) return '이월 · 사용 기한 없음';
+    let urgent = false;
+    if (pp.soon) { const dd = diffDays(pp.soon.date, t0); if (dd <= 14) urgent = true; parts.push(`${formatWon(pp.soon.amount)} ${d(pp.soon.date)} 소멸 (${dd === 0 ? '오늘' : 'D-' + dd})`); }
+    if (validDate(c.expiry) && !(pp.soon && pp.soon.date === c.expiry)) { const dd = diffDays(c.expiry, t0); if (dd >= 0 && dd <= 14) urgent = true; parts.push(dd < 0 ? '사용 기한 지남' : `사용 기한 ${d(c.expiry)} (D-${dd})`); }
+    if (+c.validMonths > 0) parts.push(`충전 후 ${+c.validMonths}개월`);
+    return (urgent ? '<span style="color:var(--expense)">' : '<span>') + parts.join(' · ') + '</span>';
+  }
+  function prepaidRowsHtml(attrsOf) {
+    const list = cards.filter(isPrepaid).sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+    return list.map((c) => {
+      const pp = prepaidInfo(c);
+      return `<div class="fx-row" ${attrsOf(c)}><span>${escapeHtml(c.name)} <small style="color:var(--text-muted)">${cardKindLabel(c)}</small><br><small style="color:var(--text-muted)">${prepaidValidTxt(c, pp)}</small></span><b${pp.has && pp.left < 0 ? ' style="color:var(--expense)"' : ''}>${pp.has ? signedWon(pp.left) : '<small style="font-weight:400;color:var(--text-muted)">충전 내역 없음</small>'}</b></div>`;
+    }).join('');
+  }
+  function prepaidTotalTxt() {
+    const hasList = cards.filter((c) => isPrepaid(c) && prepaidInfo(c).has);
+    return hasList.length ? '남은 합계 ' + signedWon(hasList.reduce((a, c) => a + prepaidInfo(c).left, 0)) : '';
+  }
+  function renderPrepaidSummary() {
+    const card = el('prepaid-card'), has = cards.some(isPrepaid);
+    card.hidden = !has;
+    if (!has) return;
+    el('prepaid-sum').textContent = prepaidTotalTxt();
+    el('prepaid-list').innerHTML = prepaidRowsHtml((c) => `data-gv="ledger" data-gsub="card" data-gref="${attr(c.id)}"`);
+  }
+  function dashPrepaid() {
+    if (tabHidden('ledger') || !cards.some(isPrepaid)) return '';
+    return `<h2 class="section-title" style="margin:18px 0 4px">🎟 바우처·상품권<span class="fx-sum">${prepaidTotalTxt()}</span></h2><div class="ins-sum" style="padding:6px 14px">${prepaidRowsHtml((c) => `data-sv="ledger" data-ssub="card" data-sref="${attr(c.id)}" style="cursor:pointer"`)}</div>`;
   }
   const signedWon = (n) => (n < 0 ? '-' : '') + formatWon(Math.abs(n));
   // 매달 들어오는 바우처: 카드에 autoDep(매달 충전 금액)·autoDepDay(매월 충전일, 31 = 말일)·autoDepFrom(시작일)이 있으면, 시작일 이후 지난 충전일마다 충전 내역을 하나씩 자동으로 만든다.
@@ -9821,7 +9859,7 @@
         <div class="summary-item balance" data-lq="all" role="button" tabindex="0"><div class="lbl">잔액</div><div class="val">${bal < 0 ? '-' : ''}${formatWon(Math.abs(bal))}</div></div></div>
       ${flowTxt ? `<p class="goal-hint" style="margin:8px 0 0">${flowTxt}</p>` : ''}
       <div data-sub="chart">${statCardsHtml() || '<div class="empty-msg">아직 통계로 보여 줄 기록이 없어요</div>'}</div>
-      <div data-sub="table">${dashWelcome()}${dashShortcuts()}${dashAgenda()}${dashTiles()}<h2 class="section-title" style="margin:18px 0 0">관리 현황표</h2>
+      <div data-sub="table">${dashWelcome()}${dashShortcuts()}${dashAgenda()}${dashTiles()}${dashPrepaid()}<h2 class="section-title" style="margin:18px 0 0">관리 현황표</h2>
       <table class="st-table st-main"><thead><tr><th>영역</th><th>현황</th><th>금액</th></tr></thead><tbody>${rows}</tbody></table>
       <p class="goal-hint" style="margin:6px 0 0">행을 누르면 해당 메뉴로 이동해요.</p></div>
       <div data-sub="fixed">${fixedHtml + cardHtml || '<div class="empty-msg">고정으로 나가는 돈이나 등록한 카드가 아직 없어요</div>'}</div>`;
@@ -10353,7 +10391,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v187'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v188'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span class="slogan">다달이, 매일의 기록이 모여<br><b>더 나은 생활</b>이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
