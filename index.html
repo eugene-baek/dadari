@@ -138,7 +138,7 @@
     put('dadari_savings_v1', { accounts: sv, log: svl });
     var jl = [];
     MO.slice(0, 4).forEach(function (mo) { jl.push({ id: nid(), jid: 'demoj1', date: ds(Y, M + mo, 5), income: 180000 + mo * 10000, expense: 20000, hours: 8, qty: Math.round((180000 + mo * 10000) / 4000), memo: '1주차' }, { id: nid(), jid: 'demoj1', date: ds(Y, M + mo, 12), income: 150000, expense: 10000, hours: 6, qty: 38, memo: '2주차' }, { id: nid(), jid: 'demoj2', date: ds(Y, M + mo, 15), income: 90000 + (mo % 2) * 30000, expense: 40000, hours: 5, memo: '정산' }); });
-    jl.push({ id: nid(), jid: 'demoj3', date: ds(Y, M - 2, 20), income: 60000, expense: 0, hours: 3, memo: '광고 수익' });
+    jl.push({ id: nid(), jid: 'demoj3', date: ds(Y, M - 2, 20), income: 60000, expense: 0, hours: 3, memo: '광고 수익' }, { id: nid(), jid: 'demoj2', date: ds(Y, M - 1, 28), income: 120000, expense: 30000, hours: 4, memo: '정산 대기', paid: false });
     put('dadari_side_v1', { jobs: [{ id: 'demoj1', who: 'me', name: '주말 배달', kind: '배달·운전', status: 'on', goal: 500000, start: '', note: '', pay: 'count', rate: 4000 }, { id: 'demoj2', who: 'me', name: '스마트스토어', kind: '온라인 판매', status: 'on', goal: 300000, start: '', note: '' }, { id: 'demoj3', who: 'me', name: '블로그 광고', kind: '콘텐츠', status: 'pause', goal: 0, start: '', note: '쉬는 중', pay: 'hour', rate: 20000 }], log: jl });
     var ll = [];
     MO.forEach(function (mo) { ll.push({ id: nid(), jid: 'demol1', date: ds(Y, M + mo, 25), type: '월급', gross: 3800000, deduct: 420000, net: 3380000, memo: '' }); });
@@ -149,6 +149,7 @@
       be.push({ id: nid(), bid: 'bz_main', date: ds(Y, M + mo, 8), kind: 'sale', name: '자사몰', amount: 1400000 + mo * 100000, memo: '' }, { id: nid(), bid: 'bz_main', date: ds(Y, M + mo, 10), kind: 'cost', name: '매입·원가', amount: 700000, memo: '' }, { id: nid(), bid: 'bz_main', date: ds(Y, M + mo, 18), kind: 'cost', name: '광고비', amount: 150000, memo: '' },
         { id: nid(), bid: 'demobz2', date: ds(Y, M + mo, 14), kind: 'sale', name: '강의 수강료', amount: 600000 + (mo % 2) * 200000, memo: '' }, { id: nid(), bid: 'demobz2', date: ds(Y, M + mo, 20), kind: 'cost', name: '플랫폼 수수료', amount: 90000, memo: '' });
     });
+    be.push({ id: nid(), bid: 'demobz2', date: ds(Y, M - 1, 25), kind: 'sale', name: '기업 교육', amount: 900000, memo: '세금계산서 발행, 입금 대기', paid: false });
     be.push({ id: nid(), bid: 'bz_main', date: ds(Y, M - 5, 1), kind: 'invest', name: '초기 자본', amount: 8000000, memo: '' }, { id: nid(), bid: 'bz_main', date: ds(Y, M - 2, 1), kind: 'invest', name: '추가 투자', amount: 2000000, memo: '' });
     put('dadari_debt_v1', { items: [{ id: 'demod1', dir: 'borrow', name: '사업자 대출', party: 'OO은행', amount: 10000000, date: ds(Y, M - 6, 5), rate: 4.5, due: ds(Y + 2, M, 5), payDay: 25, monthly: 450000, note: '설비 구입', txId: '' }, { id: 'demod2', dir: 'lend', name: '동생에게 빌려준 돈', party: '동생', amount: 1000000, date: ds(Y, M - 3, 12), rate: 0, due: ds(Y, M + 1, 20), payDay: 0, monthly: 0, note: '', txId: '' }],
       log: [0, 1, 2, 3, 4].map(function (i) { return { id: 'demodl' + i, did: 'demod1', date: ds(Y, M - 4 + i, 25), principal: 400000, interest: 38000 - i * 1500, memo: '', txP: '', txI: '' }; }).concat([{ id: 'demodl9', did: 'demod2', date: ds(Y, M - 1, 20), principal: 300000, interest: 0, memo: '일부 회수', txP: '', txI: '' }]) });
@@ -179,7 +180,7 @@
     s.call(localStorage, P + 'demo_seeded', SEED_V);
   }
   // 샘플 내용을 고치면 SEED_V를 올린다: 이미 체험판을 열어 본 기기도 새 샘플로 다시 채운다(체험 중 입력은 사라진다).
-  var SEED_V = '19';
+  var SEED_V = '20';
   try {
     if (g.call(localStorage, P + 'demo_seeded') !== SEED_V) {
       var olds = [], oi;
@@ -5385,6 +5386,28 @@
     if (row) openAcaSheet(academies.find((x) => x.id === row.dataset.aca));
   });
 
+  /* ---------- 입금 상태(받을 돈) ---------- */
+  // N잡·CEO 매출처럼 "일은 했는데 아직 입금이 안 된" 돈은 기록의 paid가 false다(없거나 true면 입금 받음). 수입·매출·순이익은 일한 날 기준 그대로 세고, 아직 못 받은 금액은 따로 "받을 돈"으로 보여 준다.
+  // 입금되면 "입금 확인"으로 입금일(paidDate)을 적는다. 가계부 수입은 실제로 입금된 날에 기록한다.
+  function isDue(l) { return l.paid === false; }
+  function paidFieldHtml(unpaid, label) { return `<label>입금 상태</label><select name="paid"><option value="1"${unpaid ? '' : ' selected'}>입금 받음</option><option value="0"${unpaid ? ' selected' : ''}>아직 입금 안 됨 (${label})</option></select>`; }
+  function dueBoxHtml(rows, amountOf, rowLabel, attrName, title) {
+    if (!rows.length) return '';
+    const sorted = [...rows].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+    return `<div class="ins-sum" style="margin-top:12px"><b>💸 ${title} ${rows.length}건 · ${formatWon(sorted.reduce((a, l) => a + amountOf(l), 0))}</b>`
+      + sorted.slice(0, 20).map((l) => `<div class="fx-row"><span>${l.date.slice(5).replace('-', '/')} · ${esc(rowLabel(l))}</span><b>${formatWon(amountOf(l))} <button type="button" class="mini-btn" ${attrName}="${attr(l.id)}">입금 확인</button></b></div>`).join('')
+      + (sorted.length > 20 ? `<p class="goal-hint">오래된 20건만 보여요 (전체 ${sorted.length}건)</p>` : '') + `</div>`;
+  }
+  // 입금 확인 창: 입금일(기본 오늘)만 묻는다. onDone(입금일)에서 기록을 바꾼다.
+  function openPaidSheet(title, amountTxt, onDone) {
+    openSheet(`<form><h3>입금 확인</h3><p class="goal-hint" style="margin:0 0 6px">${esc(title)} · ${amountTxt}</p><label>입금일 <small>(받은 날)</small></label><input name="pd" type="date" required value="${todayStr()}"><div class="sheet-actions"><button type="button" data-cancel>취소</button><button type="submit">입금 확인</button></div></form>`, (fd) => {
+      const d = String(fd.get('pd'));
+      if (!validDate(d)) { showToast('입금일을 확인해 주세요'); return false; }
+      onDone(d);
+      showToast('입금 확인했어요');
+    });
+  }
+
   /* ---------- 사업매출 ---------- */
   // 사업의 매출과 비용을 달별로 입력해 순이익·마진·목표 달성을 본다. 개인 가계부와는 따로 계산한다.
   // 사업은 여러 개일 수 있다: shops[{id, name, target(월 목표 매출)}], 내역(entries)은 bid로 어느 사업인지 가진다.
@@ -5417,6 +5440,8 @@
   const BIZ_COST_NAMES = ['매입·원가', '광고비', '수수료', '배송비', '포장재', '인건비', '임대료', '세금·공과', '기타'];
 
   const bizSum = (list, kind) => list.filter((e) => e.kind === kind).reduce((s, e) => s + e.amount, 0);
+  const bizDueList = (list) => list.filter((e) => e.kind === 'sale' && isDue(e));
+  const bizDue = (list) => bizDueList(list).reduce((s, e) => s + e.amount, 0);
   function bizGroups(list, kind) {
     const m = {};
     list.filter((e) => e.kind === kind).forEach((e) => { m[e.name || '기타'] = (m[e.name || '기타'] || 0) + e.amount; });
@@ -5445,7 +5470,8 @@
       <div class="summary-item income"><div class="lbl">매출</div><div class="val">${formatWon(sales)}</div></div>
       <div class="summary-item expense"><div class="lbl">비용</div><div class="val">${formatWon(costs)}</div></div>
       <div class="summary-item balance"><div class="lbl">순이익</div><div class="val" style="${profit < 0 ? 'color:var(--expense)' : ''}">${profit < 0 ? '-' : ''}${formatWon(Math.abs(profit))}</div></div></div>
-      ${periodHint(P, sales ? [['마진', pct(profit, sales) + '%'], ['비용률', pct(costs, sales) + '%'], P.kind !== 'month' ? ['월 평균 매출', formatWon(Math.round(sales / mCount)) + ' (' + mCount + '개월)'] : '', diff !== null ? [(P.kind === 'year' ? '전년' : '전월') + ' 매출 대비', (diff >= 0 ? '+' : '') + diff + '%'] : ''] : ['아직 이 기간 매출이 없어요'])}`;
+      ${periodHint(P, sales ? [['마진', pct(profit, sales) + '%'], ['비용률', pct(costs, sales) + '%'], P.kind !== 'month' ? ['월 평균 매출', formatWon(Math.round(sales / mCount)) + ' (' + mCount + '개월)'] : '', diff !== null ? [(P.kind === 'year' ? '전년' : '전월') + ' 매출 대비', (diff >= 0 ? '+' : '') + diff + '%'] : '', bizDue(list) ? ['아직 입금 안 된 매출', formatWon(bizDue(list))] : ''] : ['아직 이 기간 매출이 없어요'])}`;
+    html += dueBoxHtml(bizDueList(pool), (e) => e.amount, (e) => (multi && bizSel === 'all' ? bizShopName(e.bid) + ' · ' : '') + (e.name || '매출'), 'data-bizpaid', '받을 돈(입금 안 된 매출)');
 
     if (target > 0 && P.kind === 'month') {
       const p = Math.round((sales / target) * 100);
@@ -5457,17 +5483,17 @@
     // 투자금은 매출·비용·순이익에 들어가지 않는다. 회수한 금액은 남은 투자금에서 빼고, 최근 3개월 평균 순이익으로 모두 되찾을 때까지 걸리는 기간도 어림해 준다.
     const inv = bizSum(pool, 'invest'), ret = bizSum(pool, 'return'), netInv = inv - ret;
     if (inv || ret) {
-      const cs = bizSum(pool, 'sale'), cc = bizSum(pool, 'cost'), cum = cs - cc, recP = netInv > 0 ? Math.round((Math.max(0, cum) / netInv) * 100) : 0;
+      const dueAll = bizDue(pool), cs = bizSum(pool, 'sale') - dueAll, cc = bizSum(pool, 'cost'), cum = cs - cc, recP = netInv > 0 ? Math.round((Math.max(0, cum) / netInv) * 100) : 0;
       const topCost = bizGroups(pool, 'cost').slice(0, 3).map(([n, v]) => `${esc(n)} ${formatWon(v)}`).join(' · ');
       const d3 = new Date(); d3.setDate(1); d3.setMonth(d3.getMonth() - 2);
-      const from3 = d3.getFullYear() + '-' + pad2(d3.getMonth() + 1) + '-01', last3 = pool.filter((e) => e.date >= from3), avg3 = Math.round((bizSum(last3, 'sale') - bizSum(last3, 'cost')) / 3);
+      const from3 = d3.getFullYear() + '-' + pad2(d3.getMonth() + 1) + '-01', last3 = pool.filter((e) => e.date >= from3), avg3 = Math.round((bizSum(last3, 'sale') - bizDue(last3) - bizSum(last3, 'cost')) / 3);
       const left = netInv - cum;
       const eta = netInv > 0 && left > 0 && avg3 > 0 ? `최근 3개월 평균 순이익 ${formatWon(avg3)} 기준으로 약 ${Math.ceil(left / avg3)}개월 뒤에 모두 되찾아요` : netInv > 0 && left > 0 ? '최근 3개월 평균 순이익이 아직 마이너스(또는 0)라서 회수 시점을 어림할 수 없어요' : '';
       const row = (label, val, sub, strong) => `<div class="fx-row"><span>${label}${sub ? `<br><small style="color:var(--text-muted)">${sub}</small>` : ''}</span><b style="${strong ? 'font-size:16px;' : ''}${strong && cum < 0 ? 'color:var(--expense)' : ''}">${val}</b></div>`;
       html += `<h2 class="section-title" style="margin:16px 0 4px">투자금 회수 · 전체 기간</h2><div class="ins-sum" style="padding:6px 14px">`
         + row('넣은 투자금', formatWon(inv))
         + (ret ? row('회수한 금액', formatWon(ret)) + row('남은 투자금', formatWon(Math.max(0, netInv))) : '')
-        + row('누적 매출', formatWon(cs))
+        + row('누적 매출', formatWon(cs), dueAll ? '입금 안 된 ' + formatWon(dueAll) + '은 뺐어요 (입금되면 반영)' : '')
         + row('누적 비용', formatWon(cc), '광고비 등 운영 비용 모두 포함')
         + (topCost ? `<div style="font-size:13px;color:var(--text-muted);padding:0 0 8px;line-height:1.5">${topCost}</div>` : '')
         + row('누적 순이익', (cum < 0 ? '-' : '') + formatWon(Math.abs(cum)), '매출 − 비용', true)
@@ -5509,7 +5535,7 @@
     html += `<h2 class="section-title" style="margin:16px 0 4px">${P.label} 내역${list.length ? ' · ' + list.length + '건' : ''}</h2>`;
     html += list.length ? [...list].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : b.id.localeCompare(a.id))).slice(0, 60).map((e) =>
       `<button type="button" class="visit" data-biz="${e.id}"><div class="v1"><span>${e.date.slice(5).replace('-', '/')} · ${multi && bizSel === 'all' ? esc(bizShopName(e.bid)) + ' · ' : ''}${e.kind === 'invest' || e.kind === 'return' ? '💰 ' + BIZ_KIND_LABEL[e.kind] + (e.name ? ' · ' : '') : ''}${esc(e.name || (e.kind === 'invest' || e.kind === 'return' ? '' : BIZ_KIND_LABEL[e.kind]))}</span>
-        <b style="${e.kind === 'sale' ? 'color:var(--income)' : e.kind === 'cost' ? 'color:var(--expense)' : ''}">${e.kind === 'sale' || e.kind === 'invest' ? '+' : '-'}${formatWon(e.amount)}</b></div>${e.memo ? `<div class="v2">${esc(e.memo)}</div>` : ''}</button>`).join('')
+        <b style="${e.kind === 'sale' ? 'color:var(--income)' : e.kind === 'cost' ? 'color:var(--expense)' : ''}">${e.kind === 'sale' || e.kind === 'invest' ? '+' : '-'}${formatWon(e.amount)}</b></div>${isDue(e) || e.memo || (e.paidDate && e.paidDate !== e.date) ? `<div class="v2">${[isDue(e) ? '<span style="color:var(--expense)">입금 대기</span>' : (e.paidDate && e.paidDate !== e.date ? '입금 ' + esc(e.paidDate.slice(5).replace('-', '/')) : ''), e.memo ? esc(e.memo) : ''].filter(Boolean).join(' · ')}</div>` : ''}</button>`).join('')
       : '<div class="empty-msg">이 기간 내역이 없어요<br>아래 “＋ 매출 입력” “＋ 비용 입력” “＋ 투자금”으로 기록하세요</div>';
     if (list.length > 60) html += `<p class="goal-hint">최근 60건만 보여요 (전체 ${list.length}건) — 기간을 줄이면 더 볼 수 있어요</p>`;
     el('biz-body').innerHTML = html;
@@ -5537,6 +5563,7 @@
       <input name="name" maxlength="30" list="biz-names" placeholder="${namePh[k]}" value="${val(entry && entry.name)}" autocomplete="off">
       <datalist id="biz-names">${dl(k)}</datalist>
       <label>금액 (원)</label><input name="amount" type="number" min="1" inputmode="numeric" required value="${val(entry && entry.amount)}">
+      <div id="biz-paid-wrap"${k === 'sale' ? '' : ' hidden'}>${paidFieldHtml(entry && isDue(entry), '외상·정산 대기')}</div>
       <label>메모 (선택)</label><input name="memo" maxlength="80" placeholder="예: 10월 1주차 정산" value="${val(entry && entry.memo)}">
       <p class="goal-hint" id="biz-hint">${hint[k]}</p>
       <div class="sheet-actions"><button type="button" data-cancel>취소</button>${entry ? '<button type="button" data-delete>삭제</button>' : ''}<button type="submit">저장</button></div>
@@ -5547,6 +5574,8 @@
       const bid = biz.shops.some((s) => s.id === fd.get('bid')) ? fd.get('bid') : defBid;
       const kd = ['cost', 'invest', 'return'].includes(String(fd.get('kind'))) ? String(fd.get('kind')) : 'sale';
       const rec = { bid, date, kind: kd, name: String(fd.get('name')).trim(), amount, memo: String(fd.get('memo')).trim() };
+      const unpaid = kd === 'sale' && String(fd.get('paid')) === '0', wasDue = !!(entry && isDue(entry));
+      if (unpaid) { rec.paid = false; rec.paidDate = ''; } else { rec.paid = true; rec.paidDate = wasDue ? todayStr() : (entry && entry.paidDate) || ''; }
       if (entry) Object.assign(entry, rec); else biz.entries.push({ id: newId(), ...rec });
       saveBiz();
       if (bizSel !== 'all') bizSel = bid;
@@ -5562,6 +5591,7 @@
       sheetBody.querySelector('#biz-name-label').textContent = nameLabel[kk];
       sheetBody.querySelector('[name=name]').placeholder = namePh[kk];
       sheetBody.querySelector('#biz-hint').textContent = hint[kk];
+      sheetBody.querySelector('#biz-paid-wrap').hidden = kk !== 'sale';
     });
     const del = sheetBody.querySelector('[data-delete]');
     if (del) del.addEventListener('click', () => {
@@ -5636,6 +5666,12 @@
   el('biz-body').addEventListener('click', (e) => {
     const sh = e.target.closest('[data-bsel]');
     if (sh) { bizSel = sh.dataset.bsel; renderBiz(); return; }
+    const pd = e.target.closest('[data-bizpaid]');
+    if (pd) {
+      const en = biz.entries.find((x) => x.id === pd.dataset.bizpaid);
+      if (en) openPaidSheet((bizShopName(en.bid) ? bizShopName(en.bid) + ' · ' : '') + (en.name || '매출'), formatWon(en.amount), (d) => { en.paid = true; en.paidDate = d; saveBiz(); renderBiz(); });
+      return;
+    }
     const row = e.target.closest('[data-biz]');
     if (row) openBizSheet(biz.entries.find((x) => x.id === row.dataset.biz));
   });
@@ -6975,8 +7011,8 @@
   const wageTxt = (net, h) => (h > 0 ? formatWon(Math.round(net / h)) + '/시간' : '');
 
   function sideStats(logs) {
-    const income = logs.reduce((a, l) => a + (+l.income || 0), 0), expense = logs.reduce((a, l) => a + (+l.expense || 0), 0), hours = logs.reduce((a, l) => a + (+l.hours || 0), 0), qty = logs.reduce((a, l) => a + (+l.qty || 0), 0);
-    return { income, expense, hours, qty, net: income - expense };
+    const due = logs.reduce((a, l) => a + (isDue(l) ? +l.income || 0 : 0), 0), income = logs.reduce((a, l) => a + (+l.income || 0), 0), expense = logs.reduce((a, l) => a + (+l.expense || 0), 0), hours = logs.reduce((a, l) => a + (+l.hours || 0), 0), qty = logs.reduce((a, l) => a + (+l.qty || 0), 0);
+    return { income, expense, hours, qty, due, net: income - expense };
   }
 
   function sideHtml() {
@@ -6993,8 +7029,9 @@
       <div class="summary-item income"><div class="lbl">수입</div><div class="val">${formatWon(month.income)}</div></div>
       <div class="summary-item expense"><div class="lbl">비용</div><div class="val">${formatWon(month.expense)}</div></div>
       <div class="summary-item balance"><div class="lbl">순수익</div><div class="val" style="${month.net < 0 ? 'color:var(--expense)' : ''}">${net(month.net)}</div></div></div>
-      ${periodHint(P, [month.hours > 0 ? ['일한 시간', hoursTxt(month.hours)] : '', month.hours > 0 ? ['시급', wageTxt(month.net, month.hours)] : '', P.kind === 'month' ? ['올해 순수익', net(year.net)] : ['월 평균 순수익', net(Math.round(month.net / mCount)) + ' (' + mCount + '개월)']])}`;
-    const unlinked = logs.filter((l) => l.income > 0 && !l.txId);
+      ${periodHint(P, [month.hours > 0 ? ['일한 시간', hoursTxt(month.hours)] : '', month.hours > 0 ? ['시급', wageTxt(month.net, month.hours)] : '', month.due > 0 ? ['아직 입금 안 된 수입', formatWon(month.due)] : '', P.kind === 'month' ? ['올해 순수익', net(year.net)] : ['월 평균 순수익', net(Math.round(month.net / mCount)) + ' (' + mCount + '개월)']])}`;
+    html += dueBoxHtml(logs.filter((l) => l.income > 0 && isDue(l)), (l) => +l.income || 0, (l) => { const j = side.jobs.find((x) => x.id === l.jid); return (j ? j.name : '') + (l.memo ? ' · ' + l.memo : ''); }, 'data-sidepaid', '받을 돈(입금 안 된 수입)');
+    const unlinked = logs.filter((l) => l.income > 0 && !l.txId && !isDue(l));
     if (unlinked.length) html += `<div class="ins-sum" style="margin-top:12px">가계부에 아직 없는 N잡 수입 <b>${unlinked.length}건 · ${formatWon(unlinked.reduce((a, l) => a + l.income, 0))}</b><br><button type="button" class="mini-btn" data-sidesync style="margin-top:6px;width:100%">가계부에 모두 수입으로 기록</button></div>`;
     if (goalSum > 0 && P.kind === 'month') {
       html += `<div style="margin-top:12px"><div style="display:flex;justify-content:space-between;font-size:13px;color:var(--text-muted);margin-bottom:5px"><span>월 목표 순수익 ${formatWon(goalSum)}</span><span>${pct}% 달성${month.net < goalSum ? ' · ' + formatWon(goalSum - Math.max(0, month.net)) + ' 남음' : ' 👑'}</span></div>
@@ -7018,7 +7055,7 @@
     const maxNet = Math.max(...rows.map((r) => r.mo.net));
     html += '<h2 class="section-title" style="margin:18px 0 4px">N잡별 · ' + P.label + '</h2>' + rows.map(({ j, mo }, i) => {
       const gp = j.goal > 0 && P.kind === 'month' ? Math.round((mo.net / j.goal) * 100) : 0, st = SIDE_STATUS.find((x) => x[0] === (j.status || 'on')) || SIDE_STATUS[0];
-      const sub = [`수입 ${formatWon(mo.income)}`, `비용 ${formatWon(mo.expense)}`, SIDE_UNIT[j.pay] && mo.qty > 0 ? mo.qty + SIDE_UNIT[j.pay] : '', mo.hours > 0 ? hoursTxt(mo.hours) : '', mo.hours > 0 ? wageTxt(mo.net, mo.hours) : '', j.pay && j.pay !== 'free' && j.rate > 0 ? SIDE_RATE[j.pay] + ' ' + formatWon(j.rate) : ''].filter(Boolean).join(' · ');
+      const sub = [`수입 ${formatWon(mo.income)}`, mo.due > 0 ? `입금 대기 ${formatWon(mo.due)}` : '', `비용 ${formatWon(mo.expense)}`, SIDE_UNIT[j.pay] && mo.qty > 0 ? mo.qty + SIDE_UNIT[j.pay] : '', mo.hours > 0 ? hoursTxt(mo.hours) : '', mo.hours > 0 ? wageTxt(mo.net, mo.hours) : '', j.pay && j.pay !== 'free' && j.rate > 0 ? SIDE_RATE[j.pay] + ' ' + formatWon(j.rate) : ''].filter(Boolean).join(' · ');
       const who = conWho === 'all' && ppl.length > 1 ? `<span class="who-tag">${esc(whoName(sideWho(j)))}</span>` : '';
       return `<button type="button" class="visit" data-sj="${attr(j.id)}"><div class="v1"><span>${rows.length > 1 && mo.net > 0 && mo.net === maxNet ? '👑 ' : ''}${who}${esc(j.name)}${j.kind ? ` <span class="rt" style="font-size:11px;background:var(--mc-soft);color:var(--mc-text);border-radius:99px;padding:1px 7px">${esc(j.kind)}</span>` : ''}${st[0] !== 'on' ? ` <span class="rt" style="font-size:11px;background:var(--bg);color:var(--text-muted);border:1px solid var(--border);border-radius:99px;padding:1px 7px">${st[1]}</span>` : ''}</span><b style="${mo.net < 0 ? 'color:var(--expense)' : ''}">${net(mo.net)}</b></div>`
         + (j.goal > 0 && P.kind === 'month' ? `<div class="bar" style="margin:6px 0 4px"><i class="${gp >= 100 ? '' : gp < 50 ? 'near' : ''}" style="width:${Math.max(0, Math.min(100, gp))}%"></i></div><div class="v2">월 목표 ${formatWon(j.goal)} · ${gp}%</div>` : '')
@@ -7028,7 +7065,7 @@
     // 이번 달 기록
     const list = logs.filter(inP).sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0)), shown = list.slice(0, 60);
     html += `<h2 class="section-title" style="margin:18px 0 4px">${P.label} 기록${list.length ? ' · ' + list.length + '건' : ''}</h2>`
-      + (list.length ? shown.map((l) => { const j = side.jobs.find((x) => x.id === l.jid); return `<button type="button" class="visit" data-sl="${attr(l.id)}"><div class="v1"><span>${l.date.slice(5).replace('-', '/')} · ${esc(j ? j.name : '')}</span><b style="color:var(--${sideNet(l) < 0 ? 'expense' : 'income'})">${sideNet(l) < 0 ? '-' : '+'}${formatWon(Math.abs(sideNet(l)))}</b></div><div class="v2">${[l.income ? '수입 ' + formatWon(l.income) : '', l.expense ? '비용 ' + formatWon(l.expense) : '', l.qty ? l.qty + (SIDE_UNIT[j && j.pay] || '') : '', l.hours ? hoursTxt(l.hours) : '', l.memo || ''].filter(Boolean).map(esc).join(' · ')}</div></button>`; }).join('')
+      + (list.length ? shown.map((l) => { const j = side.jobs.find((x) => x.id === l.jid); return `<button type="button" class="visit" data-sl="${attr(l.id)}"><div class="v1"><span>${l.date.slice(5).replace('-', '/')} · ${esc(j ? j.name : '')}</span><b style="color:var(--${sideNet(l) < 0 ? 'expense' : 'income'})">${sideNet(l) < 0 ? '-' : '+'}${formatWon(Math.abs(sideNet(l)))}</b></div><div class="v2">${[l.income ? '수입 ' + formatWon(l.income) : '', l.expense ? '비용 ' + formatWon(l.expense) : '', l.qty ? l.qty + (SIDE_UNIT[j && j.pay] || '') : '', l.hours ? hoursTxt(l.hours) : '', l.memo || ''].filter(Boolean).map(esc).join(' · ')}${l.income > 0 && isDue(l) ? ' · <span style="color:var(--expense)">입금 대기</span>' : l.paidDate && l.paidDate !== l.date ? ' · 입금 ' + esc(l.paidDate.slice(5).replace('-', '/')) : ''}</div></button>`; }).join('')
         : '<div class="empty-msg" style="padding:12px 0">이 기간 기록이 없어요<br>아래 “＋ 수입·비용 기록”으로 적어 보세요</div>') + (list.length > shown.length ? `<p class="goal-hint">최근 ${shown.length}건만 보여요 (전체 ${list.length}건) — 기간을 줄이면 더 볼 수 있어요</p>` : '');
     return html;
   }
@@ -7097,7 +7134,7 @@
   function sideToLedger(log, job) {
     if (!categories.income.includes('부수입')) { categories.income.push('부수입'); saveJson(CAT_KEY, categories); renderCategoryOptions(); }
     log.txId = newId();
-    transactions.push({ id: log.txId, type: 'income', date: log.date, category: '부수입', amount: log.income, memo: `${job ? job.name : 'N잡'} 수입` });
+    transactions.push({ id: log.txId, type: 'income', date: log.paidDate || log.date, category: '부수입', amount: log.income, memo: `${job ? job.name : 'N잡'} 수입` });
   }
 
   function openSideLogSheet(l, jid) {
@@ -7111,11 +7148,13 @@
       <label>날짜</label><input name="date" type="date" required value="${val(defDate)}">
       <div id="side-qty-wrap" hidden><label id="side-qty-lbl">건수</label><input name="qty" type="number" min="0" step="0.5" inputmode="decimal" value="${val(l && l.qty ? l.qty : '')}" placeholder="0"></div>
       <label>수입 (원)</label><input name="income" type="number" min="0" inputmode="numeric" value="${val(l && l.income ? l.income : '')}" placeholder="0">
+      ${paidFieldHtml(l && isDue(l), '받을 돈')}
+      <p class="goal-hint" id="side-paid-hint" style="margin:2px 0 0" hidden>일한 날 기준으로 수입에 잡히고, 아직 못 받은 돈은 “받을 돈”에 따로 보여요. 입금되면 “입금 확인”을 눌러요.</p>
       <label>비용 (원)</label><input name="expense" type="number" min="0" inputmode="numeric" value="${val(l && l.expense ? l.expense : '')}" placeholder="재료비·수수료·기름값 등">
       <p class="goal-hint" id="side-calc" hidden style="margin:2px 0 0"></p>
       <label>일한 시간 (선택)</label><input name="hours" type="number" min="0" step="0.5" inputmode="decimal" value="${val(l && l.hours ? l.hours : '')}" placeholder="예: 3.5 (시급 계산에 써요)">
       <label>메모 (선택)</label><input name="memo" maxlength="60" value="${val(l && l.memo)}" placeholder="예: 10월 1주차 정산">
-      ${l ? (l.txId ? '<p class="goal-hint">✓ 이 수입은 가계부에도 수입(부수입)으로 기록돼 있어요. 수정하면 가계부도 같이 바뀌어요.</p>' : (l.income > 0 ? '<label class="check"><input type="checkbox" name="ledger"> 가계부에 아직 없어요 — 가계부에도 수입(부수입)으로 기록</label>' : '')) : '<label class="check"><input type="checkbox" name="ledger" checked> 수입이면 가계부에도 수입(부수입)으로 기록</label><p class="goal-hint" style="margin:2px 0 0">이미 가계부에 직접 적어 두었다면 체크를 끄세요(같은 수입이 두 번 잡혀요).</p>'}
+      ${l ? (l.txId ? '<p class="goal-hint">✓ 이 수입은 가계부에도 수입(부수입)으로 기록돼 있어요. 수정하면 가계부도 같이 바뀌어요.</p>' : (l.income > 0 ? `<label class="check"><input type="checkbox" name="ledger"${l.toLedger ? ' checked' : ''}> ${isDue(l) ? '입금되면 가계부에도 수입(부수입)으로 기록' : '가계부에 아직 없어요 — 가계부에도 수입(부수입)으로 기록'}</label>` : '')) : '<label class="check"><input type="checkbox" name="ledger" checked> 수입이면 가계부에도 수입(부수입)으로 기록</label><p class="goal-hint" style="margin:2px 0 0">입금 안 된 수입은 입금을 확인한 날 가계부에 기록돼요. 이미 가계부에 직접 적어 두었다면 체크를 끄세요(같은 수입이 두 번 잡혀요).</p>'}
       <div class="sheet-actions"><button type="button" data-cancel>취소</button>${l ? '<button type="button" data-delete>삭제</button>' : ''}<button type="submit">저장</button></div>
     </form>`, (fd) => {
       const income = Math.max(0, parseInt(fd.get('income'), 10) || 0), expense = Math.max(0, parseInt(fd.get('expense'), 10) || 0), hours = Math.max(0, parseFloat(fd.get('hours')) || 0), date = String(fd.get('date'));
@@ -7123,14 +7162,19 @@
       const qty = Math.max(0, parseFloat(fd.get('qty')) || 0);
       if (!job || !validDate(date) || (!income && !expense && !hours && !qty)) { showToast('날짜와 수입·비용·시간·건수 중 하나는 입력해 주세요'); return false; }
       const rec = { jid: job.id, date, income, expense, hours, qty, memo: String(fd.get('memo')).trim() };
+      const unpaid = income > 0 && String(fd.get('paid')) === '0', wantLedger = income > 0 && fd.get('ledger') === 'on', wasDue = !!(l && isDue(l));
+      rec.paid = !unpaid;
+      rec.paidDate = unpaid ? '' : wasDue ? todayStr() : (l && l.paidDate) || '';
+      rec.toLedger = unpaid && wantLedger;   // 입금 안 됨: 가계부 수입은 입금을 확인할 때 만든다(미리 기억만)
       if (l) {
         Object.assign(l, rec);
         const t = l.txId && transactions.find((x) => x.id === l.txId);
-        if (t) { t.date = date; t.amount = income || t.amount; t.memo = `${job.name} 수입`; save(); renderAll(); }
-        else if (!l.txId && income > 0 && fd.get('ledger') === 'on') { sideToLedger(l, job); save(); renderAll(); }   // 예전에 등록해서 가계부에 없던 수입을 지금 연결
+        if (t && unpaid) { tomb(t.id); transactions = transactions.filter((x) => x.id !== t.id); delete l.txId; save(); renderAll(); }   // 이미 가계부에 넣었는데 "입금 안 됨"으로 바꾸면 가계부 수입은 거둔다
+        else if (t) { t.date = l.paidDate || date; t.amount = income || t.amount; t.memo = `${job.name} 수입`; save(); renderAll(); }
+        else if (!l.txId && !unpaid && wantLedger) { sideToLedger(l, job); save(); renderAll(); }   // 예전에 등록해서 가계부에 없던 수입을 지금 연결
       } else {
         const log = { id: newId(), ...rec };
-        if (income > 0 && fd.get('ledger') === 'on') { sideToLedger(log, job); save(); renderAll(); }
+        if (!unpaid && wantLedger) { sideToLedger(log, job); save(); renderAll(); }
         side.log.push(log);
       }
       saveSide();
@@ -7155,6 +7199,10 @@
     [jobSel, qtyEl, hrsEl].forEach((x) => x.addEventListener('input', calc));
     jobSel.addEventListener('change', calc);
     calc();
+    const paidSel = sheetBody.querySelector('select[name=paid]'), paidHint = sheetBody.querySelector('#side-paid-hint');
+    const paidShow = () => { paidHint.hidden = paidSel.value !== '0'; };
+    paidSel.addEventListener('change', paidShow);
+    paidShow();
     const del = sheetBody.querySelector('[data-delete]');
     if (del) del.addEventListener('click', () => {
       tomb(l.id);
@@ -7194,12 +7242,23 @@
   el('side-status').addEventListener('click', (e) => { const b = e.target.closest('button[data-ss]'); if (b) { sideSt = b.dataset.ss; renderSide(); } });
   el('side-body').addEventListener('click', (e) => {
     if (e.target.closest('[data-sidesync]')) {
-      const todo = side.log.filter((l) => l.income > 0 && !l.txId);
+      const todo = side.log.filter((l) => l.income > 0 && !l.txId && !isDue(l));
       if (!todo.length) return;
       if (!confirm(`N잡 수입 ${todo.length}건(합계 ${formatWon(todo.reduce((a, l) => a + l.income, 0))})을 가계부에 수입(부수입)으로 기록할까요?\n이미 가계부에 직접 적어 둔 수입이면 두 번 잡혀요.`)) return;
       todo.forEach((l) => sideToLedger(l, side.jobs.find((j) => j.id === l.jid)));
       saveSide(); save(); renderAll(); renderSide();
       showToast(`${todo.length}건을 가계부에 기록했어요`);
+      return;
+    }
+    const sp = e.target.closest('[data-sidepaid]');
+    if (sp) {
+      const l = side.log.find((x) => x.id === sp.dataset.sidepaid), j = l && side.jobs.find((x) => x.id === l.jid);
+      if (l) openPaidSheet((j ? j.name : '') + (l.memo ? ' · ' + l.memo : ''), formatWon(l.income) + (l.toLedger ? ' · 가계부 수입으로도 기록돼요' : ''), (d) => {
+        l.paid = true; l.paidDate = d;
+        if (l.toLedger && !l.txId) { sideToLedger(l, j); save(); renderAll(); }
+        l.toLedger = false;
+        saveSide(); renderSide();
+      });
       return;
     }
     const sj = e.target.closest('[data-sj]');
@@ -9966,7 +10025,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v178'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v179'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span class="slogan">다달이, 매일의 기록이 모여<br><b>더 나은 생활</b>이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
