@@ -2486,8 +2486,10 @@
     const b = e.target.closest('[data-lp]');
     if (!b) return;
     if (b.dataset.lp === 'custom') { const R = lstRange(); LST.from = R.from; LST.to = R.to; }   // 지금 보던 기간을 시작값으로
+    // 이 달·지난 달·올해는 "오늘 기준"이다: 누르면 위쪽 달 이동도 이번 달로 돌아와 시작일·종료일이 바로 바뀐다(예전에는 위쪽에서 8월을 보고 있으면 "이 달"을 눌러도 8월이 그대로였다)
+    if (['month', 'last', 'year'].includes(b.dataset.lp)) { const n = new Date(); viewDate = new Date(n.getFullYear(), n.getMonth(), 1); }
     LST.period = b.dataset.lp; listLimit = 100;
-    renderList();
+    renderAll();
   });
   ['list-from', 'list-to'].forEach((id) => el(id).addEventListener('change', () => { LST.from = el('list-from').value; LST.to = el('list-to').value; LST.period = 'custom'; listLimit = 100; renderList(); }));
   el('list-type').addEventListener('change', (e) => { LST.type = e.target.value; listLimit = 100; renderList(); });
@@ -10524,7 +10526,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v192'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v193'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span class="slogan">다달이, 매일의 기록이 모여<br><b>더 나은 생활</b>이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
