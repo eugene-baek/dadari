@@ -2390,7 +2390,8 @@
       }
       const byCat = {}; f.forEach((x) => { const k = x.category || '기타'; (byCat[k] = byCat[k] || { n: 0, v: 0 }); byCat[k].n++; byCat[k].v += x.amount; });
       const rows = Object.entries(byCat).sort((a, b) => b[1].v - a[1].v);
-      if ((LST.type === 'expense' || LST.type === 'income') && !LST.cat && rows.length > 1) h += `<div class="goal-hint" style="margin:8px 0 2px">분류별 ${LST.type === 'income' ? '수입' : '지출'} (대출·대여 원금 제외)</div>` + rows.map(([k, o]) => `<div class="fx-row"><span>${escapeHtml(k)} <small style="color:var(--text-muted)">${o.n}건</small></span><b>${formatWon(o.v)}</b></div>`).join('');
+      if ((LST.type === 'expense' || LST.type === 'income') && !LST.cat && rows.length > 1) h += `<div class="goal-hint" style="margin:8px 0 2px">분류별 ${LST.type === 'income' ? '수입' : '지출'} (대출·대여 원금 제외) · 분류를 누르면 그 내역만 보여요</div>` + rows.map(([k, o]) => `<div class="fx-row" data-lcat="${attr(k)}" role="button" style="cursor:pointer"><span>${escapeHtml(k)} <small style="color:var(--text-muted)">${o.n}건</small></span><b>${formatWon(o.v)} <span style="color:var(--text-muted);font-weight:400">›</span></b></div>`).join('');
+      if (LST.cat) h += `<div style="margin-top:8px"><button type="button" class="mini-btn" data-lcat-clear>분류: ${escapeHtml(LST.cat)} ✕ 전체 분류 보기</button></div>`;
       sm.innerHTML = h + '</div>';
     }
     if (base.length === 0) { wrap.innerHTML = '<div class="empty-msg">이 기간 기록이 없어요</div>'; return; }
@@ -2419,6 +2420,16 @@
   ['list-from', 'list-to'].forEach((id) => el(id).addEventListener('change', () => { LST.from = el('list-from').value; LST.to = el('list-to').value; LST.period = 'custom'; listLimit = 100; renderList(); }));
   el('list-type').addEventListener('change', (e) => { LST.type = e.target.value; listLimit = 100; renderList(); });
   el('list-cat').addEventListener('change', (e) => { LST.cat = e.target.value; listLimit = 100; renderList(); });
+  // 기간 합계의 분류 줄을 누르면 그 분류 내역만 거르고(분류 선택 칸과 같은 상태 LST.cat), 합계 위치로 올라가 걸러진 내역이 바로 보이게 한다
+  el('list-sum').addEventListener('click', (e) => {
+    const r = e.target.closest('[data-lcat]');
+    if (r) {
+      LST.cat = r.dataset.lcat; listLimit = 100; renderList();
+      window.scrollTo({ top: Math.max(0, el('list-sum').getBoundingClientRect().top + window.scrollY - 70), behavior: 'smooth' });
+      return;
+    }
+    if (e.target.closest('[data-lcat-clear]')) { LST.cat = ''; listLimit = 100; renderList(); }
+  });
   el('list-q').addEventListener('input', (e) => { LST.q = e.target.value; listLimit = 100; renderList(); });
   el('tx-list').addEventListener('click', (e) => {
     if (e.target.closest('[data-lmore]')) { listLimit += 100; renderList(); return; }
@@ -10339,7 +10350,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v185'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v186'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span class="slogan">다달이, 매일의 기록이 모여<br><b>더 나은 생활</b>이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
