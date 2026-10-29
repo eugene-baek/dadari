@@ -788,6 +788,7 @@
   .fx-row:first-child { border-top: none; }
   .fx-row span { color: var(--text-muted); min-width: 0; overflow-wrap: anywhere; }   /* 긴 글은 "…"로 자르지 않고 줄을 바꿔 끝까지 보인다 */
   .fx-row span em { font-style: normal; color: var(--text); }
+  .fx-row > b { margin-left: auto; flex: none; text-align: right; }   /* 금액은 항상 오른쪽 끝에 붙여 줄마다 위치가 들쑥날쑥하지 않게 한다(›가 붙은 줄은 › 바로 앞) */
   /* 공통 입력 방식: 꼭 써야 하는 칸의 이름 뒤에 빨간 *, 삭제는 한 번 더 눌러야 지워진다 */
   label.req::after { content: ' *'; color: var(--expense); font-weight: 700; }
   .req-note { font-size: 13px; color: var(--text-muted); margin: 10px 0 0; }
@@ -10516,7 +10517,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v190'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v191'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span class="slogan">다달이, 매일의 기록이 모여<br><b>더 나은 생활</b>이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
