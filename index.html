@@ -46,7 +46,7 @@
     var tx = [], plan = [
       [25, 'income', '급여', 3200000, '월급', 0, 0], [1, 'expense', '주거/공과금', 550000, '월세', 'transfer', 1], [5, 'expense', '통신', 65000, '통신비', 'card', 1],
       [3, 'expense', '식비', 62000, '정육점·과일', 'card', 0], [7, 'expense', '식비', 48000, '마트 장보기', 'card', 0], [9, 'expense', '교통', 55000, '교통카드 충전', 'card', 0],
-      [10, 'expense', '식비', 45000, '백화점 상품권 사용', 'gift', 0], [11, 'expense', '쇼핑', 120000, '생활용품', 'card', 0], [12, 'expense', '식비', 32000, '가족 외식', 'card', 0],
+      [10, 'expense', '식비', 45000, '백화점 상품권 사용', 'gift', 0], [13, 'expense', '여가/문화', 15000, '문화누리 공연·도서', 'voucher', 0], [11, 'expense', '쇼핑', 120000, '생활용품', 'card', 0], [12, 'expense', '식비', 32000, '가족 외식', 'card', 0],
       [14, 'expense', '쇼핑', 89000, '의류', 'card', 0], [16, 'expense', '의료/건강', 23000, '병원·약국', 'cash', 0], [17, 'expense', '교통', 38000, '택시·주유', 'card', 0],
       [19, 'expense', '여가/문화', 45000, '영화·카페', 'card', 0], [21, 'expense', '식비', 27000, '배달 음식', 'card', 0], [23, 'expense', '경조사', 50000, '축의금', 'cash', 0],
       [27, 'income', '부수입', 180000, '배달 수입', 0, 0]
@@ -55,14 +55,16 @@
       plan.forEach(function (x) {
         if (mo === 0 && x[0] > T) return;
         var t = { id: nid(), type: x[1], date: ds(Y, M + mo, x[0]), category: x[2], amount: x[3] + (mo % 3 === 1 ? 3000 : mo % 3 === 2 ? -2000 : 0), memo: x[4] };
-        if (x[1] === 'expense') { t.pay = x[5]; if (x[5] === 'card') t.cardId = 'democ1'; }
+        if (x[1] === 'expense') { t.pay = x[5]; if (x[5] === 'card') t.cardId = 'democ1'; if (x[5] === 'gift') t.cardId = 'democ3'; if (x[5] === 'voucher') t.cardId = 'democ4'; }
         if (x[6]) t.fixed = true;
         tx.push(t);
       });
     });
     put('dadari_transactions_v1', tx);
     put('dadari_goal_v1', 1800000);
-    put('dadari_cards_v1', [{ id: 'democ1', name: '생활카드', kind: 'credit', payDay: 15, fee: 15000, brand: '', fixedDefault: true, benefits: ['전월실적 30만원', '대중교통 10% 할인', '통신비 5천원 할인'].join(NL) }, { id: 'democ2', name: '체크카드', kind: 'check', payDay: 0, fee: 0, brand: '', benefits: '' }]);
+    put('dadari_cards_v1', [{ id: 'democ1', name: '생활카드', kind: 'credit', payDay: 15, fee: 15000, brand: '', fixedDefault: true, benefits: ['전월실적 30만원', '대중교통 10% 할인', '통신비 5천원 할인'].join(NL) }, { id: 'democ2', name: '체크카드', kind: 'check', payDay: 0, fee: 0, brand: '', benefits: '' },
+      { id: 'democ3', name: '백화점 상품권', kind: 'gift', payDay: 0, fee: 0, brand: '', benefits: '', expiry: '', deposits: [{ id: 'demodp1', date: ds(Y, M - 5, 2), amount: 300000, memo: '선물 받음' }] },
+      { id: 'democ4', name: '문화누리카드', kind: 'voucher', payDay: 0, fee: 0, brand: '', benefits: '', expiry: ds(Y, M + 2, 28), deposits: [{ id: 'demodp2', date: ds(Y, M - 5, 1), amount: 120000, memo: '올해 지원금' }] }]);
     put('dadari_recurs_v1', [
       { id: 'demor1', type: 'expense', cardId: null, name: '월세 자동이체', amount: 550000, day: 1, category: '주거/공과금', auto: false, start: off(-90) },
       { id: 'demor2', type: 'expense', cardId: 'democ1', name: '영상 구독', amount: 17000, day: 5, category: '여가/문화', auto: false, start: off(-90) },
@@ -181,7 +183,7 @@
     s.call(localStorage, P + 'demo_seeded', SEED_V);
   }
   // 샘플 내용을 고치면 SEED_V를 올린다: 이미 체험판을 열어 본 기기도 새 샘플로 다시 채운다(체험 중 입력은 사라진다).
-  var SEED_V = '21';
+  var SEED_V = '22';
   try {
     if (g.call(localStorage, P + 'demo_seeded') !== SEED_V) {
       var olds = [], oi;
@@ -2020,7 +2022,7 @@
     if (currentType === 'expense') {
       const pay = el('f-card').value;
       if (cardById(pay)) entry.cardId = pay;
-      entry.pay = cardById(pay) || pay === 'card' ? 'card' : pay === 'transfer' ? 'transfer' : pay === 'gift' ? 'gift' : 'cash';
+      entry.pay = cardById(pay) ? payOfCard(cardById(pay)) : pay === 'card' ? 'card' : pay === 'transfer' ? 'transfer' : pay === 'gift' ? 'gift' : 'cash';
       // 고정비 기본 카드가 자동으로 골라진 경우에는 "마지막에 쓴 결제수단"으로 기억하지 않는다.
       try { localStorage.setItem('dadari_lastpay', payBeforeFixed !== null ? payBeforeFixed : pay); } catch (e) { /* 기억하지 못해도 기록은 계속 */ }
     }
@@ -2041,6 +2043,7 @@
     restoreFixedPay();
     el('f-amount').value = '';
     el('f-memo').value = '';
+    payTouched = false; payAutoMsg = null; payAutoEl.hidden = true;
     viewDate = new Date(+entry.date.slice(0, 4), +entry.date.slice(5, 7) - 1, 1);
     renderAll();
     showToast('기록되었어요');
@@ -2140,6 +2143,7 @@
   }
 
   function renderAll() {
+    try { renderCardOptions(); } catch (e) { /* 결제수단 목록(남은 금액)만 못 그리는 것이라 계속 */ }
     const key = monthKey(viewDate);
     el('month-label').textContent = viewDate.getFullYear() + '년 ' + (viewDate.getMonth() + 1) + '월';
 
@@ -2460,8 +2464,8 @@
       return list.map((c) => `<option value="${attr(c)}"${c === cur ? ' selected' : ''}>${escapeHtml(c)}</option>`).join('');
     };
     const payNow = t.cardId && cardById(t.cardId) ? t.cardId : (t.pay || 'card');
-    const payOpts = '<option value="cash">현금</option><option value="transfer">계좌이체</option><option value="gift">상품권</option><option value="card">카드 (카드 선택 안 함)</option>'
-      + cards.map((c) => `<option value="${attr(c.id)}">${escapeHtml(c.name)} (${c.kind === 'credit' ? '신용' : '체크'})</option>`).join('');
+    const payOpts = '<option value="cash">현금</option><option value="transfer">계좌이체</option><option value="gift">상품권 (종류 등록 안 함)</option><option value="card">카드 (카드 선택 안 함)</option>'
+      + cardGroupsHtml(false);
     openSheet(`<form>
       <h3>내역 수정${t.recurId ? ' <small style="font-weight:400;color:var(--text-muted)">자동 기록</small>' : ''}</h3>
       <label>구분</label><select name="type"><option value="expense"${t.type === 'expense' ? ' selected' : ''}>지출</option><option value="income"${t.type === 'income' ? ' selected' : ''}>수입</option></select>
@@ -2485,7 +2489,7 @@
       if (type === 'expense') {
         const pay = String(fd.get('pay'));
         if (cardById(pay)) t.cardId = pay; else delete t.cardId;
-        t.pay = cardById(pay) || pay === 'card' ? 'card' : pay === 'transfer' ? 'transfer' : pay === 'gift' ? 'gift' : 'cash';
+        t.pay = cardById(pay) ? payOfCard(cardById(pay)) : pay === 'card' ? 'card' : pay === 'transfer' ? 'transfer' : pay === 'gift' ? 'gift' : 'cash';
       } else { delete t.pay; delete t.cardId; }
       save();
       renderAll();
@@ -2716,26 +2720,61 @@
   // 카드는 이름·종류·결제일만 저장한다. 카드번호 등 민감한 정보는 입력받지 않는다.
   const pad2 = (n) => String(n).padStart(2, '0');
   const cardById = (id) => cards.find((c) => c.id === id);
+  // 바우처·상품권은 "충전(입금) → 쓰면 줄어듦 → 남은 금액" 방식의 선불 결제수단이다. 카드 목록에 같이 등록하고(종류 voucher|gift), 충전 내역은 카드의 deposits[{id,date,amount,memo}]에 둔다.
+  // 사용 금액 = 그 카드로 기록한 지출 합계(전체 기간), 남은 금액 = 충전 합계 − 사용. 충전 내역이 있을 때만 남은 금액을 보여 준다. 충전은 가계부 수입으로 기록하지 않는다(쓸 때 지출로 잡히므로 이중으로 세지 않게).
+  function isPrepaid(c) { return !!c && (c.kind === 'voucher' || c.kind === 'gift'); }
+  function cardKindLabel(c) { return c.kind === 'voucher' ? '바우처' : c.kind === 'gift' ? '상품권' : c.kind === 'credit' ? '신용' : '체크'; }
+  function payOfCard(c) { return c.kind === 'voucher' ? 'voucher' : c.kind === 'gift' ? 'gift' : 'card'; }
+  function prepaidInfo(c) {
+    const deps = Array.isArray(c.deposits) ? c.deposits : [];
+    const dep = deps.reduce((a, d) => a + (+d.amount || 0), 0), used = transactions.filter((t) => t.type === 'expense' && t.cardId === c.id).reduce((a, t) => a + t.amount, 0);
+    return { has: deps.length > 0, dep, used, left: dep - used };
+  }
+  const signedWon = (n) => (n < 0 ? '-' : '') + formatWon(Math.abs(n));
+  function cardOptLabel(c) {
+    if (!isPrepaid(c)) return `${c.name} (${cardKindLabel(c)})`;
+    const p = prepaidInfo(c);
+    return `${c.name} (${cardKindLabel(c)}${p.has ? ' · 남은 ' + signedWon(p.left) : ''})`;
+  }
+  // 알려진 바우처 이름(등록할 때 고르기 쉽게 제안만 한다. 금액·조건은 앱이 정하지 않고 사용자가 충전 내역으로 적는다).
+  const VOUCHER_NAMES = ['문화누리카드', '아이돌봄 바우처', '에너지 바우처', '국민행복카드', '임신·출산 진료비 바우처', '산후조리 바우처', '스포츠강좌이용권', '청년 문화패스', '양육수당 바우처', '교육 바우처'];
+  // 메모 맨 앞에 등록한 바우처·상품권 이름이 있으면 그 카드를 찾는다. 이름 전체(예: "문화누리카드")나, 뒤의 말(바우처·카드·상품권·이용권)을 뗀 앞부분(예: "문화누리")으로 인식한다(두 글자 이상, 긴 이름 우선).
+  function matchPrepaid(memo) {
+    const norm = (x) => String(x || '').replace(/\s+/g, '').toLowerCase();
+    const m = norm(memo);
+    if (m.length < 2) return null;
+    let best = null;
+    cards.filter(isPrepaid).forEach((c) => {
+      const full = norm(c.name), short = full.replace(/(바우처|카드|상품권|이용권|패스)$/, '');
+      [full, short].forEach((k) => { if (k.length >= 2 && m.startsWith(k) && (!best || k.length > best.len)) best = { c, len: k.length }; });
+    });
+    return best && best.c;
+  }
   function cardName(t) {
     const c = t.cardId && cardById(t.cardId);
     return c ? c.name : '';
   }
 
+  function cardGroupsHtml(withNew) {
+    const grp = (label, list, newVal, newLabel) => (list.length || withNew ? `<optgroup label="${label}">` + list.map((c) => `<option value="${attr(c.id)}">${escapeHtml(cardOptLabel(c))}</option>`).join('') + (withNew ? `<option value="${newVal}">${newLabel}</option>` : '') + '</optgroup>' : '');
+    return grp('카드', cards.filter((c) => !isPrepaid(c)), '__new', '＋ 카드 등록…')
+      + grp('바우처 (종류별 남은 금액)', cards.filter((c) => c.kind === 'voucher'), '__newv', '＋ 바우처 종류 등록…')
+      + grp('상품권 (종류별 남은 금액)', cards.filter((c) => c.kind === 'gift'), '__newg', '＋ 상품권 종류 등록…');
+  }
   function renderCardOptions() {
     const sel = el('f-card');
     const prev = sel.value;
-    sel.innerHTML = '<option value="cash">현금</option><option value="transfer">계좌이체</option><option value="gift">상품권</option><option value="card">카드 (카드 선택 안 함)</option>'
-      + cards.map((c) => `<option value="${c.id}">${escapeHtml(c.name)} (${c.kind === 'credit' ? '신용' : '체크'})</option>`).join('')
-      + '<option value="__new">＋ 카드 등록…</option>';
+    sel.innerHTML = '<option value="cash">현금</option><option value="transfer">계좌이체</option><option value="gift">상품권 (종류 등록 안 함)</option><option value="card">카드 (카드 선택 안 함)</option>'
+      + cardGroupsHtml(true);
     let last = null;
     try { last = localStorage.getItem('dadari_lastpay'); } catch (e) { /* 저장소를 못 써도 기본값으로 */ }
     const want = prev || last || 'card';
-    sel.value = [...sel.options].some((o) => o.value === want && o.value !== '__new') ? want : 'card';
+    sel.value = [...sel.options].some((o) => o.value === want && !o.value.startsWith('__new')) ? want : 'card';
   }
 
   // 결제수단 이름. pay가 없는 예전 내역은 표시하지 않는다.
   function payLabel(t) {
-    return cardName(t) || (t.pay === 'card' ? '카드' : t.pay === 'transfer' ? '계좌이체' : t.pay === 'gift' ? '상품권' : t.pay === 'cash' ? '현금' : '');
+    return cardName(t) || (t.pay === 'card' ? '카드' : t.pay === 'transfer' ? '계좌이체' : t.pay === 'gift' ? '상품권' : t.pay === 'voucher' ? '바우처' : t.pay === 'cash' ? '현금' : '');
   }
 
   // 고정비 기본 카드: "고정비"에 체크하면 결제수단을 그 카드로 바꾸고, 체크를 풀거나 기록을 마치면 원래 선택으로 되돌린다.
@@ -2755,11 +2794,27 @@
     }
   });
 
+  // 메모를 바우처·상품권 이름으로 시작하면 결제수단을 그 카드로 자동 선택한다(결제수단을 직접 고른 뒤에는 건드리지 않는다).
+  let payTouched = false, payAutoMsg = null;
+  const payAutoEl = document.createElement('div');
+  payAutoEl.className = 'goal-hint'; payAutoEl.style.margin = '4px 0 0'; payAutoEl.hidden = true;
+  el('f-memo').insertAdjacentElement('afterend', payAutoEl);
+  el('f-memo').addEventListener('input', () => {
+    const memo = el('f-memo').value;
+    if (!memo.trim()) { payTouched = false; if (payAutoMsg) { payAutoMsg = null; payAutoEl.hidden = true; } return; }
+    if (currentType !== 'expense' || payTouched) return;
+    const c = matchPrepaid(memo);
+    if (c) { el('f-card').value = c.id; payBeforeFixed = null; payAutoMsg = c.id; const p = prepaidInfo(c); payAutoEl.textContent = `“${c.name}”로 인식해서 결제수단을 바꿨어요${p.has ? ' (남은 금액 ' + signedWon(p.left) + ')' : ''}`; payAutoEl.hidden = false; }
+    else if (payAutoMsg) { payAutoMsg = null; payAutoEl.hidden = true; el('f-card').value = 'card'; }
+  });
   el('f-card').addEventListener('change', (e) => {
+    payTouched = true;
+    payAutoMsg = null; payAutoEl.hidden = true;
     payBeforeFixed = null;   // 직접 고른 결제수단은 고정비 자동 선택보다 우선한다
-    if (e.target.value !== '__new') return;
+    if (!e.target.value.startsWith('__new')) return;
+    const pk = e.target.value === '__newv' ? 'voucher' : e.target.value === '__newg' ? 'gift' : '';
     renderCardOptions();   // 선택을 되돌려 두고 카드 등록 화면을 연다
-    openCardSheet();
+    openCardSheet(pk ? { kind: pk } : undefined);
     selectNewCard = true;  // openSheet 안에서 초기화되므로 연 뒤에 켠다
   });
 
@@ -2903,22 +2958,41 @@
   const CARD_SLOTS = 6;
   const sumAmount = (list) => list.reduce((s, r) => s + r.amount, 0);
 
+  // 바우처·상품권 상세: 충전 합계·사용·남은 금액 칸, 충전(입금) 내역, 최근 사용 내역
+  function prepaidHtml(c) {
+    const p = prepaidInfo(c), t0 = todayStr();
+    const tile = (cls, label, val, sub) => `<div class="summary-item ${cls}"><div class="lbl">${label}</div><div class="val">${val}</div>${sub ? `<div class="lbl" style="margin:2px 0 0;font-size:12px">${sub}</div>` : ''}</div>`;
+    let h = p.has
+      ? `<div class="summary-grid">${tile('income', '충전 합계', formatWon(p.dep))}${tile('expense', '사용', formatWon(p.used))}${tile('balance', '남은 금액', `<span style="${p.left < 0 ? 'color:var(--expense)' : ''}">${signedWon(p.left)}</span>`, p.left < 0 ? '충전보다 더 썼어요' : '')}</div>`
+        + (p.dep > 0 ? `<div class="bar" style="margin:8px 0 4px"><i class="${p.left < p.dep * 0.2 ? 'near' : ''}" style="width:${Math.max(0, Math.min(100, Math.round((p.used / p.dep) * 100)))}%"></i></div><div class="goal-hint" style="margin:0">${Math.round((p.used / p.dep) * 100)}% 사용</div>` : '')
+      : `<div class="summary-grid">${tile('expense', '사용 합계', formatWon(p.used))}</div><p class="goal-hint" style="margin:6px 0 0">아래 “＋ 충전·입금 기록”으로 받은(산) 금액을 적으면 남은 금액을 보여 줘요.</p>`;
+    if (validDate(c.expiry)) { const dd = diffDays(c.expiry, t0); h += `<p class="goal-hint" style="margin:6px 0 0">사용 기한 ${c.expiry.slice(2).replace(/-/g, '.')} · ${dd < 0 ? '<b style="color:var(--expense)">기한이 지났어요</b>' : dd === 0 ? '오늘까지' : 'D-' + dd}</p>`; }
+    const deps = [...(c.deposits || [])].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+    h += `<div class="h-sec">충전·입금 내역${deps.length ? ' · ' + deps.length + '건' : ''}</div>`
+      + deps.map((d) => `<div class="fx-row"><span>${escapeHtml(String(d.date || '').slice(2).replace(/-/g, '.'))}${d.memo ? ' · ' + escapeHtml(d.memo) : ''}</span><b>+${formatWon(+d.amount || 0)} <button type="button" class="icon-btn" data-del-dep="${attr(d.id)}" aria-label="충전 내역 지우기">🗑</button></b></div>`).join('')
+      + `<button type="button" class="mini-btn" data-add-dep style="width:100%;margin-top:6px">＋ 충전·입금 기록</button>`;
+    const use = transactions.filter((t) => t.type === 'expense' && t.cardId === c.id).sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
+    if (use.length) h += `<div class="h-sec">사용 내역 · ${use.length}건</div>` + use.slice(0, 8).map((t) => `<div class="fx-row"><span>${escapeHtml(t.date.slice(2).replace(/-/g, '.'))} · ${escapeHtml(t.memo || t.category)}</span><b>-${formatWon(t.amount)}</b></div>`).join('') + (use.length > 8 ? `<p class="goal-hint">최근 8건만 보여요 (전체 ${use.length}건)</p>` : '');
+    return h;
+  }
+
   function cardBoxHtml(c, plain) {
     const mine = recurs.filter((r) => r.cardId === c.id);
     const parts = [];
+    const pre = isPrepaid(c), pp = pre ? prepaidInfo(c) : null;
     if (c.kind === 'credit' && c.payDay) parts.push(`매월 ${dayLabel(c.payDay)} 결제`);
-    parts.push(`이번 달 사용 ${formatWon(cardUse(c.id, monthKey(viewDate)))}`);
+    parts.push(pp && pp.has ? `남은 금액 ${signedWon(pp.left)}` : `이번 달 사용 ${formatWon(cardUse(c.id, monthKey(viewDate)))}`);
     if (mine.length) parts.push(`자동이체 월 ${formatWon(sumAmount(mine))}`);
-    const cdm = cardDiscountMonthly(c.id);
+    const cdm = pre ? 0 : cardDiscountMonthly(c.id);
     if (cdm) parts.push(`고정비 카드 할인 월 ${formatWon(cdm)}`);
     const info = [c.brand, c.fee ? '연회비 ' + formatWon(c.fee) : ''].filter(Boolean).map(escapeHtml).join(' · ');
     return `<div class="cardbox${plain ? ' plain' : ''}">
       <div class="cardhead">
-        <div><b>${escapeHtml(c.name)}</b><span class="tag">${c.kind === 'credit' ? '신용' : '체크'}</span>${c.fixedDefault ? '<span class="tag">고정비 기본</span>' : ''}
+        <div><b>${escapeHtml(c.name)}</b><span class="tag">${cardKindLabel(c)}</span>${c.fixedDefault ? '<span class="tag">고정비 기본</span>' : ''}
         <div class="cardsub">${parts.join(' · ')}</div>${info ? `<div class="cardsub">${info}</div>` : ''}</div>
         <div class="card-btns"><button type="button" class="pill-btn" data-edit-card="${c.id}">✎ 수정</button>
         <button type="button" class="icon-btn" data-del-card="${c.id}" aria-label="카드 삭제">🗑</button></div>
-      </div>${perfHtml(c)}${recRows(mine)}</div>`;
+      </div>${pre ? prepaidHtml(c) : perfHtml(c)}${recRows(mine)}</div>`;
   }
 
   // 칸에 보이는 한 줄 실적 요약(구간 또는 단일 기준이 있는 카드만)
@@ -2937,11 +3011,12 @@
   }
 
   function cardTile(c) {
+    const pp = isPrepaid(c) ? prepaidInfo(c) : null, showLeft = !!(pp && pp.has);
     return `<button type="button" class="ctile" data-card="${c.id}" aria-label="${escapeHtml(c.name)} 상세">
       <span class="ct-name">${escapeHtml(c.name)}</span>
-      <span class="ct-tags"><span class="tag">${c.kind === 'credit' ? '신용' : '체크'}</span>${c.fixedDefault ? '<span class="tag">고정비</span>' : ''}</span>
-      <span class="ct-use">${formatWon(cardUse(c.id, monthKey(viewDate)))}</span>
-      <span class="ct-sub">이번 달 사용</span>${perfMini(c)}</button>`;
+      <span class="ct-tags"><span class="tag">${cardKindLabel(c)}</span>${c.fixedDefault ? '<span class="tag">고정비</span>' : ''}</span>
+      <span class="ct-use"${showLeft && pp.left < 0 ? ' style="color:var(--expense)"' : ''}>${showLeft ? signedWon(pp.left) : formatWon(cardUse(c.id, monthKey(viewDate)))}</span>
+      <span class="ct-sub">${showLeft ? '남은 금액' : '이번 달 사용'}</span>${pp ? '' : perfMini(c)}</button>`;
   }
 
   function renderCards() {
@@ -2994,6 +3069,13 @@
     sheet.hidden = false;
     sheetBody.onclick = (e) => {
       const dr = e.target.closest('[data-del-recur]');
+      if (e.target.closest('[data-add-dep]')) { closeSheet(); setTimeout(() => openDepositSheet(cardById(id)), 0); return; }
+      const dd = e.target.closest('[data-del-dep]');
+      if (dd) {
+        const cc = cardById(id), dp = cc && (cc.deposits || []).find((x) => x.id === dd.dataset.delDep);
+        if (dp && confirm(`${formatWon(+dp.amount || 0)} 충전·입금 내역을 지울까요?`)) { cc.deposits = cc.deposits.filter((x) => x.id !== dp.id); saveJson(CARDS_KEY, cards); renderCardOptions(); renderAll(); openCardDetail(id); showToast('지웠어요'); }
+        return;
+      }
       if (e.target.closest('[data-edit-card]')) { closeSheet(); setTimeout(() => openCardSheet(cardById(id)), 0); }
       else if (e.target.closest('[data-del-card]')) { if (deleteCard(id)) closeSheet(); }
       else if (dr) { if (deleteRecur(dr.dataset.delRecur)) openCardDetail(id); }
@@ -3156,16 +3238,46 @@
   }
   el('cat-manage-btn').addEventListener('click', () => openCatSheet(currentType));
 
+  // 바우처·상품권 충전(입금) 기록
+  function openDepositSheet(c) {
+    if (!c) return;
+    openSheet(`<form>
+      <h3>${escapeHtml(c.name)} 충전·입금</h3>
+      <label>날짜</label><input name="date" type="date" required value="${todayStr()}">
+      <label>금액 (원)</label><input name="amount" type="number" min="1" inputmode="numeric" required placeholder="예: 100000">
+      <label>메모 (선택)</label><input name="memo" maxlength="40" placeholder="예: 올해 지원금, 선물 받음" autocomplete="off">
+      <div class="sheet-actions"><button type="button" data-cancel>취소</button><button type="submit">저장</button></div>
+    </form>`, (fd) => {
+      const amount = parseInt(fd.get('amount'), 10), date = String(fd.get('date'));
+      if (!(amount > 0) || !validDate(date)) { showToast('날짜와 금액을 확인해 주세요'); return false; }
+      c.deposits = Array.isArray(c.deposits) ? c.deposits : [];
+      c.deposits.push({ id: newId(), date, amount, memo: String(fd.get('memo')).trim() });
+      saveJson(CARDS_KEY, cards);
+      renderCardOptions();
+      renderAll();
+      showToast('충전·입금을 기록했어요');
+      setTimeout(() => openCardDetail(c.id), 0);
+    });
+  }
+
   // card가 있으면 수정, 없으면 등록. 카드번호 같은 민감한 정보는 받지 않는다.
   function openCardSheet(card) {
     const c = card && card.id ? card : null;
     const val = (x) => attr(x == null ? '' : String(x));
+    const curKind = c ? (['credit', 'voucher', 'gift'].includes(c.kind) ? c.kind : 'debit') : (card && ['voucher', 'gift'].includes(card.kind) ? card.kind : 'credit');
     openSheet(`<form>
       <h3>${c ? '카드 정보 수정' : '카드 등록'}</h3>
       <label>카드 이름</label>
-      <input name="name" required maxlength="20" placeholder="예: OO카드, OO 체크" value="${val(c && c.name)}">
+      <input name="name" required maxlength="20" list="voucher-names" placeholder="예: OO카드, OO 체크, 문화누리카드, OO 상품권" value="${val(c && c.name)}" autocomplete="off">
+      <datalist id="voucher-names">${VOUCHER_NAMES.map((n) => `<option value="${attr(n)}">`).join('')}</datalist>
       <label>종류</label>
-      <select name="kind"><option value="credit"${c && c.kind === 'debit' ? '' : ' selected'}>신용카드</option><option value="debit"${c && c.kind === 'debit' ? ' selected' : ''}>체크카드</option></select>
+      <select name="kind">${[['credit', '신용카드'], ['debit', '체크카드'], ['voucher', '바우처 (충전·남은 금액)'], ['gift', '상품권 (충전·남은 금액)']].map(([k, n]) => `<option value="${k}"${k === curKind ? ' selected' : ''}>${n}</option>`).join('')}</select>
+      <div id="cs-prepaid"${isPrepaid({ kind: curKind }) ? '' : ' hidden'}>
+        <p class="goal-hint" style="margin:6px 0 0">바우처는 종류마다 따로 등록해요(예: 문화누리카드, 아이돌봄). 기록할 때 메모를 이름으로 시작하면(예: “문화누리 공연”) 그 바우처가 결제수단으로 자동 선택돼요. 충전(입금) 내역을 적으면 쓴 만큼 빠지고 남은 금액이 보여요.</p>
+        <label>사용 기한 (선택)</label><input name="expiry" type="date" value="${val(c && c.expiry)}">
+        ${c ? '' : '<label>처음 충전 금액 (원, 선택)</label><input name="initDep" type="number" min="0" inputmode="numeric" placeholder="예: 100000 (오늘 날짜로 기록돼요)">'}
+      </div>
+      <div id="cs-credit"${isPrepaid({ kind: curKind }) ? ' hidden' : ''}>
       <label>결제일 (신용카드만, 선택)</label>
       ${dayInput('payDay', c && c.payDay)}
       <label>연회비 (원, 선택)</label>
@@ -3178,16 +3290,19 @@
       <label>혜택 · 실적 (한 줄에 하나, 선택)</label>
       <textarea name="benefits" maxlength="2000" placeholder="통신비할인 / 40-4천원 / 70-7천원 / 100-13천원&#10;주유할인 / 리터당 40-100원 / 70-150원&#10;편의점 5%">${escapeHtml(c && c.benefits ? c.benefits : '')}</textarea>
       <p class="goal-hint">‘40-4천원’은 전월 실적 40만원 이상이면 4천원이라는 뜻이에요(‘-’ 대신 ‘_’ ‘:’ ‘=’도 돼요). 이렇게 쓰면 전월 사용액에 맞는 혜택을 골라 보여 줘요. ‘전월실적 30만원’처럼 한 줄로 쓰면 그 금액을 실적 기준으로 읽고, 다른 형식은 적은 그대로 보여 줘요. 카드번호는 입력하지 않아요.</p>
+      </div>
       <div class="sheet-actions"><button type="button" data-cancel>취소</button><button type="submit">저장</button></div>
     </form>`, (fd) => {
       const name = String(fd.get('name')).trim();
       if (!name) return false;
-      const kind = fd.get('kind') === 'debit' ? 'debit' : 'credit';
+      const kind = ['debit', 'voucher', 'gift'].includes(String(fd.get('kind'))) ? String(fd.get('kind')) : 'credit';
+      const pre = kind === 'voucher' || kind === 'gift';
       const day = parseInt(fd.get('payDay'), 10);
       const rec = {
         name, kind, payDay: kind === 'credit' && day >= 1 && day <= 31 ? day : 0,
-        fee: Math.max(0, parseInt(fd.get('fee'), 10) || 0), brand: String(fd.get('brand')).trim(),
-        benefits: String(fd.get('benefits')).trim(), fixedDefault: fd.get('fixedDefault') === 'on'
+        fee: pre ? 0 : Math.max(0, parseInt(fd.get('fee'), 10) || 0), brand: pre ? '' : String(fd.get('brand')).trim(),
+        benefits: pre ? '' : String(fd.get('benefits')).trim(), fixedDefault: !pre && fd.get('fixedDefault') === 'on',
+        expiry: pre && validDate(String(fd.get('expiry'))) ? String(fd.get('expiry')) : ''
       };
       let savedId;
       if (c) {
@@ -3195,7 +3310,8 @@
         savedId = c.id;
       } else {
         savedId = newId();
-        cards.push({ id: savedId, ...rec });
+        const init = pre ? Math.max(0, parseInt(fd.get('initDep'), 10) || 0) : 0;
+        cards.push({ id: savedId, ...rec, ...(pre ? { deposits: init ? [{ id: newId(), date: todayStr(), amount: init, memo: '처음 충전' }] : [] } : {}) });
         if (selectNewCard) selectNewCard = savedId;
       }
       if (rec.fixedDefault) cards.forEach((x) => { if (x.id !== savedId) x.fixedDefault = false; });   // 기본 카드는 하나만
@@ -3205,6 +3321,8 @@
       renderAll();
       showToast(c ? '카드 정보를 저장했어요' : '카드를 등록했어요');
     });
+    const kSel = sheetBody.querySelector('[name=kind]');
+    kSel.addEventListener('change', () => { const pre = kSel.value === 'voucher' || kSel.value === 'gift'; sheetBody.querySelector('#cs-prepaid').hidden = !pre; sheetBody.querySelector('#cs-credit').hidden = pre; });
   }
   el('add-card-btn').addEventListener('click', () => openCardSheet());
 
@@ -9084,6 +9202,10 @@
       const dd = d ? within(d, 0, 3) : null;
       if (dd !== null) add(dd, `${c.name} 결제일`, 'ledger', '💳', { sub: 'card', ref: c.id });
     });
+    cards.filter((c) => isPrepaid(c) && validDate(c.expiry)).forEach((c) => {
+      const pp = prepaidInfo(c), dd = within(c.expiry, 0, 14);
+      if (dd !== null && (!pp.has || pp.left > 0)) add(dd, `${c.name} 사용 기한${pp.has ? ' · 남은 ' + formatWon(pp.left) : ''}`, 'ledger', '🎟', { sub: 'card', ref: c.id });
+    });
     debt.items.filter((d) => debtBal(d.id) > 0).forEach((d) => {
       const nx = d.payDay >= 1 && d.monthly > 0 ? nextPay(d.payDay, today, 'month') : '', dd = nx ? within(nx, 0, 3) : null;
       const lend = debtDirOf(d) === 'lend';
@@ -10094,7 +10216,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v180'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v181'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span class="slogan">다달이, 매일의 기록이 모여<br><b>더 나은 생활</b>이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
