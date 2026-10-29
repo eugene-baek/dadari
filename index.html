@@ -64,7 +64,7 @@
     put('dadari_goal_v1', 1800000);
     put('dadari_cards_v1', [{ id: 'democ1', name: '생활카드', kind: 'credit', payDay: 15, fee: 15000, brand: '', fixedDefault: true, benefits: ['전월실적 30만원', '대중교통 10% 할인', '통신비 5천원 할인'].join(NL) }, { id: 'democ2', name: '체크카드', kind: 'check', payDay: 0, fee: 0, brand: '', benefits: '' },
       { id: 'democ3', name: '백화점 상품권', kind: 'gift', payDay: 0, fee: 0, brand: '', benefits: '', expiry: '', deposits: [{ id: 'demodp1', date: ds(Y, M - 5, 2), amount: 300000, memo: '선물 받음' }] },
-      { id: 'democ4', name: '문화누리카드', kind: 'voucher', payDay: 0, fee: 0, brand: '', benefits: '', expiry: ds(Y, M + 2, 28), deposits: [{ id: 'demodp2', date: ds(Y, M - 5, 1), amount: 120000, memo: '올해 지원금' }] }]);
+      { id: 'democ4', name: '문화누리카드', kind: 'voucher', payDay: 0, fee: 0, brand: '', benefits: '', expiry: ds(Y, M + 2, 28), autoDep: 20000, autoDepDay: 5, autoDepFrom: ds(Y, M - 2, 1), deposits: [{ id: 'demodp2', date: ds(Y, M - 5, 1), amount: 120000, memo: '올해 지원금' }] }]);
     put('dadari_recurs_v1', [
       { id: 'demor1', type: 'expense', cardId: null, name: '월세 자동이체', amount: 550000, day: 1, category: '주거/공과금', auto: false, start: off(-90) },
       { id: 'demor2', type: 'expense', cardId: 'democ1', name: '영상 구독', amount: 17000, day: 5, category: '여가/문화', auto: false, start: off(-90) },
@@ -183,7 +183,7 @@
     s.call(localStorage, P + 'demo_seeded', SEED_V);
   }
   // 샘플 내용을 고치면 SEED_V를 올린다: 이미 체험판을 열어 본 기기도 새 샘플로 다시 채운다(체험 중 입력은 사라진다).
-  var SEED_V = '22';
+  var SEED_V = '23';
   try {
     if (g.call(localStorage, P + 'demo_seeded') !== SEED_V) {
       var olds = [], oi;
@@ -2731,6 +2731,29 @@
     return { has: deps.length > 0, dep, used, left: dep - used };
   }
   const signedWon = (n) => (n < 0 ? '-' : '') + formatWon(Math.abs(n));
+  // 매달 들어오는 바우처: 카드에 autoDep(매달 충전 금액)·autoDepDay(매월 충전일, 31 = 말일)·autoDepFrom(시작일)이 있으면, 시작일 이후 지난 충전일마다 충전 내역을 하나씩 자동으로 만든다.
+  // 충전 id는 `ad_카드id_YYYY-MM`(기기마다 따로 만들어도 하나로 합쳐짐)이고, 만든 달은 autoDepDone에 적어 두어 충전 내역을 지워도 다시 만들지 않는다. 가계부 수입으로는 기록하지 않는다.
+  function applyPrepaidAuto() {
+    const today = todayStr(), now = new Date();
+    let changed = false;
+    cards.filter((c) => isPrepaid(c) && +c.autoDep > 0 && +c.autoDepDay >= 1 && validDate(c.autoDepFrom)).forEach((c) => {
+      c.deposits = Array.isArray(c.deposits) ? c.deposits : [];
+      c.autoDepDone = Array.isArray(c.autoDepDone) ? c.autoDepDone : [];
+      let y = +c.autoDepFrom.slice(0, 4), m = +c.autoDepFrom.slice(5, 7) - 1;
+      while (y < now.getFullYear() || (y === now.getFullYear() && m <= now.getMonth())) {
+        const last = new Date(y, m + 1, 0).getDate(), date = y + '-' + pad2(m + 1) + '-' + pad2(Math.min(+c.autoDepDay, last)), key = date.slice(0, 7);
+        if (date >= c.autoDepFrom && date <= today && !c.autoDepDone.includes(key)) {
+          c.autoDepDone.push(key);
+          if (!c.deposits.some((d) => d.id === 'ad_' + c.id + '_' + key)) c.deposits.push({ id: 'ad_' + c.id + '_' + key, date, amount: +c.autoDep, memo: '매월 자동 충전', auto: true });
+          changed = true;
+        }
+        m += 1;
+        if (m > 11) { m = 0; y += 1; }
+      }
+    });
+    if (changed) saveJson(CARDS_KEY, cards);
+    return changed;
+  }
   function cardOptLabel(c) {
     if (!isPrepaid(c)) return `${c.name} (${cardKindLabel(c)})`;
     const p = prepaidInfo(c);
@@ -2982,6 +3005,7 @@
     if (validDate(c.expiry)) { const dd = diffDays(c.expiry, t0); h += `<p class="goal-hint" style="margin:6px 0 0">사용 기한 ${c.expiry.slice(2).replace(/-/g, '.')} · ${dd < 0 ? '<b style="color:var(--expense)">기한이 지났어요</b>' : dd === 0 ? '오늘까지' : 'D-' + dd}</p>`; }
     const deps = [...(c.deposits || [])].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
     h += `<div class="h-sec">충전·입금 내역${deps.length ? ' · ' + deps.length + '건' : ''}</div>`
+      + (+c.autoDep > 0 ? `<p class="goal-hint" style="margin:4px 0">🔁 매월 ${dayLabel(c.autoDepDay)} ${formatWon(+c.autoDep)} 자동 충전${validDate(c.autoDepFrom) ? ' · ' + c.autoDepFrom.slice(2).replace(/-/g, '.') + '부터' : ''}</p>` : '')
       + deps.map((d) => `<div class="fx-row"><span>${escapeHtml(String(d.date || '').slice(2).replace(/-/g, '.'))}${d.memo ? ' · ' + escapeHtml(d.memo) : ''}</span><b>+${formatWon(+d.amount || 0)} <button type="button" class="icon-btn" data-del-dep="${attr(d.id)}" aria-label="충전 내역 지우기">🗑</button></b></div>`).join('')
       + `<button type="button" class="mini-btn" data-add-dep style="width:100%;margin-top:6px">＋ 충전·입금 기록</button>`;
     const use = transactions.filter((t) => t.type === 'expense' && t.cardId === c.id).sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
@@ -3303,6 +3327,13 @@
       <div id="cs-prepaid"${isPrepaid({ kind: curKind }) ? '' : ' hidden'}>
         <p class="goal-hint" style="margin:6px 0 0">바우처는 종류마다 따로 등록해요(예: 문화누리카드, 아이돌봄). 기록할 때 메모를 이름으로 시작하면(예: “문화누리 공연”) 그 바우처가 결제수단으로 자동 선택돼요. 충전(입금) 내역을 적으면 쓴 만큼 빠지고 남은 금액이 보여요.</p>
         <label>사용 기한 (선택)</label><input name="expiry" type="date" value="${val(c && c.expiry)}">
+        <label class="check"><input type="checkbox" name="autoDep"${c && +c.autoDep > 0 ? ' checked' : ''}> 매달 자동으로 충전(입금)돼요</label>
+        <div id="cs-autodep"${c && +c.autoDep > 0 ? '' : ' hidden'}>
+          <label>매달 충전 금액 (원)</label><input name="autoDepAmt" type="number" min="0" inputmode="numeric" placeholder="예: 20000" value="${val(c && +c.autoDep > 0 ? c.autoDep : '')}">
+          <label>매월 충전일</label>${dayInput('autoDepDay', c && c.autoDepDay)}
+          <label>자동 충전 시작일</label><input name="autoDepFrom" type="date" value="${val(c && validDate(c.autoDepFrom) ? c.autoDepFrom : todayStr())}">
+          <p class="goal-hint" style="margin:4px 0 0">시작일 이후 충전일마다 충전 내역이 자동으로 생겨요(지난 달도 시작일부터 채워요). 충전일을 비우면 시작일의 날짜로 정해요. 가계부 수입으로는 기록하지 않아요.</p>
+        </div>
         ${c ? '' : '<label>처음 충전 금액 (원, 선택)</label><input name="initDep" type="number" min="0" inputmode="numeric" placeholder="예: 100000 (오늘 날짜로 기록돼요)">'}
       </div>
       <div id="cs-credit"${isPrepaid({ kind: curKind }) ? ' hidden' : ''}>
@@ -3332,6 +3363,12 @@
         benefits: pre ? '' : String(fd.get('benefits')).trim(), fixedDefault: !pre && fd.get('fixedDefault') === 'on',
         expiry: pre && validDate(String(fd.get('expiry'))) ? String(fd.get('expiry')) : ''
       };
+      if (pre && fd.get('autoDep') === 'on') {
+        const amt = Math.max(0, parseInt(fd.get('autoDepAmt'), 10) || 0), from = validDate(String(fd.get('autoDepFrom'))) ? String(fd.get('autoDepFrom')) : todayStr();
+        if (!amt) { showToast('매달 충전 금액을 적어 주세요'); return false; }
+        rec.autoDep = amt; rec.autoDepFrom = from;
+        rec.autoDepDay = parseInt(fd.get('autoDepDay'), 10) >= 1 ? parseInt(fd.get('autoDepDay'), 10) : +from.slice(8, 10);
+      } else { rec.autoDep = 0; rec.autoDepDay = 0; rec.autoDepFrom = ''; }
       let savedId;
       if (c) {
         Object.assign(c, rec);
@@ -3344,6 +3381,7 @@
       }
       if (rec.fixedDefault) cards.forEach((x) => { if (x.id !== savedId) x.fixedDefault = false; });   // 기본 카드는 하나만
       saveJson(CARDS_KEY, cards);
+      try { applyPrepaidAuto(); } catch (e) { /* 다음에 다시 */ }
       renderCardOptions();
       if (typeof selectNewCard === 'string') el('f-card').value = selectNewCard;
       renderAll();
@@ -3351,6 +3389,8 @@
     });
     const kSel = sheetBody.querySelector('[name=kind]');
     kSel.addEventListener('change', () => { const pre = kSel.value === 'voucher' || kSel.value === 'gift'; sheetBody.querySelector('#cs-prepaid').hidden = !pre; sheetBody.querySelector('#cs-credit').hidden = pre; });
+    const adChk = sheetBody.querySelector('[name=autoDep]');
+    adChk.addEventListener('change', () => { sheetBody.querySelector('#cs-autodep').hidden = !adChk.checked; });
   }
   el('add-card-btn').addEventListener('click', () => openCardSheet());
 
@@ -3456,6 +3496,7 @@
       saveJson(DONE_KEY, [...recurDone]);
     }
     try { if (applySavAuto()) changed = true; } catch (e) { /* 저축 화면이 아직 준비되기 전이면 다음에 다시 */ }
+    try { if (applyPrepaidAuto()) changed = true; } catch (e) { /* 바우처 자동 충전은 다음에 다시 */ }
     return changed;
   }
 
@@ -10244,7 +10285,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v182'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v183'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span class="slogan">다달이, 매일의 기록이 모여<br><b>더 나은 생활</b>이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
