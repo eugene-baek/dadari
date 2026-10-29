@@ -88,7 +88,8 @@
       visits: [
         { id: nid(), who: 'demom1', date: off(-20), hospital: 'OO소아과', dept: '소아과', reason: '감기', cost: 12000, next: off(4), note: '', claim: 'todo' },
         { id: nid(), who: 'me', date: off(-45), hospital: 'OO내과', dept: '내과', reason: '건강검진', cost: 35000, next: '', note: '', claim: 'done', claimDate: off(-40), claimAmt: 30000 },
-        { id: nid(), who: 'demom2', date: off(-75), hospital: 'OO치과', dept: '치과', reason: '충치 치료', cost: 68000, next: off(25), note: '정기 검진', claim: 'todo' }
+        { id: nid(), who: 'demom2', date: off(-75), hospital: 'OO치과', dept: '치과', reason: '충치 치료', cost: 68000, next: off(25), note: '정기 검진', claim: 'todo' },
+        { id: nid(), who: 'me', date: off(9), time: '14:30', booked: true, hospital: 'OO정형외과', dept: '정형외과', reason: '어깨 통증 (예약)', cost: 0, next: '', note: '', claim: '' }
       ],
       periods: [{ id: nid(), start: off(-84), end: off(-79), note: '' }, { id: nid(), start: off(-56), end: off(-51), note: '' }, { id: nid(), start: off(-28), end: off(-23), note: '' }],
       vaccines: [
@@ -180,7 +181,7 @@
     s.call(localStorage, P + 'demo_seeded', SEED_V);
   }
   // 샘플 내용을 고치면 SEED_V를 올린다: 이미 체험판을 열어 본 기기도 새 샘플로 다시 채운다(체험 중 입력은 사라진다).
-  var SEED_V = '20';
+  var SEED_V = '21';
   try {
     if (g.call(localStorage, P + 'demo_seeded') !== SEED_V) {
       var olds = [], oi;
@@ -3450,9 +3451,9 @@
     const tile = (view, title, main, sub, x = {}) => { if (!tabHidden(view)) tiles.push(`<button type="button" class="dash-tile" data-sv="${view}"${x.sub ? ` data-ssub="${x.sub}"` : ''}${x.ref ? ` data-sref="${attr(x.ref)}"` : ''}${x.mode ? ` data-smode="${x.mode}"` : ''}><small>${title}</small><b>${main}</b><span>${sub}</span></button>`); };
     const wk = fitSum(fit.log.filter((l) => l.date >= ws && l.date <= addDays(ws, 6))), g = fit.goals.me || {};
     tile('fit', '💪 운동', fit.log.length ? `이번 주 ${wk.n}회${wk.min ? ' · ' + fmtMin(wk.min) : ''}` : '기록을 시작해 보세요', fit.log.length ? `${g.perWeek ? '목표 ' + g.perWeek + '회 · ' : ''}🔥 연속 ${fitStreak(fit.log)}일` : '운동 관리에서 첫 운동을 적어요', { sub: 'log' });
-    const next = health.visits.filter((v) => validDate(v.next) && v.next >= today).sort((a, b) => (a.next < b.next ? -1 : 1))[0];
+    const next = health.visits.filter((v) => validDate(visitAppt(v)) && visitAppt(v) >= today).sort((a, b) => (visitAppt(a) < visitAppt(b) ? -1 : 1))[0];
     const planned = health.vaccines.filter((v) => !v.done).length, claim = health.visits.filter((v) => v.claim === 'todo').length;
-    tile('health', '🩺 건강', next ? `병원 예약 D-${diffDays(next.next, today)}` : '예정된 예약 없음', `${planned ? '접종 예정 ' + planned + '건' : '접종 예정 없음'}${claim ? ' · 실비 청구 ' + claim + '건' : ''}`, next ? { ref: next.id, mode: 'visit' } : planned ? { mode: 'vaccine' } : { mode: 'visit' });
+    tile('health', '🩺 건강', next ? `병원 예약 D-${diffDays(visitAppt(next), today)}` : '예정된 예약 없음', `${planned ? '접종 예정 ' + planned + '건' : '접종 예정 없음'}${claim ? ' · 실비 청구 ' + claim + '건' : ''}`, next ? { ref: next.id, mode: 'visit' } : planned ? { mode: 'vaccine' } : { mode: 'visit' });
     const savTotal = savings.accounts.reduce((a, x) => a + savBal(x.id), 0);
     tile('savings', '🐷 저축', savings.accounts.length ? formatWon(savTotal) : '통장·목표 없음', savings.accounts.length ? `통장·목표 ${savings.accounts.length}개` : '목표를 만들어 보세요');
     const soon = fridge.filter((f) => { const d = ddOf(f); return d !== null && d <= 3; }).length;
@@ -4092,6 +4093,10 @@
   const diffDays = (a, b) => Math.round((parseD(a) - parseD(b)) / 86400000);
   const mdOf = (s) => +s.slice(5, 7) + '/' + +s.slice(8, 10);
   const validDate = (s) => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s);
+  // 진료 기록의 예약: booked = true면 "예약만 해 두고 아직 안 간" 기록이다(날짜 = 예약일, time = 예약 시간). 없으면 진료를 마친 기록이다.
+  // 앞으로 다가올 병원 예약은 예약 기록(booked)의 예약일이거나, 진료를 마친 기록의 "다음 예약일"(next)이다. 이걸 읽는 곳은 모두 visitAppt를 쓴다.
+  function visitAppt(v) { return v.booked ? v.date : v.next; }
+  function visitApptTxt(v) { return mdOf(visitAppt(v)) + (v.booked && v.time ? ' ' + v.time : ''); }
 
   function renderHealth() {
     applyCycleTab();
@@ -4117,12 +4122,14 @@
     if (healthWho !== 'all' && !ppl.some((p) => p.id === healthWho)) healthWho = 'all';
     el('health-who').innerHTML = [{ id: 'all', name: '전체' }, ...ppl]
       .map((p) => `<button type="button" data-who="${p.id}" class="${p.id === healthWho ? 'active' : ''}">${escapeHtml(p.name)}</button>`).join('');
-    const list = health.visits.filter((v) => validDate(v.date) && (whoPick(healthWho, v.who)));
+    const all = health.visits.filter((v) => validDate(v.date) && (whoPick(healthWho, v.who)));
+    const list = all.filter((v) => !v.booked);   // 진료를 마친 기록(통계·진료 기록 목록)
     const today = todayStr();
     const tag = (v) => (healthWho === 'all' && ppl.length > 1 ? `<span class="who-tag">${escapeHtml(whoName(v.who))}</span>` : '');
     const title = (v) => escapeHtml(v.hospital || '') + (v.dept ? ` (${escapeHtml(v.dept)})` : '') + tag(v);
 
-    const upcoming = list.filter((v) => validDate(v.next) && v.next >= today).sort((a, b) => (a.next < b.next ? -1 : 1));
+    const upcoming = all.filter((v) => validDate(visitAppt(v)) && visitAppt(v) >= today).sort((a, b) => (visitAppt(a) < visitAppt(b) ? -1 : visitAppt(a) > visitAppt(b) ? 1 : (a.time || '') < (b.time || '') ? -1 : 1));
+    const missed = all.filter((v) => v.booked && v.date < today).sort((a, b) => (a.date < b.date ? -1 : 1));   // 예약일이 지났는데 아직 진료 완료로 안 바꾼 것
     const past = [...list].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
     const year = today.slice(0, 4);
     const yearList = list.filter((v) => v.date.startsWith(year));
@@ -4138,11 +4145,18 @@
           ${v.reason ? `<div class="v2">${escapeHtml(v.reason)}</div>` : ''}</button>
         <button type="button" class="vcheck" data-claimdone="${v.id}" aria-label="청구 완료로 표시">청구 완료</button></div>`).join('');
     }
+    if (missed.length) {
+      html += `<div class="h-sec todo">예약일 지남 · ${missed.length}건</div>` + missed.map((v) => `<div class="vrow">
+        <button type="button" class="visit" data-visit="${v.id}"><div class="v1"><span>${mdOf(v.date)}${v.time ? ' ' + escapeHtml(v.time) : ''} · ${title(v)}</span><span class="dd">${-diffDays(v.date, today)}일 지남</span></div>
+          ${v.reason ? `<div class="v2">${escapeHtml(v.reason)}</div>` : ''}</button>
+        <button type="button" class="vcheck" data-visitdone="${v.id}" aria-label="진료 완료로 바꾸기">진료 완료</button></div>`).join('');
+    }
     if (upcoming.length) {
       html += '<div class="h-sec">다음 예약</div>' + upcoming.map((v) => {
-        const dd = diffDays(v.next, today);
-        return `<button type="button" class="visit" data-visit="${v.id}"><div class="v1"><span>${mdOf(v.next)} · ${title(v)}</span><span class="dd">${dd === 0 ? '오늘' : 'D-' + dd}</span></div>
+        const dd = diffDays(visitAppt(v), today);
+        const row = `<button type="button" class="visit" data-visit="${v.id}"><div class="v1"><span>${visitApptTxt(v)} · ${title(v)}</span><span class="dd">${dd === 0 ? '오늘' : 'D-' + dd}</span></div>
           ${v.reason ? `<div class="v2">${escapeHtml(v.reason)}</div>` : ''}</button>`;
+        return v.booked && dd === 0 ? `<div class="vrow">${row}<button type="button" class="vcheck" data-visitdone="${v.id}" aria-label="진료 완료로 바꾸기">진료 완료</button></div>` : row;
       }).join('');
     }
     html += `<div class="h-sec">진료 기록${list.length ? ` · 올해 ${yearList.length}회${cost ? ' · ' + formatWon(cost) : ''}` : ''}</div>`;
@@ -4153,17 +4167,22 @@
     el('health-body').innerHTML = html;
   }
 
-  function openVisitSheet(v) {
+  function openVisitSheet(v, opt) {
+    const finishing = !!(opt && opt.finish && v && v.booked);   // 예약 → 진료 완료로 바꾸러 들어옴
+    const booked = !!(v && v.booked) && !finishing, wasBooked = !!(v && v.booked);
     const who = v ? v.who : healthWho === 'all' ? 'me' : healthWho;
     const whoOpts = people().map((p) => `<option value="${attr(p.id)}"${p.id === who ? ' selected' : ''}>${escapeHtml(p.name)}</option>`).join('');
     const val = (x) => attr(x == null ? '' : String(x));
     openSheet(`<form>
       <h3>${v ? '진료 기록 수정' : '진료 기록 추가'}</h3>
       <label>누구</label><select name="who">${whoOpts}</select>
-      <label>진료일</label><input name="date" type="date" required value="${v ? val(v.date) : todayStr()}">
+      <label>상태</label><select name="state"><option value="done"${booked ? '' : ' selected'}>진료 완료</option><option value="booked"${booked ? ' selected' : ''}>예약 (아직 안 갔어요)</option></select>
+      <label id="vs-date-lbl">${booked ? '예약일' : '진료일'}</label><input name="date" type="date" required value="${v ? val(v.date) : todayStr()}">
+      <div id="vs-time-wrap"${booked ? '' : ' hidden'}><label>예약 시간 (선택)</label><input name="time" type="time" value="${val(v && v.time)}"></div>
       <label>병원</label><input name="hospital" required maxlength="30" placeholder="예: 우리소아과" value="${val(v && v.hospital)}">
       <label>진료과 (선택)</label><input name="dept" maxlength="20" placeholder="예: 소아과, 치과" value="${val(v && v.dept)}">
       <label>증상 · 진단 (선택)</label><input name="reason" maxlength="60" value="${val(v && v.reason)}">
+      <div id="vs-done"${booked ? ' hidden' : ''}>
       <label>진료비 (원, 선택)</label><input name="cost" type="number" min="0" inputmode="numeric" value="${val(v && v.cost)}">
       <label>실비(실손보험) 청구</label>
       <select name="claim">
@@ -4174,27 +4193,39 @@
       <label>청구일 · 받은 금액 (선택)</label>
       <div class="goal-row"><input name="claimDate" type="date" value="${val(v && v.claimDate)}"><input name="claimAmt" type="number" min="0" inputmode="numeric" placeholder="받은 금액(원)" value="${val(v && v.claimAmt)}"></div>
       <label>다음 예약일 (선택)</label><input name="next" type="date" value="${val(v && v.next)}">
+      </div>
       <label>메모 (선택)</label><input name="note" maxlength="80" value="${val(v && v.note)}">
-      ${v ? '' : '<label class="check"><input type="checkbox" name="ledger" checked> 진료비를 가계부에 지출로도 기록</label>'}
+      ${!v || wasBooked ? `<div id="vs-ledger"${booked ? ' hidden' : ''}><label class="check"><input type="checkbox" name="ledger" checked> 진료비를 가계부에 지출로도 기록</label></div>` : ''}
       <div class="sheet-actions"><button type="button" data-cancel>취소</button>${v ? '<button type="button" data-delete>삭제</button>' : ''}<button type="submit">저장</button></div>
     </form>`, (fd) => {
       const hospital = String(fd.get('hospital')).trim();
       const date = String(fd.get('date'));
       if (!hospital || !validDate(date)) { showToast('병원 이름과 진료일을 확인해 주세요'); return false; }
-      const cost = Math.max(0, parseInt(fd.get('cost'), 10) || 0);
-      const next = validDate(String(fd.get('next'))) ? String(fd.get('next')) : '';
+      const isBooked = String(fd.get('state')) === 'booked';
+      const cost = isBooked ? 0 : Math.max(0, parseInt(fd.get('cost'), 10) || 0);
+      const next = !isBooked && validDate(String(fd.get('next'))) ? String(fd.get('next')) : '';
       const rec = {
         who: String(fd.get('who')), date, hospital, dept: String(fd.get('dept')).trim(),
         reason: String(fd.get('reason')).trim(), cost, next, note: String(fd.get('note')).trim()
       };
-      rec.claim = ['todo', 'done'].includes(String(fd.get('claim'))) ? String(fd.get('claim')) : '';
-      rec.claimDate = validDate(String(fd.get('claimDate'))) ? String(fd.get('claimDate')) : '';
-      rec.claimAmt = Math.max(0, parseInt(fd.get('claimAmt'), 10) || 0);
+      rec.booked = isBooked;
+      rec.time = isBooked ? String(fd.get('time') || '') : '';
+      rec.claim = !isBooked && ['todo', 'done'].includes(String(fd.get('claim'))) ? String(fd.get('claim')) : '';
+      rec.claimDate = !isBooked && validDate(String(fd.get('claimDate'))) ? String(fd.get('claimDate')) : '';
+      rec.claimAmt = isBooked ? 0 : Math.max(0, parseInt(fd.get('claimAmt'), 10) || 0);
       if (rec.claim === 'done' && !rec.claimDate) rec.claimDate = todayStr();
-      if (v) Object.assign(v, rec);
-      else {
+      const addLedger = !isBooked && (!v || wasBooked) && fd.get('ledger') === 'on' && cost > 0;   // 진료비는 진료를 마친 기록을 저장할 때 한 번만 가계부에 넣는다
+      if (v) {
+        Object.assign(v, rec);
+        if (addLedger) {
+          const cat = categories.expense.includes('의료/건강') ? '의료/건강' : categories.expense[0];
+          transactions.push({ id: newId(), type: 'expense', date, category: cat, amount: cost, memo: hospital + ' 진료' });
+          save();
+          renderAll();
+        }
+      } else {
         health.visits.push({ id: newId(), ...rec });
-        if (fd.get('ledger') === 'on' && cost > 0) {
+        if (addLedger) {
           const cat = categories.expense.includes('의료/건강') ? '의료/건강' : categories.expense[0];
           transactions.push({ id: newId(), type: 'expense', date, category: cat, amount: cost, memo: hospital + ' 진료' });
           save();
@@ -4203,8 +4234,20 @@
       }
       saveHealth();
       renderHealth();
-      showToast(v ? '수정했어요' : '추가했어요');
+      showToast(v ? (wasBooked && !isBooked ? '진료 완료로 바꿨어요' : '수정했어요') : '추가했어요');
     });
+    // 상태를 "예약"으로 고르면 진료비·실비 칸은 숨기고 예약 시간 칸을 보인다. 새 기록은 날짜를 미래로 고르면 자동으로 "예약"이 된다(상태를 직접 고르기 전까지).
+    const stSel = sheetBody.querySelector('[name=state]'), dateEl = sheetBody.querySelector('[name=date]');
+    let stTouched = !!v;
+    const stShow = () => {
+      const b = stSel.value === 'booked';
+      sheetBody.querySelector('#vs-date-lbl').textContent = b ? '예약일' : '진료일';
+      sheetBody.querySelector('#vs-time-wrap').hidden = !b;
+      sheetBody.querySelector('#vs-done').hidden = b;
+      const lg = sheetBody.querySelector('#vs-ledger'); if (lg) lg.hidden = b;
+    };
+    stSel.addEventListener('change', () => { stTouched = true; stShow(); });
+    dateEl.addEventListener('change', () => { if (!stTouched && validDate(dateEl.value)) { stSel.value = dateEl.value > todayStr() ? 'booked' : 'done'; stShow(); } });
     const del = sheetBody.querySelector('[data-delete]');
     if (del) {
       del.addEventListener('click', () => {
@@ -4376,6 +4419,23 @@
     };
   }
 
+  // 접종 ↔ 진료 기록: 접종이 "완료"가 되면 진료 기록(병원 = 접종 장소, 사유 = "백신 차수 접종", 진료비 0)을 하나 자동으로 남기고 접종의 visitId로 잇는다.
+  // 날짜·사람·장소·사유는 접종을 고치면 따라 바뀌고(진료비·실비·메모는 사용자가 진료 기록에서 고친 대로 둔다), 접종을 예정으로 되돌리거나 지우면 자동 기록도 지운다.
+  // 이미 완료였던 접종(예전 기록)은 새로 만들지 않는다.
+  function syncVaccineVisit(v, wasDone) {
+    const ex = v.visitId && health.visits.find((x) => x.id === v.visitId);
+    if (!v.done) {
+      if (ex) { tomb(ex.id); health.visits = health.visits.filter((x) => x.id !== ex.id); }
+      delete v.visitId;
+      return;
+    }
+    const reason = `${v.name}${v.dose ? ' ' + v.dose : ''} 접종`;
+    if (ex) { ex.who = v.who; ex.date = v.date; ex.reason = reason; if (v.place) ex.hospital = v.place; return; }
+    if (wasDone) return;
+    v.visitId = newId();
+    health.visits.push({ id: v.visitId, who: v.who, date: v.date, hospital: v.place || '접종', dept: '', reason, cost: 0, next: '', note: '', claim: '', booked: false, time: '', vaccine: true });
+  }
+
   function openVaccineSheet(v, preset) {
     preset = preset || {};
     const who = v ? v.who : preset.who || (healthWho === 'all' ? 'me' : healthWho);
@@ -4394,7 +4454,7 @@
       <label>병원 · 장소 (선택)</label><input name="place" maxlength="30" value="${val(v && v.place)}">
       <label>메모 (선택)</label><input name="note" maxlength="80" value="${val(v ? v.note : preset.note)}">
       <label>다음 차수 예정일 (선택)</label><input name="next" type="date">
-      <p class="goal-hint">상태가 “완료”이고 다음 예정일을 넣으면, 다음 차수가 “해야 할 접종”에 자동으로 등록돼요.</p>
+      <p class="goal-hint">상태가 “완료”이고 다음 예정일을 넣으면, 다음 차수가 “해야 할 접종”에 자동으로 등록돼요. 완료한 접종은 진료 기록에도 자동으로 남아요.</p>
       <div class="sheet-actions"><button type="button" data-cancel>취소</button>${v ? '<button type="button" data-delete>삭제</button>' : ''}<button type="submit">저장</button></div>
     </form>`, (fd) => {
       const name = String(fd.get('name')).trim();
@@ -4404,7 +4464,10 @@
         who: String(fd.get('who')), name, dose: String(fd.get('dose')).trim(), done: fd.get('state') === 'done',
         date, place: String(fd.get('place')).trim(), note: String(fd.get('note')).trim()
       };
-      if (v) Object.assign(v, rec); else health.vaccines.push({ id: newId(), ...rec });
+      const wasDone = !!(v && v.done);
+      let vac = v;
+      if (v) Object.assign(v, rec); else { vac = { id: newId(), ...rec }; health.vaccines.push(vac); }
+      syncVaccineVisit(vac, wasDone);
       const nxt = String(fd.get('next'));
       if (rec.done && validDate(nxt) && !health.vaccines.some((x) => !x.done && x.who === rec.who && x.name === rec.name && x.date === nxt)) {
         health.vaccines.push({ id: newId(), who: rec.who, name, dose: nextDose(rec.dose), done: false, date: nxt, place: '', note: '' });
@@ -4417,6 +4480,7 @@
     if (del) {
       del.addEventListener('click', () => {
         tomb(v.id);
+        if (v.visitId) { v.done = false; syncVaccineVisit(v, true); }   // 자동으로 남긴 진료 기록도 같이 지운다
         health.vaccines = health.vaccines.filter((x) => x.id !== v.id);
         saveHealth();
         closeSheet();
@@ -4701,6 +4765,8 @@
   el('health-body').addEventListener('click', (e) => {
     const visit = e.target.closest('[data-visit]');
     if (visit) { openVisitSheet(health.visits.find((v) => v.id === visit.dataset.visit)); return; }
+    const vDone = e.target.closest('[data-visitdone]');
+    if (vDone) { const v = health.visits.find((x) => x.id === vDone.dataset.visitdone); if (v) openVisitSheet(v, { finish: true }); return; }
     const claimDone = e.target.closest('[data-claimdone]');
     if (claimDone) {
       const v = health.visits.find((x) => x.id === claimDone.dataset.claimdone);
@@ -4758,6 +4824,7 @@
       if (v) {
         v.done = false;
         v.date = todayStr();
+        syncVaccineVisit(v, true);
         if ((v.note || '').startsWith('날짜는 표준 시기로 추정')) v.note = '';
         saveHealth();
         renderHealth();
@@ -4785,7 +4852,7 @@
     const vdone = e.target.closest('[data-vdone]');
     if (vdone) {
       const v = health.vaccines.find((x) => x.id === vdone.dataset.vdone);
-      if (v) { v.done = true; v.date = todayStr(); saveHealth(); renderHealth(); showToast('접종 완료로 기록했어요 (날짜는 오늘)'); }
+      if (v) { const was = !!v.done; v.done = true; v.date = todayStr(); syncVaccineVisit(v, was); saveHealth(); renderHealth(); showToast('접종 완료로 기록했어요 (날짜는 오늘, 진료 기록에도 남겼어요)'); }
       return;
     }
     const vac = e.target.closest('[data-vaccine]');
@@ -8162,8 +8229,8 @@
 
     if (on('health')) {
       health.visits.filter((v) => hOk(v.who)).forEach((v) => {
-        add('health', v.date, { icon: '🏥', text: `${whoName(v.who)} · ${v.hospital} 진료`, view: 'health', ref: v.id, mode: 'visit' });
-        add('health', v.next, { icon: '🏥', text: `${whoName(v.who)} · ${v.hospital} 예약`, view: 'health', ref: v.id, mode: 'visit' });
+        if (!v.booked) add('health', v.date, { icon: '🏥', text: `${whoName(v.who)} · ${v.hospital} 진료`, view: 'health', ref: v.id, mode: 'visit' });
+        add('health', visitAppt(v), { icon: '🏥', text: `${whoName(v.who)} · ${v.hospital} 예약${v.booked && v.time ? ' ' + v.time : ''}`, view: 'health', ref: v.id, mode: 'visit' });
       });
       health.vaccines.filter((v) => hOk(v.who)).forEach((v) => add('health', v.date, { icon: '💉', text: `${whoName(v.who)} · ${v.name}${v.dose ? ' ' + v.dose : ''} 접종${v.done ? ' 완료' : ' 예정'}`, view: 'health', ref: v.id, mode: 'vaccine' }));
     }
@@ -8965,7 +9032,9 @@
     const add = (dd, text, view, icon, x) => items.push({ dd, text, view, icon, ...x });   // x: { ref, mode, sub, date } — 누르면 그 항목으로 간다
     const within = (date, lo, hi) => { if (!validDate(date)) return null; const dd = diffDays(date, today); return dd >= lo && dd <= hi ? dd : null; };
 
-    health.visits.forEach((v) => { const dd = within(v.next, 0, 7); if (dd !== null) add(dd, `${whoName(v.who)} · ${v.hospital} 예약`, 'health', '🏥', { ref: v.id, mode: 'visit' }); });
+    health.visits.forEach((v) => { const dd = within(visitAppt(v), 0, 7); if (dd !== null) add(dd, `${whoName(v.who)} · ${v.hospital} 예약${v.booked && v.time ? ' ' + v.time : ''}`, 'health', '🏥', { ref: v.id, mode: 'visit' }); });
+    // 예약일이 지났는데 아직 "진료 완료"로 안 바꾼 예약
+    health.visits.filter((v) => v.booked && validDate(v.date) && v.date < today).forEach((v) => add(null, `${whoName(v.who)} · ${v.hospital} 예약일(${mdOf(v.date)})이 지났어요 — 진료 완료로 바꿔 주세요`, 'health', '🏥', { ref: v.id, mode: 'visit' }));
     const claim = health.visits.filter((v) => v.claim === 'todo').length;
     if (claim) add(null, `실비 청구 필요 ${claim}건`, 'health', '🧾', { mode: 'visit' });
     health.vaccines.filter((v) => !v.done).forEach((v) => {
@@ -9139,7 +9208,7 @@
       }
     };
 
-    if (on('visit')) health.visits.forEach((v) => { if (validDate(v.next) && v.next >= today) ev({ uid: 'visit-' + v.id, summary: `🏥 ${whoName(v.who)} ${v.hospital} 예약`, desc: v.reason || '', date: v.next }); });
+    if (on('visit')) health.visits.forEach((v) => { const ad = visitAppt(v); if (validDate(ad) && ad >= today) ev({ uid: 'visit-' + v.id, summary: `🏥 ${whoName(v.who)} ${v.hospital} 예약${v.booked && v.time ? ' ' + v.time : ''}`, desc: v.reason || '', date: ad }); });
     if (on('vaccine')) health.vaccines.forEach((v) => { if (!v.done && validDate(v.date) && v.date >= today) ev({ uid: 'vac-' + v.id, summary: `💉 ${whoName(v.who)} ${v.name}${v.dose ? ' ' + v.dose : ''} 접종`, date: v.date }); });
     if (on('pay')) {
       insurance.forEach((p) => {
@@ -9364,8 +9433,8 @@
     const aca = academies.length ? card('academy', '📚', '학원비', formatWon(acaM(months[5])), `이번 달 · 납부 ${liveAca.length - unpaid.length}/${liveAca.length}${unpaid.length ? ` · 미납 ${formatWon(sum(unpaid, (a) => +a.fee || 0))}` : ''}`, sec('최근 6개월 수강료') + vbars(monthCols((mo) => ({ a: acaM(mo) }), (v) => '수강료 ' + formatWon(v.a)), '최근 6개월 월별 학원 수강료 막대그래프')) : empty('academy', '📚', '학원비', '학원을 등록하면 통계가 나와요');
 
     // ── 생활 ──
-    const hv = (mo) => health.visits.filter((v) => v.date && v.date.startsWith(mo.ym)), claim = health.visits.filter((v) => v.claim === 'todo').length, planned = health.vaccines.filter((v) => !v.done).length;
-    const hlt = health.visits.length || health.vaccines.length ? card('health', '🩺', '건강', `병원 ${hv(months[5]).length}회`, `이번 달 진료 · 올해 진료비 ${formatWon(sum(health.visits.filter((v) => (v.date || '').startsWith(yr)), (v) => +v.cost || 0))}${planned ? ` · 접종 예정 ${planned}건` : ''}${claim ? ` · 실비 청구 ${claim}건` : ''}`, sec('최근 6개월 진료 횟수') + vbars(monthCols((mo) => ({ a: hv(mo).length }), (v) => `진료 ${v.a}회`), '최근 6개월 월별 병원 진료 횟수 막대그래프'), { mode: 'visit' }) : empty('health', '🩺', '건강', '진료·접종·복약을 기록하면 통계가 나와요');
+    const hv = (mo) => health.visits.filter((v) => !v.booked && v.date && v.date.startsWith(mo.ym)), claim = health.visits.filter((v) => v.claim === 'todo').length, planned = health.vaccines.filter((v) => !v.done).length;
+    const hlt = health.visits.length || health.vaccines.length ? card('health', '🩺', '건강', `병원 ${hv(months[5]).length}회`, `이번 달 진료 · 올해 진료비 ${formatWon(sum(health.visits.filter((v) => !v.booked && (v.date || '').startsWith(yr)), (v) => +v.cost || 0))}${planned ? ` · 접종 예정 ${planned}건` : ''}${claim ? ` · 실비 청구 ${claim}건` : ''}`, sec('최근 6개월 진료 횟수') + vbars(monthCols((mo) => ({ a: hv(mo).length }), (v) => `진료 ${v.a}회`), '최근 6개월 월별 병원 진료 횟수 막대그래프'), { mode: 'visit' }) : empty('health', '🩺', '건강', '진료·접종·복약을 기록하면 통계가 나와요');
     const ws = weekStartOf(today), weeks = [];
     for (let i = 5; i >= 0; i--) { const st = addDays(ws, -7 * i), l = fit.log.filter((x) => x.date >= st && x.date <= addDays(st, 6)); weeks.push({ label: +st.slice(5, 7) + '/' + +st.slice(8, 10), min: sum(l, (x) => +x.min || 0), n: l.length, cur: i === 0 }); }
     const fw = weeks[5];
@@ -9415,7 +9484,7 @@
     const todaySch = schedule.items.filter((i) => i.day === dow).length;
     const planned = health.vaccines.filter((v) => !v.done);
     const overdueVac = planned.filter((v) => validDate(v.date) && v.date < today).length;
-    const visitsNext = health.visits.filter((v) => validDate(v.next) && v.next >= today).length;
+    const visitsNext = health.visits.filter((v) => validDate(visitAppt(v)) && visitAppt(v) >= today).length;
     const claimTodo = health.visits.filter((v) => v.claim === 'todo').length;
     const medsLeft = health.meds.filter((m) => medActive(m, today) && (m.times || []).some((t) => !((m.taken && m.taken[today]) || []).includes(t))).length;
     const bizMonth = biz.entries.filter((e) => e.date.startsWith(ym));
@@ -9442,7 +9511,7 @@
     const xIns = idOf(byDate(insurance.filter((p) => insState(p, today) !== 'ended'), (p) => [p.renewal, p.expiry].filter((d) => validDate(d) && d >= addDays(today, -7)).sort()[0] || '')) || idOf(activeIns);
     const xRent = idOf(byDate(liveRent, (r) => rentEnd(r) || '')) || idOf(liveRent);
     const xAca = idOf(acaUnpaid) || idOf(liveAca);
-    const overdueV = planned.filter((v) => validDate(v.date) && v.date < today), nextV = byDate(health.visits.filter((v) => validDate(v.next) && v.next >= today), (v) => v.next)[0];
+    const overdueV = planned.filter((v) => validDate(v.date) && v.date < today), nextV = byDate(health.visits.filter((v) => validDate(visitAppt(v)) && visitAppt(v) >= today), (v) => visitAppt(v))[0];
     const xHealth = overdueV.length ? { mode: 'vaccine', ref: overdueV[0].id } : nextV ? { mode: 'visit', ref: nextV.id } : medsLeft ? { mode: 'meds' } : { mode: 'visit' };
     const xSav = idOf(savings.accounts.filter((a) => savBehind(a, ym, now))) || idOf([...savings.accounts].sort((a, b) => savBal(b.id) - savBal(a.id)));
     const xSide = idOf([...side.jobs].sort((a, b) => sideStats(side.log.filter((l) => l.jid === b.id && l.date.startsWith(ym))).net - sideStats(side.log.filter((l) => l.jid === a.id && l.date.startsWith(ym))).net));
@@ -10025,7 +10094,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v179'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v180'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span class="slogan">다달이, 매일의 기록이 모여<br><b>더 나은 생활</b>이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
