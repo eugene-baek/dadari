@@ -1861,7 +1861,7 @@
     <div class="sq-grid">
       <div><label for="list-type">구분</label><select id="list-type"><option value="all">전체</option><option value="expense">지출</option><option value="income">수입</option><option value="fixed">고정</option></select></div>
       <div><label for="list-cat">카테고리</label><select id="list-cat"></select></div>
-      <div class="full"><label for="list-q">검색어 (메모·카테고리·결제수단·금액)</label><input type="text" id="list-q" placeholder="예: 점심, 수강료, 하나카드, 5000" autocomplete="off" enterkeyhint="search"></div>
+      <div class="full"><label for="list-q">검색어 (메모·카테고리·결제수단·금액)</label><div style="display:flex;gap:8px"><input type="text" id="list-q" placeholder="예: 점심, 수강료, 하나카드, 5000" autocomplete="off" enterkeyhint="search" style="flex:1;min-width:0"><button type="button" class="mini-btn" id="list-search-btn" style="flex:none">🔍 검색</button></div></div>
     </div>
     <div id="list-sum"></div>
     <div class="tx-list" id="tx-list"></div>
@@ -2455,8 +2455,7 @@
     if (!base.length) sm.innerHTML = '';
     else {
       const f = flowOnly(list), inc = f.filter((t) => t.type === 'income').reduce((a, t) => a + t.amount, 0), exp = f.filter((t) => t.type === 'expense').reduce((a, t) => a + t.amount, 0);
-      const sameAsTop = LST.period === 'month' && LST.type === 'all' && !LST.cat && !kw;   // 위쪽 요약 3칸과 같은 값이라 생략
-      let h = `<div class="ins-sum" style="margin:10px 0 0">${R.label} · <b>${list.length}건</b>${sameAsTop ? ' <small style="color:var(--text-muted)">(수입·지출·잔액은 위쪽 요약과 같아요)</small>' : `<br>지출 <b>${formatWon(exp)}</b> · 수입 <b>${formatWon(inc)}</b> · 잔액 <b>${inc - exp < 0 ? '-' : ''}${formatWon(Math.abs(inc - exp))}</b>`}`;
+      let h = `<div class="ins-sum" style="margin:10px 0 0">${R.label} · <b>${list.length}건</b><br>지출 <b>${formatWon(exp)}</b> · 수입 <b>${formatWon(inc)}</b> · 잔액 <b>${inc - exp < 0 ? '-' : ''}${formatWon(Math.abs(inc - exp))}</b>`;
       if (R.from && R.to && exp > 0) {   // 끝이 아직 안 온 기간은 오늘까지의 날수로 나눈다
         const t0 = todayStr(), upto = R.to > t0 && R.from <= t0 ? t0 : R.to, days = Math.round((new Date(upto) - new Date(R.from)) / 86400000) + 1;
         h += `<br>하루 평균 지출 <b>${formatWon(Math.round(exp / days))}</b> (${upto !== R.to ? '오늘까지 ' : ''}${days}일)`;
@@ -2517,6 +2516,14 @@
     if (e.target.closest('[data-lcat-clear]')) { LST.cat = ''; listLimit = 100; renderList(); }
   });
   el('list-q').addEventListener('input', (e) => { LST.q = e.target.value; listLimit = 100; renderList(); });
+  // 검색 버튼·엔터: 글자를 칠 때마다 바로 걸러지지만, 버튼(또는 엔터)을 누르면 키보드를 접고 결과(합계)로 올라가 보여 준다
+  const runListSearch = () => {
+    LST.q = el('list-q').value; listLimit = 100; renderList();
+    el('list-q').blur();
+    window.scrollTo({ top: Math.max(0, el('list-sum').getBoundingClientRect().top + window.scrollY - 70), behavior: 'smooth' });
+  };
+  el('list-search-btn').addEventListener('click', runListSearch);
+  el('list-q').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); runListSearch(); } });
   el('tx-list').addEventListener('click', (e) => {
     if (e.target.closest('[data-lmore]')) { listLimit += 100; renderList(); return; }
     const rc = e.target.closest('.rc-btn');
@@ -10517,7 +10524,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v191'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v192'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span class="slogan">다달이, 매일의 기록이 모여<br><b>더 나은 생활</b>이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
