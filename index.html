@@ -46,7 +46,7 @@
     var tx = [], plan = [
       [25, 'income', '급여', 3200000, '월급', 0, 0], [1, 'expense', '주거/공과금', 550000, '월세', 'transfer', 1], [5, 'expense', '통신', 65000, '통신비', 'card', 1],
       [3, 'expense', '식비', 62000, '정육점·과일', 'card', 0], [7, 'expense', '식비', 48000, '마트 장보기', 'card', 0], [9, 'expense', '교통', 55000, '교통카드 충전', 'card', 0],
-      [10, 'expense', '식비', 45000, '백화점 상품권 사용', 'gift', 0], [13, 'expense', '여가/문화', 15000, '문화누리 공연·도서', 'voucher', 0], [11, 'expense', '쇼핑', 120000, '생활용품', 'card', 0], [12, 'expense', '식비', 32000, '가족 외식', 'card', 0],
+      [10, 'expense', '식비', 45000, '백화점 상품권 사용', 'gift', 0], [13, 'expense', '여가/문화', 15000, '문화누리 공연·도서', 'voucher', 0], [20, 'expense', '기타', 70000, '아이돌봄 이용', 'voucher2', 0], [11, 'expense', '쇼핑', 120000, '생활용품', 'card', 0], [12, 'expense', '식비', 32000, '가족 외식', 'card', 0],
       [14, 'expense', '쇼핑', 89000, '의류', 'card', 0], [16, 'expense', '의료/건강', 23000, '병원·약국', 'cash', 0], [17, 'expense', '교통', 38000, '택시·주유', 'card', 0],
       [19, 'expense', '여가/문화', 45000, '영화·카페', 'card', 0], [21, 'expense', '식비', 27000, '배달 음식', 'card', 0], [23, 'expense', '경조사', 50000, '축의금', 'cash', 0],
       [27, 'income', '부수입', 180000, '배달 수입', 0, 0]
@@ -55,7 +55,7 @@
       plan.forEach(function (x) {
         if (mo === 0 && x[0] > T) return;
         var t = { id: nid(), type: x[1], date: ds(Y, M + mo, x[0]), category: x[2], amount: x[3] + (mo % 3 === 1 ? 3000 : mo % 3 === 2 ? -2000 : 0), memo: x[4] };
-        if (x[1] === 'expense') { t.pay = x[5]; if (x[5] === 'card') t.cardId = 'democ1'; if (x[5] === 'gift') t.cardId = 'democ3'; if (x[5] === 'voucher') t.cardId = 'democ4'; }
+        if (x[1] === 'expense') { t.pay = x[5] === 'voucher2' ? 'voucher' : x[5]; if (x[5] === 'card') t.cardId = 'democ1'; if (x[5] === 'gift') t.cardId = 'democ3'; if (x[5] === 'voucher') t.cardId = 'democ4'; if (x[5] === 'voucher2') t.cardId = 'democ5'; }
         if (x[6]) t.fixed = true;
         tx.push(t);
       });
@@ -64,7 +64,8 @@
     put('dadari_goal_v1', 1800000);
     put('dadari_cards_v1', [{ id: 'democ1', name: '생활카드', kind: 'credit', payDay: 15, fee: 15000, brand: '', fixedDefault: true, benefits: ['전월실적 30만원', '대중교통 10% 할인', '통신비 5천원 할인'].join(NL) }, { id: 'democ2', name: '체크카드', kind: 'check', payDay: 0, fee: 0, brand: '', benefits: '' },
       { id: 'democ3', name: '백화점 상품권', kind: 'gift', payDay: 0, fee: 0, brand: '', benefits: '', expiry: '', deposits: [{ id: 'demodp1', date: ds(Y, M - 5, 2), amount: 300000, memo: '선물 받음' }] },
-      { id: 'democ4', name: '문화누리카드', kind: 'voucher', payDay: 0, fee: 0, brand: '', benefits: '', expiry: ds(Y, M + 2, 28), autoDep: 20000, autoDepDay: 5, autoDepFrom: ds(Y, M - 2, 1), deposits: [{ id: 'demodp2', date: ds(Y, M - 5, 1), amount: 120000, memo: '올해 지원금' }] }]);
+      { id: 'democ4', name: '문화누리카드', kind: 'voucher', payDay: 0, fee: 0, brand: '', benefits: '', expiry: ds(Y, M + 2, 28), autoDep: 20000, autoDepDay: 5, autoDepFrom: ds(Y, M - 2, 1), deposits: [{ id: 'demodp2', date: ds(Y, M - 5, 1), amount: 120000, memo: '올해 지원금' }] },
+      { id: 'democ5', name: '아이돌봄 바우처', kind: 'voucher', payDay: 0, fee: 0, brand: '', benefits: '', expiry: '', validMonths: 1, autoDep: 100000, autoDepDay: 1, autoDepFrom: ds(Y, M - 5, 1), deposits: [] }]);
     put('dadari_recurs_v1', [
       { id: 'demor1', type: 'expense', cardId: null, name: '월세 자동이체', amount: 550000, day: 1, category: '주거/공과금', auto: false, start: off(-90) },
       { id: 'demor2', type: 'expense', cardId: 'democ1', name: '영상 구독', amount: 17000, day: 5, category: '여가/문화', auto: false, start: off(-90) },
@@ -183,7 +184,7 @@
     s.call(localStorage, P + 'demo_seeded', SEED_V);
   }
   // 샘플 내용을 고치면 SEED_V를 올린다: 이미 체험판을 열어 본 기기도 새 샘플로 다시 채운다(체험 중 입력은 사라진다).
-  var SEED_V = '23';
+  var SEED_V = '25';
   try {
     if (g.call(localStorage, P + 'demo_seeded') !== SEED_V) {
       var olds = [], oi;
@@ -2725,10 +2726,33 @@
   function isPrepaid(c) { return !!c && (c.kind === 'voucher' || c.kind === 'gift'); }
   function cardKindLabel(c) { return c.kind === 'voucher' ? '바우처' : c.kind === 'gift' ? '상품권' : c.kind === 'credit' ? '신용' : '체크'; }
   function payOfCard(c) { return c.kind === 'voucher' ? 'voucher' : c.kind === 'gift' ? 'gift' : 'card'; }
+  // 못 쓴 금액: **사용 기간이 있으면 기간이 지난 뒤 소멸하고, 기간이 없으면 계속 이월된다.** 기간은 두 가지(둘 다 적으면 먼저 오는 쪽): 사용 기한(`expiry`, 전체가 그날까지)과 충전마다 유효 기간(`validMonths`, 충전한 날부터 N개월 — 매달 들어오는 바우처는 1).
+  // 계산은 충전을 "덩어리"로 보고, 쓴 돈은 기한이 빨리 끝나는 덩어리부터 깎는다. 기한이 지난 덩어리의 남은 금액은 소멸(expired)이고 남은 금액(left)에서 빠진다. soon = 가장 가까운 소멸 예정(날짜·금액).
+  function prepaidHasPeriod(c) { return !!(+c.validMonths > 0 || validDate(c.expiry)); }
   function prepaidInfo(c) {
     const deps = Array.isArray(c.deposits) ? c.deposits : [];
     const dep = deps.reduce((a, d) => a + (+d.amount || 0), 0), used = transactions.filter((t) => t.type === 'expense' && t.cardId === c.id).reduce((a, t) => a + t.amount, 0);
-    return { has: deps.length > 0, dep, used, left: dep - used };
+    const hasPeriod = prepaidHasPeriod(c), has = deps.length > 0;
+    let left = dep - used, expired = 0, soon = null;
+    if (hasPeriod && has) {
+      const today = todayStr(), vm = +c.validMonths > 0 ? +c.validMonths : 0, cardExp = validDate(c.expiry) ? c.expiry : '';
+      const expOf = (date) => { let e = vm && validDate(date) ? addDays(addMonthsTo(date, vm), -1) : ''; if (cardExp && (!e || cardExp < e)) e = cardExp; return e; };
+      const byDate = (a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+      const lots = deps.filter((d) => (+d.amount || 0) > 0).map((d) => ({ date: String(d.date || ''), exp: expOf(String(d.date || '')), rem: +d.amount })).sort(byDate);
+      const outs = [...transactions.filter((t) => t.type === 'expense' && t.cardId === c.id).map((t) => ({ date: t.date, amt: t.amount })), ...deps.filter((d) => (+d.amount || 0) < 0).map((d) => ({ date: String(d.date || ''), amt: -(+d.amount) }))].sort(byDate);
+      let over = 0;
+      outs.forEach((o) => {
+        lots.forEach((l) => { if (l.rem > 0 && l.exp && l.exp < o.date) { expired += l.rem; l.rem = 0; } });
+        let need = o.amt;
+        lots.filter((l) => l.rem > 0 && l.date <= o.date).sort((a, b) => ((a.exp || '9999') < (b.exp || '9999') ? -1 : (a.exp || '9999') > (b.exp || '9999') ? 1 : 0)).forEach((l) => { const take = Math.min(l.rem, need); l.rem -= take; need -= take; });
+        over += need;
+      });
+      lots.forEach((l) => { if (l.rem > 0 && l.exp && l.exp < today) { expired += l.rem; l.rem = 0; } });
+      left = lots.reduce((a, l) => a + l.rem, 0) - over;
+      const live = lots.filter((l) => l.rem > 0 && l.exp && l.exp >= today).sort((a, b) => (a.exp < b.exp ? -1 : a.exp > b.exp ? 1 : 0));
+      if (live.length) soon = { date: live[0].exp, amount: live.filter((l) => l.exp === live[0].exp).reduce((a, l) => a + l.rem, 0) };
+    }
+    return { has, dep, used, expired, left, hasPeriod, soon };
   }
   const signedWon = (n) => (n < 0 ? '-' : '') + formatWon(Math.abs(n));
   // 매달 들어오는 바우처: 카드에 autoDep(매달 충전 금액)·autoDepDay(매월 충전일, 31 = 말일)·autoDepFrom(시작일)이 있으면, 시작일 이후 지난 충전일마다 충전 내역을 하나씩 자동으로 만든다.
@@ -3000,8 +3024,11 @@
     const tile = (cls, label, val, sub) => `<div class="summary-item ${cls}"><div class="lbl">${label}</div><div class="val">${val}</div>${sub ? `<div class="lbl" style="margin:2px 0 0;font-size:12px">${sub}</div>` : ''}</div>`;
     let h = p.has
       ? `<div class="summary-grid">${tile('income', '충전 합계', formatWon(p.dep))}${tile('expense', '사용', formatWon(p.used))}${tile('balance', '남은 금액', `<span style="${p.left < 0 ? 'color:var(--expense)' : ''}">${signedWon(p.left)}</span>`, p.left < 0 ? '충전보다 더 썼어요' : '')}</div>`
-        + (p.dep > 0 ? `<div class="bar" style="margin:8px 0 4px"><i class="${p.left < p.dep * 0.2 ? 'near' : ''}" style="width:${Math.max(0, Math.min(100, Math.round((p.used / p.dep) * 100)))}%"></i></div><div class="goal-hint" style="margin:0">${Math.round((p.used / p.dep) * 100)}% 사용</div>` : '')
+        + (p.expired > 0 ? `<div class="summary-grid" style="margin-top:8px">${tile('expense', '소멸', `<span style="color:var(--expense)">${formatWon(p.expired)}</span>`, '기간이 지나 못 쓴 금액')}</div>` : '')
+        + (p.dep > 0 ? `<div class="bar" style="margin:8px 0 4px"><i class="${p.left < p.dep * 0.2 ? 'near' : ''}" style="width:${Math.max(0, Math.min(100, Math.round(((p.used + p.expired) / p.dep) * 100)))}%"></i></div><div class="goal-hint" style="margin:0">${Math.round(((p.used + p.expired) / p.dep) * 100)}% 사용${p.expired > 0 ? '·소멸' : ''}</div>` : '')
       : `<div class="summary-grid">${tile('expense', '사용 합계', formatWon(p.used))}</div><p class="goal-hint" style="margin:6px 0 0">아래 “＋ 충전·입금 기록”으로 받은(산) 금액을 적으면 남은 금액을 보여 줘요.</p>`;
+    h += `<p class="goal-hint" style="margin:6px 0 0">못 쓴 금액: <b>${p.hasPeriod ? '기간 후 소멸' : '이월'}</b> · ${p.hasPeriod ? [+c.validMonths > 0 ? `충전한 날부터 ${+c.validMonths}개월` : '', validDate(c.expiry) ? '사용 기한 ' + c.expiry.slice(2).replace(/-/g, '.') : ''].filter(Boolean).join(' · ') + ' 안에 써야 해요' : '사용 기간이 없어 계속 이어져요'}</p>`;
+    if (p.soon) { const sd = diffDays(p.soon.date, t0); h += `<p class="goal-hint" style="margin:4px 0 0;color:var(--expense)">⏳ ${formatWon(p.soon.amount)}이 ${p.soon.date.slice(2).replace(/-/g, '.')}에 소멸돼요 (${sd === 0 ? '오늘' : 'D-' + sd})</p>`; }
     if (validDate(c.expiry)) { const dd = diffDays(c.expiry, t0); h += `<p class="goal-hint" style="margin:6px 0 0">사용 기한 ${c.expiry.slice(2).replace(/-/g, '.')} · ${dd < 0 ? '<b style="color:var(--expense)">기한이 지났어요</b>' : dd === 0 ? '오늘까지' : 'D-' + dd}</p>`; }
     const deps = [...(c.deposits || [])].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
     h += `<div class="h-sec">충전·입금 내역${deps.length ? ' · ' + deps.length + '건' : ''}</div>`
@@ -3025,7 +3052,7 @@
     const info = [c.brand, c.fee ? '연회비 ' + formatWon(c.fee) : ''].filter(Boolean).map(escapeHtml).join(' · ');
     return `<div class="cardbox${plain ? ' plain' : ''}">
       <div class="cardhead">
-        <div><b>${escapeHtml(c.name)}</b><span class="tag">${cardKindLabel(c)}</span>${c.fixedDefault ? '<span class="tag">고정비 기본</span>' : ''}
+        <div><b>${escapeHtml(c.name)}</b><span class="tag">${cardKindLabel(c)}</span>${pre ? `<span class="tag">${prepaidHasPeriod(c) ? '소멸' : '이월'}</span>` : ''}${c.fixedDefault ? '<span class="tag">고정비 기본</span>' : ''}
         <div class="cardsub">${parts.join(' · ')}</div>${info ? `<div class="cardsub">${info}</div>` : ''}</div>
         <div class="card-btns"><button type="button" class="pill-btn" data-edit-card="${c.id}">✎ 수정</button>
         <button type="button" class="icon-btn" data-del-card="${c.id}" aria-label="카드 삭제">🗑</button></div>
@@ -3053,7 +3080,7 @@
       <span class="ct-name">${escapeHtml(c.name)}</span>
       <span class="ct-tags"><span class="tag">${cardKindLabel(c)}</span>${c.fixedDefault ? '<span class="tag">고정비</span>' : ''}</span>
       <span class="ct-use"${showLeft && pp.left < 0 ? ' style="color:var(--expense)"' : ''}>${showLeft ? signedWon(pp.left) : formatWon(cardUse(c.id, monthKey(viewDate)))}</span>
-      <span class="ct-sub">${showLeft ? '남은 금액' : '이번 달 사용'}</span>${pp ? '' : perfMini(c)}</button>`;
+      <span class="ct-sub">${showLeft ? '남은 금액' : '이번 달 사용'}</span>${pp && pp.soon && diffDays(pp.soon.date, todayStr()) <= 14 ? `<span class="ct-sub" style="color:var(--expense)">${formatWon(pp.soon.amount)} 소멸 D-${diffDays(pp.soon.date, todayStr())}</span>` : ''}${pp ? '' : perfMini(c)}</button>`;
   }
 
   function renderCards() {
@@ -3217,7 +3244,7 @@
     // 바우처·상품권 종류 관리: 이름·사용 기한 수정(✎), 충전·입금 기록(＋), 삭제(🗑), 새 종류 등록
     const prepaidManageHtml = () => {
       const list = cards.filter(isPrepaid);
-      return (list.length ? list.map((c) => { const pp = prepaidInfo(c); return `<div class="rec"><div class="rec-name">${escapeHtml(c.name)}<br><small style="color:var(--text-muted);font-weight:400">${cardKindLabel(c)} · ${pp.has ? '남은 ' + signedWon(pp.left) : '충전 내역 없음'}</small></div>
+      return (list.length ? list.map((c) => { const pp = prepaidInfo(c); return `<div class="rec"><div class="rec-name">${escapeHtml(c.name)}<br><small style="color:var(--text-muted);font-weight:400">${cardKindLabel(c)} · ${pp.hasPeriod ? '기간 후 소멸' : '이월'} · ${pp.has ? '남은 ' + signedWon(pp.left) : '충전 내역 없음'}</small></div>
           <button type="button" class="icon-btn" data-pp-dep="${attr(c.id)}" aria-label="충전·입금 기록">＋</button>
           <button type="button" class="icon-btn" data-pp-edit="${attr(c.id)}" aria-label="정보 수정">✎</button>
           <button type="button" class="icon-btn" data-pp-del="${attr(c.id)}" aria-label="삭제">🗑</button></div>`; }).join('') : '<div class="empty-msg" style="padding:12px 0">등록한 바우처·상품권이 없어요</div>')
@@ -3340,6 +3367,8 @@
       <div id="cs-prepaid"${isPrepaid({ kind: curKind }) ? '' : ' hidden'}>
         <p class="goal-hint" style="margin:6px 0 0">바우처는 종류마다 따로 등록해요(예: 문화누리카드, 아이돌봄). 기록할 때 메모를 이름으로 시작하면(예: “문화누리 공연”) 그 바우처가 결제수단으로 자동 선택돼요. 충전(입금) 내역을 적으면 쓴 만큼 빠지고 남은 금액이 보여요.</p>
         <label>사용 기한 (선택)</label><input name="expiry" type="date" value="${val(c && c.expiry)}">
+        <label>충전마다 유효 기간 (개월, 선택)</label><input name="validMonths" type="number" min="0" max="120" inputmode="numeric" placeholder="예: 1 (충전한 날부터 1개월 안에 써요)" value="${val(c && +c.validMonths > 0 ? c.validMonths : '')}">
+        <p class="goal-hint" style="margin:2px 0 0">기간을 적으면 <b>기간이 지난 뒤 못 쓴 금액은 소멸</b>하고, 기간을 안 적으면 계속 <b>이월</b>돼요. 사용 기한은 전체가 그날까지, 유효 기간은 충전한 날부터 따져요(둘 다 적으면 먼저 오는 쪽). 매달 들어오는 바우처가 그 달에만 쓸 수 있으면 유효 기간 1개월로 적어요.</p>
         <label class="check"><input type="checkbox" name="autoDep"${c && +c.autoDep > 0 ? ' checked' : ''}> 매달 자동으로 충전(입금)돼요</label>
         <div id="cs-autodep"${c && +c.autoDep > 0 ? '' : ' hidden'}>
           <label>매달 충전 금액 (원)</label><input name="autoDepAmt" type="number" min="0" inputmode="numeric" placeholder="예: 20000" value="${val(c && +c.autoDep > 0 ? c.autoDep : '')}">
@@ -3347,7 +3376,7 @@
           <label>자동 충전 시작일</label><input name="autoDepFrom" type="date" value="${val(c && validDate(c.autoDepFrom) ? c.autoDepFrom : todayStr())}">
           <p class="goal-hint" style="margin:4px 0 0">시작일 이후 충전일마다 충전 내역이 자동으로 생겨요(지난 달도 시작일부터 채워요). 충전일을 비우면 시작일의 날짜로 정해요. 가계부 수입으로는 기록하지 않아요.</p>
         </div>
-        ${c ? (() => { const pp = prepaidInfo(c); return `<div class="ins-sum" style="margin:8px 0 0">충전 합계 <b>${formatWon(pp.dep)}</b> · 사용 ${formatWon(pp.used)} · 남은 <b>${signedWon(pp.left)}</b></div>
+        ${c ? (() => { const pp = prepaidInfo(c); return `<div class="ins-sum" style="margin:8px 0 0">충전 합계 <b>${formatWon(pp.dep)}</b> · 사용 ${formatWon(pp.used)}${pp.expired ? ' · 소멸 ' + formatWon(pp.expired) : ''} · 남은 <b>${signedWon(pp.left)}</b></div>
         <label>남은 금액 직접 맞추기 (선택)</label><input name="setLeft" type="number" inputmode="numeric" placeholder="지금 남은 금액 (현재 ${pp.left})">
         <p class="goal-hint" style="margin:2px 0 0">실제 남은 금액을 적으면 차액만큼 “남은 금액 맞춤” 내역이 더해져요. 충전 금액 자체를 고치려면 아래 버튼으로 내역을 열어 ✎를 눌러요.</p>
         <button type="button" class="mini-btn" id="cs-open-detail" style="width:100%;margin-top:6px">충전·입금 내역 보기·수정</button>`; })() : '<label>처음 충전 금액 (원, 선택)</label><input name="initDep" type="number" min="0" inputmode="numeric" placeholder="예: 100000 (오늘 날짜로 기록돼요)">'}
@@ -3377,7 +3406,8 @@
         name, kind, payDay: kind === 'credit' && day >= 1 && day <= 31 ? day : 0,
         fee: pre ? 0 : Math.max(0, parseInt(fd.get('fee'), 10) || 0), brand: pre ? '' : String(fd.get('brand')).trim(),
         benefits: pre ? '' : String(fd.get('benefits')).trim(), fixedDefault: !pre && fd.get('fixedDefault') === 'on',
-        expiry: pre && validDate(String(fd.get('expiry'))) ? String(fd.get('expiry')) : ''
+        expiry: pre && validDate(String(fd.get('expiry'))) ? String(fd.get('expiry')) : '',
+        validMonths: pre ? Math.max(0, Math.min(120, parseInt(fd.get('validMonths'), 10) || 0)) : 0
       };
       if (pre && fd.get('autoDep') === 'on') {
         const amt = Math.max(0, parseInt(fd.get('autoDepAmt'), 10) || 0), from = validDate(String(fd.get('autoDepFrom'))) ? String(fd.get('autoDepFrom')) : todayStr();
@@ -9294,9 +9324,10 @@
       const dd = d ? within(d, 0, 3) : null;
       if (dd !== null) add(dd, `${c.name} 결제일`, 'ledger', '💳', { sub: 'card', ref: c.id });
     });
-    cards.filter((c) => isPrepaid(c) && validDate(c.expiry)).forEach((c) => {
-      const pp = prepaidInfo(c), dd = within(c.expiry, 0, 14);
-      if (dd !== null && (!pp.has || pp.left > 0)) add(dd, `${c.name} 사용 기한${pp.has ? ' · 남은 ' + formatWon(pp.left) : ''}`, 'ledger', '🎟', { sub: 'card', ref: c.id });
+    cards.filter(isPrepaid).forEach((c) => {
+      const pp = prepaidInfo(c);
+      if (pp.soon) { const dd = within(pp.soon.date, 0, 14); if (dd !== null) add(dd, `${c.name} ${formatWon(pp.soon.amount)} 소멸 예정`, 'ledger', '🎟', { sub: 'card', ref: c.id }); }
+      else if (!pp.has && validDate(c.expiry)) { const dd = within(c.expiry, 0, 14); if (dd !== null) add(dd, `${c.name} 사용 기한`, 'ledger', '🎟', { sub: 'card', ref: c.id }); }
     });
     debt.items.filter((d) => debtBal(d.id) > 0).forEach((d) => {
       const nx = d.payDay >= 1 && d.monthly > 0 ? nextPay(d.payDay, today, 'month') : '', dd = nx ? within(nx, 0, 3) : null;
@@ -10308,7 +10339,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v184'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v185'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span class="slogan">다달이, 매일의 기록이 모여<br><b>더 나은 생활</b>이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
