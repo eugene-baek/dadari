@@ -556,6 +556,13 @@
   .med-card .mc-eff { font-size: 13px; color: var(--text); line-height: 1.45; overflow-wrap: anywhere; }
   .med-card .mc-foot { font-size: 13px; color: var(--text-muted); margin-top: auto; }
   .med-card.done .mc-foot { color: var(--mc-text); font-weight: 700; }
+  .pat-main { display: flex; align-items: center; gap: 12px; background: var(--bg); border-radius: 12px; padding: 12px 14px; margin: 4px 0 10px; }
+  .pat-main .pat-ic { font-size: 38px; line-height: 1; flex: none; }
+  .pat-main .pat-t { font-size: 18px; font-weight: 800; display: block; }
+  .pat-main .pat-d { font-size: 14px; color: var(--text-muted); line-height: 1.45; display: block; margin-top: 2px; }
+  .pat-main .pat-d b { color: var(--text); font-weight: 800; }
+  .pat-tip { background: var(--mc-soft); border-radius: 12px; padding: 10px 12px; font-size: 14.5px; line-height: 1.55; margin: 6px 0 8px; }
+  .pat-tip b { font-weight: 800; }
   .tx-list { display: flex; flex-direction: column; gap: 0; }
   .list-head .cnt { color: var(--text-muted); font-size: 14px; font-weight: 600; }
   .list-q { width: 100%; margin: 4px 0 6px; }
@@ -1741,6 +1748,11 @@
     <div id="fixed-list"></div>
   </section>
 
+  <section class="card" id="pattern-card" data-sub="plan">
+    <h2 class="section-title">🧭 나의 소비 패턴</h2>
+    <div id="pattern-body"></div>
+  </section>
+
   <section class="card" id="goal-card" data-sub="plan">
     <h2 class="section-title">월 지출 목표 · 주별 분배</h2>
     <div class="goal-row">
@@ -2073,6 +2085,58 @@
     n.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
   });
 
+  // 소비 패턴(가계부 목표·분석 탭): 보고 있는 달의 지출을 분류별로 보고 ① 가장 많이 쓰는 분류로 소비 성향 이름("식비 대장"·"쇼핑 홀릭" 등) ② 최근 3개월 평균과 비교 ③ 줄여볼 분류(주거·통신·보험·의료·교육·대출·저축 같은 필수·고정 성격은 빼고 선택 지출 중)와 10% 줄였을 때 절약액을 보여 준다.
+  // 분류 이름으로 성향을 짐작하는 가벼운 재미 요소라 비난하지 않는 말투를 쓰고, 분류는 사용자가 정한 이름 그대로다. 대출·대여 원금(`flowOnly`)은 뺀다.
+  const PAT_PERSONA = [
+    [/식비|외식|배달|음식|마트|장보기|식사|식료/, '🍚', '식비 대장 (대식가)', '미식가형', '먹는 데 가장 많이 쓰고 있어요'],
+    [/카페|커피|간식|디저트/, '☕', '카페 단골 (커피 홀릭)', '카페 즐기는 형', '카페·간식에 쓰는 돈이 커요'],
+    [/쇼핑|옷|의류|잡화|뷰티|화장품|미용/, '🛍', '쇼핑 홀릭', '쇼핑 좋아하는 형', '사고 싶은 게 많은 달이에요'],
+    [/여가|문화|여행|영화|취미|레저|게임|놀이/, '🎬', '욜로족 (즐기는 사람)', '여가 즐기는 형', '즐기는 데 아낌없이 써요'],
+    [/교통|택시|버스|지하철|주유|차량|자동차|주차/, '🚗', '이동왕', '이동이 많은 형', '오가는 데 쓰는 돈이 커요'],
+    [/주거|공과금|월세|관리비|전기|가스|수도/, '🏠', '집이 최우선', '주거비 중심형', '집에 드는 돈이 가장 커요(대부분 꼭 나가는 돈이에요)'],
+    [/통신/, '📱', '연결이 중요한 사람', '통신 비중 큰 형', '통신비 비중이 커요'],
+    [/의료|건강|병원|약|운동/, '💊', '건강 지킴이', '건강 챙김형', '건강에 가장 많이 투자하고 있어요'],
+    [/경조사|선물|기부|용돈/, '🎁', '인심 좋은 마음 부자', '나눔형', '주변을 챙기는 데 많이 써요'],
+    [/교육|학원|학습|도서|책/, '📚', '교육열 만점', '교육 투자형', '배우는 데 가장 많이 써요'],
+    [/보험/, '🛡', '든든 대비형', '대비형', '보험에 쓰는 돈이 가장 커요'],
+    [/렌탈|구독/, '🧰', '구독 부자', '구독 많은 형', '정기 결제에 나가는 돈이 커요'],
+    [/저축/, '🐷', '저축왕', '저축형', '모으는 데 가장 많이 쓰고 있어요']
+  ];
+  const PAT_NEED = /주거|공과금|월세|관리비|전기|가스|수도|통신|보험|의료|건강|병원|대출|이자|상환|세금|교육|학원|저축|렌탈/;   // 필수·고정 성격: 줄이기 후보에서 뺀다
+  function renderPattern() {
+    const box = el('pattern-body');
+    if (!box) return;
+    const key = monthKey(viewDate), sumBy = (list) => { const m = {}; list.forEach((t) => { const k = t.category || '기타'; m[k] = (m[k] || 0) + t.amount; }); return m; };
+    const expOf = (k) => flowOnly(transactions.filter((t) => txMonthKey(t) === k && t.type === 'expense'));
+    const curList = expOf(key), cur = sumBy(curList), total = Object.values(cur).reduce((a, v) => a + v, 0);
+    if (!total) { box.innerHTML = '<div class="empty-msg" style="padding:12px 0">이 달 지출 기록이 없어요<br>지출을 기록하면 어떤 소비가 많은지 알려 드려요</div>'; return; }
+    // 최근 3개월(보고 있는 달 앞) 분류별 평균: 지출이 있었던 달만 센다
+    const prevKeys = [1, 2, 3].map((i) => monthKey(new Date(viewDate.getFullYear(), viewDate.getMonth() - i, 1))), prevData = prevKeys.map((k) => sumBy(expOf(k))).filter((m) => Object.keys(m).length), nPrev = prevData.length;
+    const avgOf = (c) => (nPrev ? prevData.reduce((a, m) => a + (m[c] || 0), 0) / nPrev : 0);
+    const fixedAmt = {}; curList.filter(isFixed).forEach((t) => { const k = t.category || '기타'; fixedAmt[k] = (fixedAmt[k] || 0) + t.amount; });
+    const cats = Object.entries(cur).map(([name, v]) => { const avg = avgOf(name), delta = avg > 0 ? Math.round(((v - avg) / avg) * 100) : null; return { name, v, share: Math.round((v / total) * 100), avg, delta, need: PAT_NEED.test(name) || (fixedAmt[name] || 0) >= v * 0.6 }; }).sort((a, b) => b.v - a.v);
+    // 소비 성향은 꼭 나가는 돈(주거·통신·보험 등)을 뺀 "선택 소비"에서 1위 분류로 정한다(주거비가 1위라고 "집이 최우선"으로만 나오지 않게). 선택 소비가 없으면 가장 많은 분류로 한다.
+    const disc = cats.filter((c) => !c.need), discTotal = disc.reduce((a, c) => a + c.v, 0), top = cats[0], pc = disc.length ? disc[0] : top, pcShare = disc.length ? Math.round((pc.v / discTotal) * 100) : pc.share, per = PAT_PERSONA.find(([re]) => re.test(pc.name)), base = disc.length ? `선택 소비(꼭 나가는 돈을 뺀 ${formatWon(discTotal)})` : '이번 달 지출';
+    let icon, title, line;
+    if (pcShare < 25) { icon = '⚖️'; title = '균형 소비형'; line = `${base}를 골고루 써요. 가장 큰 분류는 “${escapeHtml(pc.name)}”(${pcShare}%)예요`; }
+    else if (per) { icon = per[1]; title = pcShare >= 40 ? per[2] : per[3]; line = `${base}의 <b>${pcShare}%</b>(${formatWon(pc.v)})가 “${escapeHtml(pc.name)}”예요. ${per[4]}`; }
+    else { icon = '🧾'; title = `${escapeHtml(pc.name)} 집중형`; line = `${base}의 <b>${pcShare}%</b>(${formatWon(pc.v)})가 “${escapeHtml(pc.name)}”예요`; }
+    const tile = (label, val, sub) => `<div class="summary-item balance"><div class="lbl">${label}</div><div class="val">${val}</div>${sub ? `<div class="lbl" style="margin:2px 0 0;font-size:12px">${sub}</div>` : ''}</div>`;
+    const dTxt = (c) => (c.delta === null ? '비교할 지난 기록이 없어요' : c.delta === 0 ? '평균과 비슷해요' : `평균보다 ${c.delta > 0 ? '+' : ''}${c.delta}%`);
+    let html = `<div class="pat-main"><span class="pat-ic">${icon}</span><div><b class="pat-t">${title}</b><span class="pat-d">${line}</span></div></div>`
+      + `<div class="summary-grid">${tile('가장 많은 분류', escapeHtml(top.name), `${top.share}% · ${formatWon(top.v)}`)}${tile('선택 소비 1위', escapeHtml(pc.name), `${disc.length ? '선택 소비의 ' : '지출의 '}${pcShare}%`)}${tile('최근 3개월 평균 대비', pc.delta === null ? '-' : (pc.delta > 0 ? '+' : '') + pc.delta + '%', pc.delta === null ? '지난 기록이 없어요' : `${escapeHtml(pc.name)} 평균 ${formatWon(Math.round(pc.avg))}`)}</div>`;
+    // 줄여볼 분류: 필수·고정 성격을 뺀 선택 지출 중에서(상위 3개). 가장 먼저는 3개월 평균보다 20% 이상 늘어난 분류(비중 5% 이상), 없으면 가장 많이 쓴 분류
+    const cand = cats.filter((c) => !c.need).slice(0, 3);
+    if (cand.length) {
+      const grow = cand.filter((c) => c.delta !== null && c.delta >= 20 && c.share >= 5).sort((a, b) => b.v - b.avg - (a.v - a.avg))[0], first = grow || cand[0];
+      const save10 = Math.round(first.v * 0.1);
+      html += `<div class="h-sec">줄여볼 만한 분류</div><div class="pat-tip">가장 먼저 “<b>${escapeHtml(first.name)}</b>”을(를) 줄여 보세요. ${grow ? `최근 3개월 평균보다 <b>${first.delta}% 늘었어요.</b>` : `이번 달 가장 많이 쓴 선택 지출이에요(전체 지출의 ${first.share}%).`}<br>10%만 줄여도 한 달 약 <b>${formatWon(save10)}</b>, 1년이면 약 <b>${formatWon(save10 * 12)}</b>이에요.</div>`
+        + cand.map((c) => `<div class="fx-row"><span>${escapeHtml(c.name)} <small style="color:var(--text-muted)">${c.share}% · ${dTxt(c)}</small></span><b>${formatWon(c.v)}</b></div>`).join('')
+        + `<p class="goal-hint" style="margin:8px 0 0">주거·통신·보험·의료·교육·대출·저축처럼 꼭 나가는 돈은 줄이기 후보에서 뺐어요. 분류 이름은 내가 정한 대로 읽고, 고정으로 표시한 내역이 대부분인 분류도 뺐어요.</p>`;
+    } else html += '<p class="goal-hint" style="margin:8px 0 0">이번 달 지출은 대부분 꼭 나가는 돈(주거·통신·보험 등)이에요. 줄여볼 선택 지출이 아직 없어요.</p>';
+    box.innerHTML = html;
+  }
+
   function renderAll() {
     const key = monthKey(viewDate);
     el('month-label').textContent = viewDate.getFullYear() + '년 ' + (viewDate.getMonth() + 1) + '월';
@@ -2098,6 +2162,7 @@
 
     renderWeeks(flowTx.filter((t) => t.type === 'expense'));
     renderBreakdown(flowTx.filter((t) => t.type === 'expense'));
+    try { renderPattern(); } catch (e) { /* 아직 안 만들어진 값 */ }
     renderCards();
     renderFixed(monthTx);
     renderList();
@@ -9901,7 +9966,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v177'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v178'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span class="slogan">다달이, 매일의 기록이 모여<br><b>더 나은 생활</b>이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
