@@ -62,6 +62,7 @@
     });
     put('dadari_transactions_v1', tx);
     put('dadari_goal_v1', 1800000);
+    put('dadari_categories_v1', { expense: ['식비', '교통', '주거/공과금', '통신', '의료/건강', '쇼핑', '여가/문화', '경조사', '기타'], income: ['급여', '부수입', '용돈', '환급/이자', '기타'], budget: { '식비': 250000, '쇼핑': 200000, '교통': 100000, '여가/문화': 100000 } });
     put('dadari_cards_v1', [{ id: 'democ1', name: '생활카드', kind: 'credit', payDay: 15, fee: 15000, brand: '', fixedDefault: true, benefits: ['전월실적 30만원', '대중교통 10% 할인', '통신비 5천원 할인'].join(NL) }, { id: 'democ2', name: '체크카드', kind: 'check', payDay: 0, fee: 0, brand: '', benefits: '' },
       { id: 'democ3', name: '백화점 상품권', kind: 'gift', payDay: 0, fee: 0, brand: '', benefits: '', expiry: '', deposits: [{ id: 'demodp1', date: ds(Y, M - 5, 2), amount: 300000, memo: '선물 받음' }] },
       { id: 'democ4', name: '문화누리카드', kind: 'voucher', payDay: 0, fee: 0, brand: '', benefits: '', expiry: ds(Y, M + 2, 28), autoDep: 20000, autoDepDay: 5, autoDepFrom: ds(Y, M - 2, 1), deposits: [{ id: 'demodp2', date: ds(Y, M - 5, 1), amount: 120000, memo: '올해 지원금' }] },
@@ -184,7 +185,7 @@
     s.call(localStorage, P + 'demo_seeded', SEED_V);
   }
   // 샘플 내용을 고치면 SEED_V를 올린다: 이미 체험판을 열어 본 기기도 새 샘플로 다시 채운다(체험 중 입력은 사라진다).
-  var SEED_V = '25';
+  var SEED_V = '26';
   try {
     if (g.call(localStorage, P + 'demo_seeded') !== SEED_V) {
       var olds = [], oi;
@@ -649,6 +650,9 @@
     z-index: 10;
   }
   .toast.show { opacity: 1; }
+  .toast.undo { pointer-events: auto; }
+  .toast-undo { background: transparent; border: 0; color: var(--bg); font: inherit; font-weight: 800; text-decoration: underline; padding: 0 0 0 8px; cursor: pointer; }
+  .bud-row .bar { margin: 2px 0; }
 
   .goal-row { display: flex; gap: 8px; margin-bottom: 4px; }
   .goal-row button {
@@ -1740,6 +1744,7 @@
       </div>
     </div>
     <p class="goal-hint" id="flow-note" hidden style="margin:8px 0 0"></p>
+    <p class="goal-hint" id="cmp-note" hidden style="margin:8px 0 0"></p>
     <div class="year-sum">
       <div class="ys-head" id="year-label"></div>
       <div class="ys-row"><span>총 수입</span><b class="inc" id="ys-income">0원</b></div>
@@ -1756,6 +1761,7 @@
   <section class="card" id="fixed-card" data-sub="sum">
     <h2 class="section-title">이번 달 고정 수입·지출<span class="fx-sum" id="fixed-sum"></span></h2>
     <div id="fixed-list"></div>
+    <p class="goal-hint" style="margin:8px 0 0"><b>고정</b>은 매달 나가는 돈이라는 표시이고, <b>자동이체</b>는 결제일에 내역을 대신 만들어 주는 등록(카드·이체 탭)이에요. 자동이체로 만든 내역은 자동으로 고정이에요.</p>
   </section>
 
   <section class="card" id="pattern-card" data-sub="plan">
@@ -1804,7 +1810,8 @@
       </div>
       <div class="full">
         <label for="f-memo">메모 (선택)</label>
-        <input type="text" id="f-memo" placeholder="예: 점심 식사">
+        <input type="text" id="f-memo" placeholder="예: 점심 식사" list="memo-suggest" autocomplete="off">
+        <datalist id="memo-suggest"></datalist>
       </div>
       <div class="full">
         <label>영수증 사진 (선택)</label>
@@ -1818,6 +1825,11 @@
       </div>
       <button type="submit" class="submit-btn">기록하기</button>
     </form>
+  </section>
+
+  <section class="card" id="budget-card" data-sub="plan">
+    <h2 class="section-title">📏 카테고리별 예산<span class="fx-sum" id="budget-sum"></span></h2>
+    <div id="budget-body"></div>
   </section>
 
   <section class="card" id="breakdown-card" data-sub="plan">
@@ -1835,7 +1847,7 @@
   </section>
 
   <section class="card" id="list-card" data-sub="list">
-    <div class="list-head"><h2 class="section-title">🔍 내역 · 검색 · 기간 합계</h2><span class="cnt" id="list-count"></span></div>
+    <div class="list-head"><h2 class="section-title">🔍 내역 · 검색 · 기간 합계</h2><span class="cnt" id="list-count"></span><button type="button" class="mini-btn" id="list-csv" style="margin-left:auto">📤 CSV</button></div>
     <div class="period-box"><div class="pb-title">📅 기간</div>
       <div class="sq-presets" id="list-period">
         <button type="button" data-lp="month">이 달</button><button type="button" data-lp="last">지난 달</button><button type="button" data-lp="year">올해</button><button type="button" data-lp="all">전체</button><button type="button" data-lp="custom">직접</button>
@@ -1959,9 +1971,11 @@
   function loadCategories() {
     const v = loadJson(CAT_KEY, null);
     const ok = (a) => Array.isArray(a) && a.length > 0 && a.every((x) => typeof x === 'string' && x.trim());
+    const bud = {};
+    if (v && v.budget && typeof v.budget === 'object') Object.keys(v.budget).forEach((k) => { const n = Math.round(+v.budget[k]); if (n > 0) bud[k] = n; });
     return v && ok(v.expense) && ok(v.income)
-      ? { expense: v.expense, income: v.income }
-      : { expense: [...CATEGORIES.expense], income: [...CATEGORIES.income] };
+      ? { expense: v.expense, income: v.income, budget: bud }
+      : { expense: [...CATEGORIES.expense], income: [...CATEGORIES.income], budget: bud };
   }
 
   function tomb(...ids) {
@@ -2117,6 +2131,57 @@
     [/저축/, '🐷', '저축왕', '저축형', '모으는 데 가장 많이 쓰고 있어요']
   ];
   const PAT_NEED = /주거|공과금|월세|관리비|전기|가스|수도|통신|보험|의료|건강|병원|대출|이자|상환|세금|교육|학원|저축|렌탈/;   // 필수·고정 성격: 줄이기 후보에서 뺀다
+  // ---- 카테고리별 예산(월 한도): categories.budget{분류: 원}. 이번 달(보고 있는 달) 지출(대출·대여 원금 제외)과 견줘 남은 금액·초과를 보여 준다.
+  const catBudget = (name) => ((categories.budget || {})[name]) || 0;
+  function budgetUsed(key) {
+    const used = {};
+    flowOnly(transactions.filter((t) => t.type === 'expense' && txMonthKey(t) === key)).forEach((t) => { const k = t.category || '기타'; used[k] = (used[k] || 0) + t.amount; });
+    return used;
+  }
+  function renderBudget() {
+    const body = el('budget-body'), key = monthKey(viewDate), used = budgetUsed(key), names = catSort(categories.expense).filter((n) => catBudget(n) > 0);
+    if (!names.length) {
+      el('budget-sum').textContent = '';
+      body.innerHTML = '<p class="goal-hint" style="margin:0 0 8px">분류마다 한 달 한도를 정해 두면 쓴 금액과 남은 금액을 보여 줘요.</p><button type="button" class="mini-btn" data-budget-edit style="width:100%">＋ 예산 정하기</button>';
+      return;
+    }
+    const totB = names.reduce((a, n) => a + catBudget(n), 0), totU = names.reduce((a, n) => a + (used[n] || 0), 0);
+    el('budget-sum').textContent = `${formatWon(totU)} / ${formatWon(totB)}`;
+    body.innerHTML = names.map((n) => {
+      const b = catBudget(n), u = used[n] || 0, pct = Math.round((u / b) * 100), over = u > b;
+      return `<div class="bud-row"><div class="fx-row" style="border:0;padding-bottom:2px"><span>${escapeHtml(n)} <small style="color:var(--text-muted)">${pct}%</small></span><b${over ? ' style="color:var(--expense)"' : ''}>${over ? formatWon(u - b) + ' 초과' : formatWon(b - u) + ' 남음'}</b></div>
+        <div class="bar"><i class="${over ? 'near' : pct >= 80 ? 'near' : ''}" style="width:${Math.min(100, pct)}%${over ? ';background:var(--expense)' : ''}"></i></div>
+        <div class="goal-hint" style="margin:2px 0 8px">${formatWon(u)} 사용 · 예산 ${formatWon(b)}</div></div>`;
+    }).join('') + '<button type="button" class="mini-btn" data-budget-edit style="width:100%;margin-top:4px">✎ 예산 고치기</button>';
+  }
+  function openBudgetSheet() {
+    const key = monthKey(viewDate), used = budgetUsed(key);
+    openSheet(`<form><h3>카테고리별 예산</h3>
+      <p class="goal-hint" style="margin:0 0 6px">한 달에 쓰고 싶은 한도를 적어요. 비워 두면 예산 없음이에요(이번 달 사용액이 옆에 보여요).</p>
+      ${catSort(categories.expense).map((n, i) => `<label>${escapeHtml(n)} <small style="color:var(--text-muted)">· 이번 달 ${formatWon(used[n] || 0)}</small></label><input name="b${i}" data-cat="${attr(n)}" type="number" min="0" inputmode="numeric" placeholder="예산 없음" value="${catBudget(n) || ''}">`).join('')}
+      <div class="sheet-actions"><button type="button" data-cancel>취소</button><button type="submit">저장</button></div></form>`, () => {
+      const bud = {};
+      sheetBody.querySelectorAll('input[data-cat]').forEach((i) => { const v = Math.round(parseFloat(i.value)); if (v > 0) bud[i.dataset.cat] = v; });
+      categories.budget = bud;
+      saveJson(CAT_KEY, categories);
+      renderAll();
+      showToast('예산을 저장했어요');
+    });
+  }
+  el('budget-card').addEventListener('click', (e) => { if (e.target.closest('[data-budget-edit]')) openBudgetSheet(); });
+
+  // 지난달과 견주기: 이번 달을 보고 있으면 지난달 같은 날까지(1~오늘)와, 지난 달을 보고 있으면 그 전 달 전체와 비교한다(지출, 대출·대여 원금 제외)
+  function renderCompare() {
+    const n = el('cmp-note'), vy = viewDate.getFullYear(), vm = viewDate.getMonth(), now = new Date(), isCur = vy === now.getFullYear() && vm === now.getMonth();
+    const pd = new Date(vy, vm - 1, 1), pKey = monthKey(pd), cKey = monthKey(viewDate), upto = isCur ? now.getDate() : 31;
+    const sum = (key, lim) => flowOnly(transactions.filter((t) => t.type === 'expense' && txMonthKey(t) === key && +t.date.slice(8) <= lim)).reduce((a, t) => a + t.amount, 0);
+    const prevLim = isCur ? Math.min(upto, new Date(pd.getFullYear(), pd.getMonth() + 1, 0).getDate()) : 31, cur = sum(cKey, upto), prev = sum(pKey, prevLim);
+    if (!prev) { n.hidden = true; return; }
+    const d = cur - prev, pct = Math.round((d / prev) * 100);
+    n.innerHTML = `지난달${isCur ? ' 같은 날까지(1~' + prevLim + '일)' : ''}보다 지출 <b style="${d > 0 ? 'color:var(--expense)' : ''}">${d > 0 ? '+' : d < 0 ? '-' : ''}${formatWon(Math.abs(d))} (${d > 0 ? '+' : ''}${pct}%)</b> · 지난달 ${formatWon(prev)} → 이번 ${formatWon(cur)}`;
+    n.hidden = false;
+  }
+
   function renderPattern() {
     const box = el('pattern-body');
     if (!box) return;
@@ -2179,6 +2244,9 @@
     renderBreakdown(flowTx.filter((t) => t.type === 'expense'));
     try { renderPattern(); } catch (e) { /* 아직 안 만들어진 값 */ }
     try { renderPrepaidSummary(); } catch (e) { /* 아직 안 만들어진 값 */ }
+    try { renderBudget(); } catch (e) { /* 아직 안 만들어진 값 */ }
+    try { renderCompare(); } catch (e) { /* 아직 안 만들어진 값 */ }
+    try { renderMemoSuggest(); } catch (e) { /* 아직 안 만들어진 값 */ }
     renderCards();
     renderFixed(monthTx);
     renderList();
@@ -2318,6 +2386,7 @@
   // 내역: 기간(이 달·올해·전체·직접)·검색·보기(전체·지출·수입·고정)·분류를 한 카드에서 고른다(예전의 아래쪽 "내역 검색 · 기간 합계" 카드를 합쳤다).
   // 줄은 명세처럼 일반 글씨 한 줄: 날짜 | 분류 · 메모 (결제수단·자동·고정은 작은 회색) | 금액. 길면 100건씩 "더 보기".
   const LST = { period: 'month', from: '', to: '', type: 'all', cat: '', q: '' };
+  let lstShown = [];   // 지금 내역 탭에 걸러져 보이는 내역(CSV 내보내기 대상)
   let listLimit = 100;
   function txRowHtml(t, flags, dateText) {
     const meta = [payLabel(t) ? escapeHtml(payLabel(t)) : '', t.recurId ? '자동' : '', isFixed(t) ? '고정' : ''].filter(Boolean).join(' · ') + (flags || '');
@@ -2360,14 +2429,6 @@
       const cols = last.map((ym) => { const l = f.filter((t) => t.date.startsWith(ym)), inc = sumOf(l, 'income'), exp = sumOf(l, 'expense'), mm = +ym.slice(5), lab = many ? ym.slice(2, 4) + '.' + mm : mm + '월'; return only ? { label: lab, a: only === 'income' ? inc : exp, cur: ym === today.slice(0, 7), tip: `${ym} ${formatWon(only === 'income' ? inc : exp)}` } : { label: lab, a: inc, b: exp, cur: ym === today.slice(0, 7), tip: `${ym} 수입 ${formatWon(inc)} · 지출 ${formatWon(exp)}` }; });
       html += `<h2 class="section-title">월별 ${only === 'income' ? '수입' : only === 'expense' ? '지출' : '수입·지출'}</h2>` + vbars(cols, '월별 막대그래프', only ? [only === 'income' ? '수입' : '지출'] : ['수입', '지출']);
     }
-    const kind = only || 'expense', tot = {};
-    f.filter((t) => t.type === kind).forEach((t) => { const k = t.category || '기타'; tot[k] = (tot[k] || 0) + t.amount; });
-    let ent = Object.entries(tot).sort((a, b) => b[1] - a[1]);
-    if (ent.length > 6) ent = [...ent.slice(0, 5), ['기타 항목', ent.slice(5).reduce((s2, e) => s2 + e[1], 0)]];
-    if (ent.length > 1) {
-      const sum = ent.reduce((s2, e) => s2 + e[1], 0), top = ent[0][1];
-      html += `<h2 class="section-title">분류별 ${kind === 'income' ? '수입' : '지출'}</h2>` + ent.map(([n, v]) => `<div class="vz-h"><span class="n">${escapeHtml(n)}</span><span class="t"><i style="width:${Math.max(3, Math.round((v / top) * 100))}%"></i></span><span class="a">${formatWon(v)} · ${Math.round((v / sum) * 100)}%</span></div>`).join('');
-    }
     return html;
   }
 
@@ -2385,6 +2446,7 @@
     const kw = LST.q.trim().toLowerCase(), kwNum = kw.replace(/[,원\s]/g, '');
     const hitQ = (t) => !kw || [t.category, t.memo, payLabel(t)].some((x) => String(x || '').toLowerCase().includes(kw)) || (/^\d+$/.test(kwNum) && String(t.amount).includes(kwNum));
     const list = base.filter((t) => (LST.type === 'all' || (LST.type === 'fixed' ? isFixed(t) : t.type === LST.type)) && (!LST.cat || (t.category || '기타') === LST.cat) && hitQ(t));
+    lstShown = list;
     el('list-count').textContent = base.length ? list.length + '건' : '';
     el('list-chart').innerHTML = list.length ? lstChart(list, R) : '';
     // 기간 합계: 이 달·거르지 않음이면 위쪽 요약 칸과 같아서 생략하고, 그 밖에는 보여 준다
@@ -2392,7 +2454,8 @@
     if (!base.length) sm.innerHTML = '';
     else {
       const f = flowOnly(list), inc = f.filter((t) => t.type === 'income').reduce((a, t) => a + t.amount, 0), exp = f.filter((t) => t.type === 'expense').reduce((a, t) => a + t.amount, 0);
-      let h = `<div class="ins-sum" style="margin:10px 0 0">${R.label} · <b>${list.length}건</b><br>지출 <b>${formatWon(exp)}</b> · 수입 <b>${formatWon(inc)}</b> · 잔액 <b>${inc - exp < 0 ? '-' : ''}${formatWon(Math.abs(inc - exp))}</b>`;
+      const sameAsTop = LST.period === 'month' && LST.type === 'all' && !LST.cat && !kw;   // 위쪽 요약 3칸과 같은 값이라 생략
+      let h = `<div class="ins-sum" style="margin:10px 0 0">${R.label} · <b>${list.length}건</b>${sameAsTop ? ' <small style="color:var(--text-muted)">(수입·지출·잔액은 위쪽 요약과 같아요)</small>' : `<br>지출 <b>${formatWon(exp)}</b> · 수입 <b>${formatWon(inc)}</b> · 잔액 <b>${inc - exp < 0 ? '-' : ''}${formatWon(Math.abs(inc - exp))}</b>`}`;
       if (R.from && R.to && exp > 0) {   // 끝이 아직 안 온 기간은 오늘까지의 날수로 나눈다
         const t0 = todayStr(), upto = R.to > t0 && R.from <= t0 ? t0 : R.to, days = Math.round((new Date(upto) - new Date(R.from)) / 86400000) + 1;
         h += `<br>하루 평균 지출 <b>${formatWon(Math.round(exp / days))}</b> (${upto !== R.to ? '오늘까지 ' : ''}${days}일)`;
@@ -2428,6 +2491,19 @@
   });
   ['list-from', 'list-to'].forEach((id) => el(id).addEventListener('change', () => { LST.from = el('list-from').value; LST.to = el('list-to').value; LST.period = 'custom'; listLimit = 100; renderList(); }));
   el('list-type').addEventListener('change', (e) => { LST.type = e.target.value; listLimit = 100; renderList(); });
+  // 지금 걸러 보이는 내역을 엑셀에서 열 수 있는 CSV(UTF-8, 한글 깨짐 방지 BOM)로 내려받는다
+  el('list-csv').addEventListener('click', () => {
+    if (!lstShown.length) { showToast('내보낼 내역이 없어요'); return; }
+    const q = (x) => '"' + String(x == null ? '' : x).replace(/"/g, '""') + '"';
+    const rows = [['날짜', '구분', '분류', '메모', '금액', '결제수단', '고정', '자동']].concat([...lstShown].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)).map((t) => [t.date, t.type === 'income' ? '수입' : '지출', t.category || '기타', t.memo || '', t.amount, t.type === 'expense' ? payLabel(t) : '', isFixed(t) ? '고정' : '', t.recurId ? '자동' : '']));
+    const blob = new Blob(['\ufeff' + rows.map((r) => r.map(q).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'dadari-내역-' + todayStr().replace(/-/g, '') + '.csv';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    showToast(`${lstShown.length}건을 CSV로 내보냈어요`);
+  });
   el('list-cat').addEventListener('change', (e) => { LST.cat = e.target.value; listLimit = 100; renderList(); });
   // 기간 합계의 분류 줄을 누르면 그 분류 내역만 거르고(분류 선택 칸과 같은 상태 LST.cat), 합계 위치로 올라가 걸러진 내역이 바로 보이게 한다
   el('list-sum').addEventListener('click', (e) => {
@@ -2459,7 +2535,14 @@
     tomb(id);
     save();
     renderAll();
-    showToast('삭제되었어요');
+    showUndoToast('삭제되었어요', () => {   // 지운 내역을 그대로 되살린다(지운 표시 tomb도 거둔다). 영수증 사진은 되살릴 수 없다.
+      tombs.delete(id);
+      saveJson(TOMB_KEY, [...tombs]);
+      transactions.push(t);
+      save();
+      renderAll();
+      showToast('내역을 되돌렸어요');
+    });
     // 자동이체·고정수입이 만든 내역은 지워도 다음 달에 또 생긴다 → 자동 기록을 멈출지 묻는다(항목 자체는 남기고 "자동 기록"만 끈다)
     const r = t.recurId && recurs.find((x) => x.id === t.recurId);
     if (r && r.auto && confirm(`“${r.name}”은(는) 매달 ${dayLabel(r.day)}에 자동으로 기록되는 ${r.type === 'income' ? '고정수입' : '자동이체'}예요.
@@ -2536,9 +2619,24 @@
     toastSeq++;
     const t = el('toast');
     t.textContent = msg;
+    t.classList.remove('undo');
     t.classList.add('show');
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => t.classList.remove('show'), 1800);
+  }
+  // 되돌리기 버튼이 달린 안내(내역을 지운 직후 6초 동안)
+  function showUndoToast(msg, onUndo) {
+    toastSeq++;
+    const t = el('toast');
+    t.innerHTML = '';
+    t.append(msg + ' ');
+    const b = document.createElement('button');
+    b.type = 'button'; b.textContent = '되돌리기'; b.className = 'toast-undo';
+    b.addEventListener('click', () => { t.classList.remove('show', 'undo'); clearTimeout(toastTimer); onUndo(); });
+    t.append(b);
+    t.classList.add('show', 'undo');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show', 'undo'), 6000);
   }
 
   el('export-btn').addEventListener('click', () => {
@@ -2618,6 +2716,11 @@
             saveJson(GOAL_KEY, goal);
           }
           renderCardOptions();
+          if (data.categories && data.categories.budget && typeof data.categories.budget === 'object') {
+            categories.budget = categories.budget || {};
+            Object.keys(data.categories.budget).forEach((k) => { const n = Math.round(+data.categories.budget[k]); if (n > 0 && !categories.budget[k]) categories.budget[k] = n; });
+            saveJson(CAT_KEY, categories);
+          }
           if (data.categories && typeof data.categories === 'object') {
             ['expense', 'income'].forEach((k) => {
               (Array.isArray(data.categories[k]) ? data.categories[k] : []).forEach((n) => {
@@ -2899,6 +3002,26 @@
     } else {
       restoreFixedPay();
     }
+  });
+
+  // 입력 단축: 메모 칸에 최근에 쓴 메모가 제안으로 뜨고(datalist), 지난 메모를 그대로 고르면 그 기록의 분류·결제수단·금액을 불러온다(금액은 비어 있을 때만).
+  function renderMemoSuggest() {
+    const seen = new Set(), out = [];
+    [...transactions].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0)).forEach((t) => { const m = (t.memo || '').trim(); if (m && !seen.has(m) && out.length < 80) { seen.add(m); out.push(m); } });
+    el('memo-suggest').innerHTML = out.map((m) => `<option value="${attr(m)}"></option>`).join('');
+  }
+  el('f-memo').addEventListener('change', () => {
+    const m = el('f-memo').value.trim();
+    if (!m) return;
+    const last = transactions.filter((t) => t.type === currentType && (t.memo || '').trim() === m).sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))[0];
+    if (!last) return;
+    if (categories[currentType].includes(last.category)) categorySelect.value = last.category;
+    if (!el('f-amount').value) el('f-amount').value = last.amount;
+    if (currentType === 'expense' && !payTouched && !payAutoMsg) {
+      const want = last.cardId && cardById(last.cardId) ? last.cardId : last.pay === 'card' || last.pay === 'transfer' || last.pay === 'gift' || last.pay === 'cash' ? last.pay : '';
+      if (want && [...el('f-card').options].some((o) => o.value === want)) { el('f-card').value = want; updatePayInfo(); }
+    }
+    showToast('지난 기록의 분류·금액·결제수단을 불러왔어요');
   });
 
   // 메모를 바우처·상품권 이름으로 시작하면 결제수단을 그 카드로 자동 선택한다(결제수단을 직접 고른 뒤에는 건드리지 않는다).
@@ -3330,6 +3453,7 @@
       if (!name || name === old) return;
       if (categories[kind].includes(name)) { showToast('이미 있는 이름이에요'); return; }
       categories[kind][i] = name;
+      if (kind === 'expense' && categories.budget && categories.budget[old]) { categories.budget[name] = categories.budget[old]; delete categories.budget[old]; }
       transactions.forEach((t) => { if (t.type === kind && t.category === old) t.category = name; });
       recurs.forEach((r) => { if ((r.type || 'expense') === kind && r.category === old) r.category = name; });
       save();
@@ -3344,6 +3468,7 @@
       const name = categories[kind][i];
       if (!confirm(`“${name}” 카테고리를 목록에서 뺄까요?\n이미 기록한 내역은 그대로 남아요.`)) return;
       categories[kind].splice(i, 1);
+      if (kind === 'expense' && categories.budget) delete categories.budget[name];
       persist();
       draw();
       showToast('뺐어요');
@@ -9372,6 +9497,10 @@
       const dd = d ? within(d, 0, 3) : null;
       if (dd !== null) add(dd, `${c.name} 결제일`, 'ledger', '💳', { sub: 'card', ref: c.id });
     });
+    {
+      const used = budgetUsed(monthKey(new Date()));
+      Object.keys(categories.budget || {}).forEach((n) => { const b = catBudget(n), u = used[n] || 0; if (b > 0 && u > b) add(null, `${n} 예산 ${formatWon(u - b)} 초과 (${formatWon(u)} / ${formatWon(b)})`, 'ledger', '📏', { sub: 'plan' }); else if (b > 0 && u >= b * 0.9) add(null, `${n} 예산 ${formatWon(b - u)} 남음 (${Math.round((u / b) * 100)}% 사용)`, 'ledger', '📏', { sub: 'plan' }); });
+    }
     cards.filter(isPrepaid).forEach((c) => {
       const pp = prepaidInfo(c);
       if (pp.soon) { const dd = within(pp.soon.date, 0, 14); if (dd !== null) add(dd, `${c.name} ${formatWon(pp.soon.amount)} 소멸 예정`, 'ledger', '🎟', { sub: 'card', ref: c.id }); }
@@ -10387,7 +10516,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v189'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v190'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span class="slogan">다달이, 매일의 기록이 모여<br><b>더 나은 생활</b>이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
