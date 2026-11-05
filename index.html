@@ -23,7 +23,7 @@
   window.__DEMO__ = true;
   document.documentElement.className += ' demo-mode';
   var P = 'demo:', S = Storage.prototype, g = S.getItem, s = S.setItem, r = S.removeItem, k = S.key;
-  var hidden = { dadari_sync_v1: 1, dadari_lock_v1: 1 };
+  var hidden = { dadari_sync_v1: 1, dadari_lock_v1: 1, dadari_auth_v1: 1, dadari_uid_v1: 1 };
   S.getItem = function (n) { n = String(n); return hidden[n] ? null : g.call(this, P + n); };
   S.setItem = function (n, v) { n = String(n); if (!hidden[n]) s.call(this, P + n, v); };
   S.removeItem = function (n) { r.call(this, P + String(n)); };
@@ -1266,6 +1266,29 @@
   }
   .lock-screen { position: fixed; inset: 0; z-index: 1000; background: var(--bg); display: flex; align-items: center; justify-content: center; padding: 24px; }
   .lock-screen[hidden] { display: none; }
+  /* 계정 로그인·가입 화면: 잠금 화면(1000) 바로 아래, 앱 위를 덮는다 */
+  .auth-screen { position: fixed; inset: 0; z-index: 900; background: var(--bg); overflow-y: auto; display: flex; padding: 20px 16px; }
+  .auth-screen[hidden] { display: none; }
+  .auth-box { width: 100%; max-width: 400px; margin: auto; background: var(--card-bg); border: 1px solid var(--border); border-radius: 16px; padding: 22px 18px 18px; }
+  .auth-logo-wrap { display: flex; justify-content: center; margin-bottom: 8px; }
+  .auth-logo-wrap img { height: 52px; background: #fff; border-radius: 10px; padding: 2px 8px; }
+  .auth-sub { text-align: center; color: var(--text-muted); font-size: 14px; margin: 0 0 14px; line-height: 1.5; }
+  .auth-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 0; background: var(--bg); border-radius: 12px; padding: 3px; margin-bottom: 14px; }
+  .auth-tabs button { border: 0; background: transparent; padding: 10px; border-radius: 10px; font: inherit; font-weight: 700; color: var(--text-muted); cursor: pointer; }
+  .auth-tabs button.active { background: var(--card-bg); color: var(--text); box-shadow: 0 1px 3px rgba(0, 0, 0, .15); }
+  .auth-box label { display: block; font-size: 13px; color: var(--text-muted); margin: 10px 0 4px; }
+  .auth-box label.check { display: flex; gap: 8px; align-items: flex-start; font-size: 13.5px; color: var(--text); margin: 10px 0 0; line-height: 1.45; }
+  .auth-box label.check input { width: 20px; height: 20px; flex: none; margin-top: 1px; }
+  .auth-box input[type=email], .auth-box input[type=password], .auth-box input[type=text] { width: 100%; box-sizing: border-box; }
+  .au-pw { display: flex; gap: 6px; }
+  .au-pw input { flex: 1; min-width: 0; }
+  .au-pw button { flex: none; border: 1px solid var(--border); background: var(--bg); color: var(--text); border-radius: 10px; padding: 0 12px; font: inherit; font-size: 13px; cursor: pointer; }
+  .au-msg { min-height: 20px; margin: 10px 0 0; font-size: 13.5px; color: var(--expense); font-weight: 600; line-height: 1.45; }
+  .au-msg.ok { color: var(--income); }
+  .au-submit { width: 100%; margin-top: 12px; padding: 13px; border: 0; border-radius: 12px; background: var(--accent-fill, #188038); color: #fff; font: inherit; font-weight: 800; font-size: 16px; cursor: pointer; }
+  .au-submit:disabled { opacity: .6; }
+  .au-link { display: block; width: 100%; margin-top: 8px; padding: 10px; background: none; border: 0; color: var(--mc-text, var(--text)); font: inherit; font-size: 14px; text-decoration: underline; cursor: pointer; }
+  .auth-legal { font-size: 12.5px; color: var(--text-muted); margin: 8px 0 0; line-height: 1.5; }
   html.locked, html.locked body { overflow: hidden; }
   .lock-box { width: 100%; max-width: 320px; text-align: center; }
   .lock-ic { font-size: 40px; }
@@ -1326,6 +1349,18 @@
     <button type="button" class="lock-forgot" id="lr-wipe">복구 코드도 없어요 (데이터 지우고 초기화)</button>
   </div>
 </div>
+<div class="auth-screen" id="auth-screen" hidden></div>
+<script>
+  // 계정(이메일 가입·로그인) 설정. 출시할 때 Supabase 프로젝트의 주소(url)와 공개(anon) 키(key)를 아래에 넣는다. 둘 다 비어 있으면 계정 기능이 꺼져서 예전처럼 로그인 없이 쓴다.
+  // 주의: service_role 키는 절대 넣지 않는다(이 저장소는 공개이고, 그 키가 있으면 모든 사용자의 데이터를 읽을 수 있다). anon 키는 공개돼도 되도록 설계된 키이고 데이터는 서버의 행 단위 보안(RLS)이 지킨다.
+  window.__SB = { url: '', key: '' };
+  (function () {
+    try {
+      if (/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) { var q = new URLSearchParams(location.search); if (q.get('sburl')) { window.__SB.url = q.get('sburl'); window.__SB.key = q.get('sbkey') || 'test'; } }   // 내 컴퓨터에서 모의 서버로 시험할 때만
+      if (window.__SB.url && window.__SB.key && !/[?&]demo(=1|=true)?(&|$)/.test(location.search) && !localStorage.getItem('dadari_auth_v1')) { document.getElementById('auth-screen').hidden = false; document.documentElement.classList.add('auth-wait'); }
+    } catch (e) { /* 저장소를 못 읽으면 앱이 시작될 때 다시 확인한다 */ }
+  })();
+</script>
 <script>
   // 잠금이 켜져 있으면 화면이 그려지기 전에 잠금 화면부터 보여 준다(내용이 잠깐 보이지 않게).
   try { if (localStorage.getItem('dadari_lock_v1')) { document.getElementById('lock-screen').hidden = false; document.documentElement.classList.add('locked'); } } catch (e) { /* 저장소를 못 읽으면 잠금 없이 연다 */ }
@@ -1572,6 +1607,12 @@
 
 <main id="view-settings" hidden>
   <div class="set-group">내 정보</div>
+  <section class="card" id="account-card" hidden>
+    <h2 class="section-title">🔐 내 계정</h2>
+    <p class="goal-hint" id="acct-info" style="margin:0 0 10px"></p>
+    <div class="backup-row"><button type="button" id="acct-pw">비밀번호 바꾸기</button><button type="button" id="acct-logout">로그아웃</button></div>
+    <button type="button" class="mini-btn" id="acct-delete" style="margin-top:10px;color:var(--expense)">계정 삭제…</button>
+  </section>
   <section class="card" id="profile-set-card">
     <h2 class="section-title">🙂 프로필·목표</h2>
     <p class="goal-hint" style="margin:0 0 10px">화면 맨 위에 이름, 한 줄 소개, 올해 목표를 보여 줘요. 카드를 감췄다면 여기서 다시 켤 수 있어요.</p>
@@ -10216,7 +10257,7 @@
   }
   function describeError(e) {
     if (navigator.onLine === false) return '인터넷에 연결돼 있지 않아요';
-    if (e instanceof TypeError) return 'GitHub에 연결하지 못했어요. 인터넷, 광고·보안 차단 프로그램, 사내·학교 망 차단 여부를 확인해 주세요';
+    if (e instanceof TypeError) return window.__SB && window.__SB.url ? '서버에 연결하지 못했어요. 인터넷 연결을 확인해 주세요' : 'GitHub에 연결하지 못했어요. 인터넷, 광고·보안 차단 프로그램, 사내·학교 망 차단 여부를 확인해 주세요';
     return e.message;
   }
   const ghFetch = (cfg, method, path, body) => fetch((cfg.api || GH_API) + path, {
@@ -10274,7 +10315,7 @@
       for (let attempt = 0; attempt < 3; attempt++) {
         const cfg = getCfg();
         const seq0 = cfg.seq || 0;
-        const remote = await ghGetFile(cfg);
+        const remote = await remoteGet(cfg);
         let out;
         let sha = remote && remote.sha;
         if (!remote) out = snapshot();
@@ -10283,7 +10324,7 @@
         else if (!cfg.dirty) { applySnapshot(remote.data); out = null; }
         else { out = mergeSnapshots(snapshot(), remote.data); applySnapshot(out); }
         if (out) {
-          const res = await ghPutFile(cfg, out, sha);
+          const res = await remotePut(cfg, out, sha);
           if (res.conflict) continue;
           sha = res.sha;
         }
@@ -10368,6 +10409,297 @@
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') syncNow(); });
   window.addEventListener('online', () => syncNow());
   setInterval(() => { if (document.visibilityState === 'visible') syncNow(); }, 60000);
+
+  /* ---------- 계정(이메일 가입·로그인) + 계정 저장소 동기화 ---------- */
+  // 출시용 구조: 이메일 인증을 거친 계정으로 로그인해야 쓸 수 있고(가입 필수), 데이터는 계정별로 서버(Supabase)에 모인다. 서버가 하는 일은 인증·사용자별 데이터 한 줄 보관뿐이다.
+  // 주소·공개 키는 위쪽 `window.__SB`에 있고 비어 있으면 이 기능 전체가 꺼진다. 서버 설정은 `다달이_사업문서/계정서버_supabase_설정.sql`.
+  // 비밀번호는 서버로 보내기만 하고 이 기기에 저장하지 않는다. 로그인 정보(토큰)는 `dadari_auth_v1`에만 두고 백업·동기화 스냅샷에는 넣지 않는다.
+  const SB = { url: String((window.__SB && window.__SB.url) || '').replace(/\/$/, ''), key: (window.__SB && window.__SB.key) || '' };
+  SB.on = !!(SB.url && SB.key) && !window.__DEMO__;
+  const AUTH_KEY = 'dadari_auth_v1', UID_KEY = 'dadari_uid_v1', origSetItem = Storage.prototype.setItem;
+  const authGet = () => loadJson(AUTH_KEY, null);
+  const authSet = (v) => { try { localStorage.setItem(AUTH_KEY, JSON.stringify(v)); } catch (e) { /* 저장 못 하면 다음 실행 때 다시 로그인 */ } };
+  const authClear = () => { try { localStorage.removeItem(AUTH_KEY); } catch (e) { /* 무시 */ } };
+  const nowSec = () => Math.floor(Date.now() / 1000);
+  let authMode = 'login', authBusy = false, authPendingSess = null;
+
+  async function sbCall(method, path, body, token, extra) {
+    const r = await fetch(SB.url + path, { method, cache: 'no-store', headers: Object.assign({ apikey: SB.key, Authorization: 'Bearer ' + (token || SB.key), 'Content-Type': 'application/json' }, extra || {}), body: body === undefined ? undefined : JSON.stringify(body) });
+    let json = null;
+    try { json = await r.json(); } catch (e) { /* 본문이 없어도 상태 코드로 판단 */ }
+    return { ok: r.ok, status: r.status, json };
+  }
+  const sessionFrom = (j) => ({ access_token: j.access_token, refresh_token: j.refresh_token, expires_at: nowSec() + (+j.expires_in || 3600), user: { id: j.user && j.user.id, email: j.user && j.user.email } });
+
+  // 만료가 가까우면 새로 받아 둔다. 로그인이 풀렸으면(새 토큰을 못 받으면) 로그인 화면으로 돌려보낸다.
+  async function authToken() {
+    const s0 = authGet();
+    if (!s0) { showGate('login'); throw new Error('로그인이 필요해요'); }
+    if (s0.expires_at - nowSec() > 60) return s0.access_token;
+    let r;
+    try { r = await sbCall('POST', '/auth/v1/token?grant_type=refresh_token', { refresh_token: s0.refresh_token }); } catch (e) { if (s0.expires_at > nowSec()) return s0.access_token; throw e; }
+    if (!r.ok) { authClear(); showGate('login', '로그인이 만료됐어요. 다시 로그인해 주세요'); throw new Error('로그인이 만료됐어요'); }
+    const s1 = sessionFrom(r.json);
+    authSet(s1);
+    return s1.access_token;
+  }
+
+  function authErr(r) {
+    const code = (r.json && (r.json.error_code || r.json.code)) || '', raw = (r.json && (r.json.msg || r.json.message || r.json.error_description)) || '';
+    const map = {
+      invalid_credentials: '이메일 또는 비밀번호가 맞지 않아요',
+      email_not_confirmed: '이메일 인증이 아직 안 됐어요. 받은 메일의 링크를 눌러 주세요',
+      user_already_exists: '이미 가입된 이메일이에요. 로그인해 주세요', email_exists: '이미 가입된 이메일이에요. 로그인해 주세요',
+      weak_password: '비밀번호가 너무 약해요. 8자 이상, 영문과 숫자를 섞어 주세요', same_password: '이전과 다른 비밀번호를 써 주세요',
+      over_email_send_rate_limit: '메일을 너무 자주 보냈어요. 잠시 뒤 다시 시도해 주세요', over_request_rate_limit: '요청이 많아요. 잠시 뒤 다시 시도해 주세요',
+      signup_disabled: '지금은 새 가입을 받지 않아요', validation_failed: '입력한 내용을 확인해 주세요', email_address_invalid: '이메일 형식을 확인해 주세요'
+    };
+    if (map[code]) return map[code];
+    if (r.status === 429) return '요청이 많아요. 잠시 뒤 다시 시도해 주세요';
+    if (r.status >= 500) return '서버에 문제가 있어요. 잠시 뒤 다시 시도해 주세요';
+    return raw ? '요청을 처리하지 못했어요 (' + raw.slice(0, 60) + ')' : '요청을 처리하지 못했어요. 잠시 뒤 다시 시도해 주세요';
+  }
+
+  // 계정 저장소: 사용자별 한 줄(user_data.data = 전체 스냅샷, version = 충돌 감지용 번호). 형식은 GitHub 동기화의 sha 자리에 version을 쓴다.
+  async function cloudGet(cfg) {
+    const token = await authToken();
+    const r = await sbCall('GET', `/rest/v1/user_data?select=data,version&user_id=eq.${encodeURIComponent(cfg.uid)}`, undefined, token);
+    if (!r.ok) throw new Error(r.status === 401 ? '로그인이 만료됐어요. 다시 로그인해 주세요' : '서버 응답 오류 ' + r.status);
+    if (!Array.isArray(r.json) || !r.json.length) return null;
+    return { sha: String(r.json[0].version), data: r.json[0].data };
+  }
+  async function cloudPut(cfg, obj, sha) {
+    const token = await authToken();
+    if (!sha) {
+      const r = await sbCall('POST', '/rest/v1/user_data', { user_id: cfg.uid, data: obj, version: 1 }, token, { Prefer: 'return=representation' });
+      if (r.status === 409) return { conflict: true };
+      if (!r.ok) throw new Error('서버 응답 오류 ' + r.status);
+      return { sha: '1' };
+    }
+    const v = parseInt(sha, 10) || 0;
+    const r = await sbCall('PATCH', `/rest/v1/user_data?user_id=eq.${encodeURIComponent(cfg.uid)}&version=eq.${v}`, { data: obj, version: v + 1, updated_at: new Date().toISOString() }, token, { Prefer: 'return=representation' });
+    if (!r.ok) throw new Error('서버 응답 오류 ' + r.status);
+    if (!Array.isArray(r.json) || !r.json.length) return { conflict: true };   // 그 사이 다른 기기가 먼저 저장했다
+    return { sha: String(v + 1) };
+  }
+  function remoteGet(cfg) { return cfg.cloud ? cloudGet(cfg) : ghGetFile(cfg); }
+  function remotePut(cfg, obj, sha) { return cfg.cloud ? cloudPut(cfg, obj, sha) : ghPutFile(cfg, obj, sha); }
+
+  // 이 기기의 다달이 데이터를 지운다(로그아웃·계정 삭제·다른 계정으로 로그인할 때). 저장이 다시 일어나 지운 것이 되살아나지 않게 저장 함수를 먼저 막는다.
+  function wipeLocal(keepLock) {
+    try { Storage.prototype.setItem = function () { /* 지우는 동안에는 저장하지 않는다 */ }; } catch (e) { /* 막지 못해도 계속 */ }
+    try { Object.keys(localStorage).filter((k) => k.startsWith('dadari_') && !(keepLock && k === 'dadari_lock_v1')).forEach((k) => localStorage.removeItem(k)); } catch (e) { /* 무시 */ }
+    try { ['dadari', 'dadari_dishes', 'dadari_goalpics'].forEach((n) => indexedDB.deleteDatabase(n)); } catch (e) { /* 사진 저장소가 없어도 계속 */ }
+  }
+
+  // ---- 화면 ----
+  function showGate(mode, note) { el('auth-screen').hidden = false; document.documentElement.classList.remove('auth-wait'); renderAuth(mode, note); }
+  function hideGate() { el('auth-screen').hidden = true; document.documentElement.classList.remove('auth-wait'); }
+  const emailOk = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+  const pwPolicy = (v) => v.length >= 8 && /[A-Za-z]/.test(v) && /\d/.test(v);
+  const auMsg = (t, ok) => { const m = document.getElementById('au-msg'); if (m) { m.textContent = t || ''; m.classList.toggle('ok', !!ok); } };
+
+  function renderAuth(mode, note) {
+    authMode = mode;
+    authBusy = false;   // 화면이 다시 그려지면 이전 요청의 처리 중 상태는 끝난 것
+    const keep = (document.getElementById('au-email') || {}).value || (note && note.email) || '';
+    const tabs = mode === 'login' || mode === 'signup' ? `<div class="auth-tabs" role="tablist"><button type="button" data-at="login" class="${mode === 'login' ? 'active' : ''}">로그인</button><button type="button" data-at="signup" class="${mode === 'signup' ? 'active' : ''}">가입</button></div>` : '';
+    const emailField = `<label for="au-email">이메일</label><input id="au-email" type="email" autocomplete="email" inputmode="email" autocapitalize="off" spellcheck="false" maxlength="120" value="${attr(keep)}">`;
+    const pwField = (id, label, ac) => `<label for="${id}">${label}</label><div class="au-pw"><input id="${id}" type="password" autocomplete="${ac}" maxlength="72"><button type="button" data-au="show" aria-label="비밀번호 보기">보기</button></div>`;
+    let sub = '', body = '';
+    if (mode === 'login') {
+      sub = '이메일로 로그인해 주세요';
+      body = `${emailField}${pwField('au-pw', '비밀번호', 'current-password')}<p class="au-msg" id="au-msg" role="alert"></p><button type="submit" class="au-submit" id="au-submit">로그인</button><button type="button" class="au-link" data-au="forgot">비밀번호를 잊었어요</button>`;
+    } else if (mode === 'signup') {
+      sub = '이메일로 가입하면 폰을 바꾸거나 잃어버려도 데이터를 되찾을 수 있어요';
+      body = `${emailField}${pwField('au-pw', '비밀번호 (8자 이상, 영문+숫자)', 'new-password')}${pwField('au-pw2', '비밀번호 확인', 'new-password')}
+        <label class="check"><input type="checkbox" id="au-c1"><span>(필수) 이용약관과 개인정보 처리방침에 동의해요</span></label>
+        <label class="check"><input type="checkbox" id="au-c2"><span>(필수) 가계·건강·가족 정보 같은 민감한 정보를 내 계정에 저장하는 데 동의해요</span></label>
+        <p class="auth-legal">입력한 정보는 내 계정에만 저장되고 광고에 쓰이지 않아요. 가입하면 인증 메일이 와요.</p>
+        <p class="au-msg" id="au-msg" role="alert"></p><button type="submit" class="au-submit" id="au-submit">가입하기</button>`;
+    } else if (mode === 'forgot') {
+      sub = '가입한 이메일로 비밀번호 재설정 링크를 보내요';
+      body = `${emailField}<p class="au-msg" id="au-msg" role="alert"></p><button type="submit" class="au-submit" id="au-submit">재설정 메일 보내기</button><button type="button" class="au-link" data-au="login">← 로그인으로</button>`;
+    } else if (mode === 'newpw') {
+      sub = '새 비밀번호를 정해 주세요';
+      body = `${pwField('au-pw', '새 비밀번호 (8자 이상, 영문+숫자)', 'new-password')}${pwField('au-pw2', '새 비밀번호 확인', 'new-password')}<p class="au-msg" id="au-msg" role="alert"></p><button type="submit" class="au-submit" id="au-submit">비밀번호 저장</button>`;
+    } else if (mode === 'wait') {
+      const recover = note && note.kind === 'recover';
+      sub = recover ? '재설정 메일을 보냈어요' : '인증 메일을 보냈어요';
+      body = `<p class="auth-legal" style="font-size:14px;color:var(--text);text-align:center"><b>${escapeHtml((note && note.email) || '')}</b><br>${recover ? '메일의 링크를 눌러 새 비밀번호를 정해 주세요.' : '메일의 링크를 누르면 가입이 끝나요. 그다음 로그인해 주세요.'}<br>메일이 안 보이면 스팸함도 확인해 주세요.</p><p class="au-msg" id="au-msg" role="alert"></p>${recover ? '' : `<button type="button" class="au-submit" data-au="resend" data-email="${attr((note && note.email) || '')}">인증 메일 다시 보내기</button>`}<button type="button" class="au-link" data-au="login">로그인으로</button>`;
+    }
+    el('auth-screen').innerHTML = `<form class="auth-box" id="auth-form" novalidate><div class="auth-logo-wrap"><img src="logo-full.png" alt="다달이"></div><p class="auth-sub">${sub}</p>${tabs}${body}</form>`;
+    if (note && note.msg) auMsg(note.msg, note.ok);
+    else if (typeof note === 'string') auMsg(note);
+    const first = document.getElementById(mode === 'newpw' ? 'au-pw' : 'au-email');
+    if (first && mode !== 'wait') { try { first.focus(); } catch (e) { /* 포커스를 못 줘도 괜찮다 */ } }
+  }
+
+  function authBusySet(on, label) { authBusy = on; const b = document.getElementById('au-submit'); if (b) { b.disabled = on; if (label) b.dataset.label = b.dataset.label || b.textContent; b.textContent = on ? '처리 중…' : (b.dataset.label || b.textContent); } }
+
+  async function authSubmit() {
+    if (authBusy) return;
+    const v = (id) => ((document.getElementById(id) || {}).value || '');
+    const email = v('au-email').trim();
+    try {
+      if (authMode === 'login') {
+        if (!emailOk(email) || !v('au-pw')) return auMsg('이메일과 비밀번호를 입력해 주세요');
+        authBusySet(true, 1);
+        const r = await sbCall('POST', '/auth/v1/token?grant_type=password', { email, password: v('au-pw') });
+        if (!r.ok) { authBusySet(false); return auMsg(authErr(r)); }
+        return onSignedIn(sessionFrom(r.json));
+      }
+      if (authMode === 'signup') {
+        if (!emailOk(email)) return auMsg('이메일 형식을 확인해 주세요');
+        if (!pwPolicy(v('au-pw'))) return auMsg('비밀번호는 8자 이상, 영문과 숫자를 섞어 주세요');
+        if (v('au-pw') !== v('au-pw2')) return auMsg('비밀번호 확인이 달라요');
+        if (!document.getElementById('au-c1').checked || !document.getElementById('au-c2').checked) return auMsg('필수 동의 두 가지에 체크해 주세요');
+        authBusySet(true, 1);
+        const ts = new Date().toISOString();
+        const r = await sbCall('POST', '/auth/v1/signup?redirect_to=' + encodeURIComponent(location.origin + location.pathname), { email, password: v('au-pw'), data: { consent_terms: ts, consent_sensitive: ts, consent_version: 'v1' } });
+        if (!r.ok) { authBusySet(false); return auMsg(authErr(r)); }
+        if (r.json && r.json.access_token) return onSignedIn(sessionFrom(r.json));   // 서버가 인증 메일 없이 바로 가입시키는 설정일 때
+        return renderAuth('wait', { email, kind: 'signup' });
+      }
+      if (authMode === 'forgot') {
+        if (!emailOk(email)) return auMsg('이메일 형식을 확인해 주세요');
+        authBusySet(true, 1);
+        const r = await sbCall('POST', '/auth/v1/recover?redirect_to=' + encodeURIComponent(location.origin + location.pathname), { email });
+        if (!r.ok) { authBusySet(false); return auMsg(authErr(r)); }
+        return renderAuth('wait', { email, kind: 'recover' });
+      }
+      if (authMode === 'newpw') {
+        if (!pwPolicy(v('au-pw'))) return auMsg('비밀번호는 8자 이상, 영문과 숫자를 섞어 주세요');
+        if (v('au-pw') !== v('au-pw2')) return auMsg('비밀번호 확인이 달라요');
+        authBusySet(true, 1);
+        const sess = authPendingSess;
+        const r = await sbCall('PUT', '/auth/v1/user', { password: v('au-pw') }, sess && sess.access_token);
+        if (!r.ok) { authBusySet(false); return auMsg(authErr(r)); }
+        authPendingSess = null;
+        return onSignedIn(sess);
+      }
+    } catch (e) {
+      authBusySet(false);
+      auMsg(e instanceof TypeError ? '인터넷 연결을 확인해 주세요' : '문제가 생겼어요. 잠시 뒤 다시 시도해 주세요');
+    }
+  }
+
+  async function onSignedIn(sess) {
+    const uid = sess.user && sess.user.id;
+    if (!uid) { authBusySet(false); return auMsg('로그인 정보를 읽지 못했어요. 다시 시도해 주세요'); }
+    const prev = (() => { try { return localStorage.getItem(UID_KEY); } catch (e) { return null; } })();
+    if (prev && prev !== uid) {   // 이 기기에 다른 계정의 데이터가 남아 있으면 섞이지 않게 지우고 새로 시작한다
+      wipeLocal(true);
+      Storage.prototype.setItem = origSetItem;   // 새 계정의 로그인 정보는 저장해야 한다
+    }
+    authSet(sess);
+    try { localStorage.setItem(UID_KEY, uid); } catch (e) { /* 무시 */ }
+    if (prev && prev !== uid) { setTimeout(() => location.reload(), 150); return; }
+    const c = getCfg();
+    if (!c || !c.cloud || c.uid !== uid) setCfg({ cloud: true, uid, token: 'cloud', repo: '계정', sha: null, dirty: !!hasData(), seq: 0, last: 0, error: '' });
+    hideGate();
+    renderAccountCard();
+    showSync();
+    showToast('로그인했어요');
+    syncNow(false, true);
+  }
+
+  // 메일 링크(가입 인증·비밀번호 재설정)로 돌아왔을 때: 주소의 #access_token=… 을 읽는다
+  async function authFromHash() {
+    const h = location.hash.replace(/^#/, '');
+    if (!h || !/access_token=|error=/.test(h)) return false;
+    const q = new URLSearchParams(h);
+    try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { /* 무시 */ }
+    if (q.get('error')) { showGate('login', q.get('error_code') === 'otp_expired' ? '링크가 만료됐어요. 비밀번호를 잊었어요로 다시 요청해 주세요' : '링크를 확인하지 못했어요. 다시 시도해 주세요'); return true; }
+    const token = q.get('access_token'), type = q.get('type');
+    try {
+      const r = await sbCall('GET', '/auth/v1/user', undefined, token);
+      if (!r.ok || !r.json || !r.json.id) throw new Error('user');
+      const sess = { access_token: token, refresh_token: q.get('refresh_token') || '', expires_at: nowSec() + (+q.get('expires_in') || 3600), user: { id: r.json.id, email: r.json.email } };
+      if (type === 'recovery') { authPendingSess = sess; showGate('newpw'); return true; }
+      await onSignedIn(sess);
+      showToast('이메일 인증이 끝났어요');
+    } catch (e) { showGate('login', '링크를 확인하지 못했어요. 다시 로그인해 주세요'); }
+    return true;
+  }
+
+  function renderAccountCard() {
+    const card = el('account-card');
+    card.hidden = !SB.on;
+    if (!SB.on) return;
+    const s = authGet();
+    el('acct-info').textContent = s ? `${s.user.email} 로 로그인돼 있어요. 데이터는 이 계정에 안전하게 저장되고 폰과 컴퓨터에서 같은 데이터를 써요.` : '로그인이 필요해요';
+  }
+
+  // 로그아웃: 먼저 마지막으로 동기화하고, 이 기기의 데이터를 지운다(다시 로그인하면 계정에서 불러온다)
+  async function authLogout() {
+    if (!confirm('로그아웃할까요?\n\n먼저 데이터를 계정에 저장하고, 이 기기의 다달이 데이터는 지워져요(다시 로그인하면 계정에서 불러와요). 영수증 사진은 이 기기에만 있어서 함께 지워져요.')) return;
+    await syncNow(true);
+    const c = getCfg();
+    if (c && c.error && !confirm('⚠ 데이터를 계정에 저장하지 못했어요(' + String(c.error).slice(0, 50) + ').\n그래도 로그아웃하면 이 기기에만 있는 최근 변경이 사라져요. 로그아웃할까요?')) return;
+    try { const t = await authToken(); await sbCall('POST', '/auth/v1/logout', undefined, t); } catch (e) { /* 서버에 못 알려도 이 기기에서는 로그아웃한다 */ }
+    wipeLocal(true);
+    setTimeout(() => location.reload(), 150);
+  }
+  function openPwSheet() {
+    openSheet(`<form><h3>비밀번호 바꾸기</h3>
+      <label>새 비밀번호 (8자 이상, 영문+숫자)</label><input name="p1" type="password" required autocomplete="new-password" maxlength="72">
+      <label>새 비밀번호 확인</label><input name="p2" type="password" required autocomplete="new-password" maxlength="72">
+      <div class="sheet-actions"><button type="button" data-cancel>취소</button><button type="submit">저장</button></div></form>`, (fd) => {
+      const p1 = String(fd.get('p1')), p2 = String(fd.get('p2'));
+      if (!pwPolicy(p1)) { showToast('비밀번호는 8자 이상, 영문과 숫자를 섞어 주세요'); return false; }
+      if (p1 !== p2) { showToast('비밀번호 확인이 달라요'); return false; }
+      authToken().then((t) => sbCall('PUT', '/auth/v1/user', { password: p1 }, t)).then((r) => showToast(r.ok ? '비밀번호를 바꿨어요' : authErr(r))).catch((e) => showToast(e instanceof TypeError ? '인터넷 연결을 확인해 주세요' : e.message));
+    });
+  }
+  async function authDelete() {
+    if (!confirm('계정을 삭제할까요?\n\n서버에 저장된 내 데이터와 계정이 영구히 지워지고 되돌릴 수 없어요. 이 기기의 데이터도 지워져요.')) return;
+    if ((prompt('정말 삭제하려면 “삭제”라고 입력하세요') || '').trim() !== '삭제') { alert('입력이 달라 취소했어요'); return; }
+    try {
+      const t = await authToken();
+      const r = await sbCall('POST', '/rest/v1/rpc/delete_my_account', {}, t);
+      if (!r.ok) { showToast('계정을 삭제하지 못했어요. 잠시 뒤 다시 시도해 주세요'); return; }
+      wipeLocal(false);
+      setTimeout(() => location.reload(), 150);
+    } catch (e) { showToast(e instanceof TypeError ? '인터넷 연결을 확인해 주세요' : '계정을 삭제하지 못했어요'); }
+  }
+
+  el('auth-screen').addEventListener('click', (e) => {
+    const t = e.target.closest('[data-at]');
+    if (t) { renderAuth(t.dataset.at); return; }
+    const a = e.target.closest('[data-au]');
+    if (!a) return;
+    if (a.dataset.au === 'forgot') renderAuth('forgot');
+    else if (a.dataset.au === 'login') renderAuth('login');
+    else if (a.dataset.au === 'show') { const inp = a.parentElement.querySelector('input'); inp.type = inp.type === 'password' ? 'text' : 'password'; a.textContent = inp.type === 'password' ? '보기' : '숨기기'; }
+    else if (a.dataset.au === 'resend') {
+      a.disabled = true;
+      sbCall('POST', '/auth/v1/resend?redirect_to=' + encodeURIComponent(location.origin + location.pathname), { type: 'signup', email: a.dataset.email }).then((r) => { auMsg(r.ok ? '인증 메일을 다시 보냈어요' : authErr(r), r.ok); setTimeout(() => { a.disabled = false; }, 30000); }).catch(() => { auMsg('인터넷 연결을 확인해 주세요'); a.disabled = false; });
+    }
+  });
+  el('auth-screen').addEventListener('submit', (e) => { e.preventDefault(); authSubmit(); });
+  el('acct-logout').addEventListener('click', authLogout);
+  el('acct-pw').addEventListener('click', openPwSheet);
+  el('acct-delete').addEventListener('click', authDelete);
+
+  function authInit() {
+    renderAccountCard();
+    if (!SB.on) return;
+    el('sync-setup').hidden = true;   // 출시 앱은 GitHub 직접 연결 대신 계정으로 동기화한다
+    const st = document.querySelector('#sync-card .section-title'); if (st) st.textContent = '☁ 계정 동기화 (폰 · 컴퓨터)';
+    window.addEventListener('hashchange', () => { authFromHash(); });   // 앱이 열려 있는 탭에서 메일 링크를 열었을 때
+    authFromHash().then((handled) => {
+      if (handled) return;
+      const s = authGet();
+      if (!s) { showGate('login'); return; }
+      const c = getCfg();
+      if (!c || !c.cloud || c.uid !== s.user.id) setCfg({ cloud: true, uid: s.user.id, token: 'cloud', repo: '계정', sha: null, dirty: !!hasData(), seq: 0, last: 0, error: '' });
+      try { localStorage.setItem(UID_KEY, s.user.id); } catch (e) { /* 무시 */ }
+      hideGate();
+      showSync();
+      syncNow();
+    });
+  }
 
   /* ---------- 영수증 사진 ---------- */
   // 사진은 localStorage에 들어가기엔 커서 IndexedDB에 기록 id로 저장한다. 백업 JSON에는 포함되지 않는다.
@@ -10526,7 +10858,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v193'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v194'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span class="slogan">다달이, 매일의 기록이 모여<br><b>더 나은 생활</b>이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
@@ -10603,7 +10935,7 @@
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') renderTodo(); });
   setInterval(renderTodo, 60000);   // 켜 둔 채 날짜가 바뀌거나 시간이 흘러도 최신으로
   showSync();
-  syncNow();
+  if (SB.on) authInit(); else { authInit(); syncNow(); }
 })();
 </script>
 
