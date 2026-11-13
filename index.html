@@ -6752,18 +6752,21 @@
     const kindSel = sheetBody.querySelector('select[name=kind]');
     if (kindSel) kindSel.addEventListener('change', () => { sheetBody.querySelector('#sav-rate-lbl').textContent = (savReturnKind(kindSel.value) ? '예상 수익률' : '적용이율') + ' (연 %, 선택)'; });
     const del = sheetBody.querySelector('[data-delete]');
-    if (del) del.addEventListener('click', () => {
-      const logs = savings.log.filter((l) => l.sid === a.id);
-      if (!confirm(`“${a.name}”와 입금·출금 기록 ${logs.length}건을 지울까요? (가계부에 함께 기록한 지출은 그대로 남아요)`)) return;
-      tomb(a.id);
-      logs.forEach((l) => tomb(l.id));
-      savings.log = savings.log.filter((l) => l.sid !== a.id);
-      savings.accounts = savings.accounts.filter((x) => x.id !== a.id);
-      saveSav();
-      closeSheet();
-      renderSavings();
-      showToast('삭제했어요');
-    });
+    if (del) del.addEventListener('click', () => { if (deleteSavAccount(a)) closeSheet(); });
+  }
+
+  // 통장·목표 삭제(수정 창과 상세 창이 같이 쓴다): 입금·출금 기록도 함께 지우고, 가계부에 함께 적은 지출은 그대로 둔다.
+  function deleteSavAccount(a) {
+    const logs = savings.log.filter((l) => l.sid === a.id);
+    if (!confirm(`“${a.name}”와 입금·출금 기록 ${logs.length}건을 지울까요? (가계부에 함께 기록한 지출은 그대로 남아요)`)) return false;
+    tomb(a.id);
+    logs.forEach((l) => tomb(l.id));
+    savings.log = savings.log.filter((l) => l.sid !== a.id);
+    savings.accounts = savings.accounts.filter((x) => x.id !== a.id);
+    saveSav();
+    renderSavings();
+    showToast('삭제했어요');
+    return true;
   }
 
   // 적금 자동이체: 저축일이 지나면 월 저축 계획만큼 입금 기록(`sa_통장_월`)과 가계부 고정 지출 "저축"(`sat_통장_월`)을 자동으로 만든다.
@@ -6861,7 +6864,7 @@
     openSheet(`<form>
       <h3>${esc(a.name)}</h3>
       <div class="ins-sum">모은 금액 <b>${formatWon(savBal(a.id))}</b>${a.goal > 0 ? ` / 목표 ${formatWon(a.goal)}` : ''}</div>
-      <div class="sheet-actions" style="margin:10px 0"><button type="button" data-sa="dep">＋ 입금</button><button type="button" data-sa="wd">－ 출금</button><button type="button" data-sa="edit">✏️ 수정</button></div>
+      <div class="sheet-actions" style="margin:10px 0"><button type="button" data-sa="dep">＋ 입금</button><button type="button" data-sa="wd">－ 출금</button><button type="button" data-sa="edit">✏️ 수정</button><button type="button" data-sa="del" style="color:var(--expense)">🗑 삭제</button></div>
       ${!(a.rate > 0) ? (() => { const mt = savMaturity(a); return mt ? `<div class="ins-sum" style="margin:0 0 10px">목표일(${a.goalDate.slice(2).replace(/-/g, '.')}) 예상 원금 <b>${formatWon(mt.principal)}</b>${mt.n ? ` <small style="color:var(--text-muted)">(남은 ${mt.n}번 입금 포함)</small>` : ''}<br><small style="color:var(--text-muted)">수정에서 적용이율을 넣으면 이자까지 더한 만기 예상 금액이 나와요</small></div>` : ''; })() : ''}
       ${a.rate > 0 ? (() => { const iv = Math.round(savInterest(a, todayStr())), mt = savMaturity(a); const w = savWord(a); return `<div class="ins-sum" style="margin:0 0 10px">${w.rate} <b>연 ${a.rate}%</b> <small style="color:var(--text-muted)">(${a.kind || '저축'} · 단리 대략값${w.tax ? '' : ' · 실제 수익은 달라요'})</small><br>지금까지 ${w.gain} <b>약 ${formatWon(iv)}</b>${w.tax ? ` · 세후 약 ${formatWon(Math.round(iv * (1 - SAV_TAX)))} <small style="color:var(--text-muted)">(일반과세 15.4%)</small>` : ''}${mt ? `<br>목표일(${a.goalDate.slice(2).replace(/-/g, '.')}) 예상: 원금 ${formatWon(mt.principal)}${mt.n ? ` (남은 ${mt.n}번 입금 포함)` : ''} + ${w.gain} ${formatWon(mt.interest)} = <b>${formatWon(mt.total)}</b>` : (validDate(a.goalDate) ? '' : '<br><small style="color:var(--text-muted)">목표일(만기일)을 넣으면 그때 예상 금액도 보여 줘요</small>')}</div>`; })() : ''}
       ${a.monthly > 0 ? (() => { const dep = savings.log.filter((l) => l.sid === a.id && !l.start && l.amount > 0); return `<div class="ins-sum" style="margin:0 0 10px">입금 기록 <b>${dep.length}번</b> · 월 ${formatWon(a.monthly)} 기준<br><span style="font-size:13px;color:var(--text-muted)">은행에 찍힌 횟수와 다르면 아래에 은행 기준 횟수를 적어 맞춰요(모자란 만큼 월 저축 계획 금액으로 더해요).</span><div style="display:flex;gap:8px;margin-top:8px"><input type="number" id="sa-match-n" min="0" inputmode="numeric" placeholder="은행 기준 입금 횟수" style="flex:1;min-width:0"><button type="button" class="mini-btn" data-sa="match" style="flex:none">횟수 맞추기</button></div></div>`; })() : ''}
@@ -6872,7 +6875,8 @@
     sheetBody.querySelector('[data-sa=dep]').addEventListener('click', () => { closeSheet(); openSavDepositSheet(a.id, 1); });
     sheetBody.querySelector('[data-sa=wd]').addEventListener('click', () => { closeSheet(); openSavDepositSheet(a.id, -1); });
     sheetBody.querySelector('[data-sa=edit]').addEventListener('click', () => { closeSheet(); openSavAccountSheet(a); });
-    const mt = sheetBody.querySelector('[data-sa=match]');
+    sheetBody.querySelector('[data-sa=del]').addEventListener('click', () => { if (deleteSavAccount(a)) closeSheet(); });
+    const mt =sheetBody.querySelector('[data-sa=match]');
     if (mt) mt.addEventListener('click', () => {
       const n = parseInt(sheetBody.querySelector('#sa-match-n').value, 10), dep = savings.log.filter((l) => l.sid === a.id && !l.start && l.amount > 0).length;
       if (!(n >= 0)) { showToast('은행 기준 입금 횟수를 적어 주세요'); return; }
@@ -10860,7 +10864,7 @@
   }
 
   /* ---------- PWA ---------- */
-  const APP_VERSION = 'v197'; // deploy.sh가 sw.js 버전과 함께 올린다
+  const APP_VERSION = 'v198'; // deploy.sh가 sw.js 버전과 함께 올린다
   el('ver').innerHTML = '<span class="slogan">다달이, 매일의 기록이 모여<br><b>더 나은 생활</b>이 됩니다.</span>다달이 (dadari) ' + APP_VERSION + '<span style="display:block;margin-top:4px;letter-spacing:.3px">Made by sizbee</span>';
   // 설치한 앱에는 브라우저 새로고침이 없어서, 서비스 워커를 갱신 확인한 뒤 페이지를 다시 불러온다.
   el('refresh-btn').addEventListener('click', async () => {
